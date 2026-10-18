@@ -1,0 +1,22 @@
+{
+  "name": "@repo/e2e",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "e2e": "bddgen && playwright test",
+    "e2e:ui": "bddgen && playwright test --ui",
+    "test": "bddgen && playwright test",
+    "test:ui": "bddgen && playwright test --ui",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint ."
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.55.0",
+    "@repo/config": "workspace:*",
+    "@types/node": "^22.0.0",
+    "eslint": "^9.0.0",
+    "playwright-bdd": "^9.2.1",
+    "typescript": "^5.9.0"
+  }
+}

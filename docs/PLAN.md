@@ -1,0 +1,32 @@
+# Plan
+
+> Fill this in at the start of each project. Keep it short and current. Agents read this first.
+
+## Goal
+Build a modern, full-stack Project Management application on a Next.js multi-zone architecture with authentication, polished landing and login pages, and an authenticated project management dashboard with database persistence.
+
+## Non-goals
+- Third-party OAuth integrations (keep email/password for initial milestone)
+- Real-time WebSockets/collaborative editing (keep standard server queries & actions for now)
+
+## Users & key journeys
+1. Visitor explores the product on the landing page and signs up / logs in.
+2. Authenticated user navigates to the project management dashboard.
+3. Project manager views and manages projects and tasks.
+
+## Milestones
+| # | Milestone | Outcome | Status |
+|---|---|---|---|
+| M0 | Foundation | Monorepo, CI, deploy pipeline green with hello-world | done |
+| M1 | Shell Polish | Modern landing page and upgraded login experience in `apps/shell` | done |
+| M2 | Project Management Dashboard | Dedicated `apps/dashboard` zone at `/dashboard` with DB persistence (projects & tasks) | done |
+| M3 | Template Scaffolding Script | Interactive bash script to scaffold a new project from the template | done |
+
+## Current milestone
+**M3** – Completed. All tasks green.
+
+## Risks & open questions
+- Multi-zone rewrites configuration for new `/dashboard` zone in Next.js shell and Cloud Run deployment.
+
+## Change log
+- 2026-10-18 – Updated plan for Project Management app: M1 Landing & Login polish, M2 Dashboard zone.

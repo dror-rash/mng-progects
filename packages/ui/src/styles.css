@@ -1,0 +1,4 @@
+/* Entry for Storybook. Apps have their own globals.css that import theme.css. */
+@import "tailwindcss";
+@import "./theme.css";
+@source "./";

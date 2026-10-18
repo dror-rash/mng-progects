@@ -1,0 +1,120 @@
+name: Deploy
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  id-token: write # Workload Identity Federation
+  pull-requests: write # post preview URL
+
+concurrency:
+  group: deploy-${{ github.event.pull_request.number || 'main' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  PROJECT: ${{ vars.GCP_PROJECT_ID }}
+  REGION: ${{ vars.GCP_REGION }}
+  REGISTRY: ${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/app
+  CLOUDSQL_CONNECTION: ${{ vars.GCP_CLOUDSQL_CONNECTION }}
+  APP_URL: ${{ vars.APP_URL }}
+  IS_PR: ${{ github.event_name == 'pull_request' }}
+  PR_NUMBER: ${{ github.event.pull_request.number }}
+
+jobs:
+  deploy:
+    # Fork PRs can't get OIDC tokens; skip them.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOYER_SA }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - run: gcloud auth configure-docker "${REGION}-docker.pkg.dev" --quiet
+      - uses: docker/setup-buildx-action@v3
+
+      # 0) Database migrations (previews migrate app_preview, main migrates app)
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile --filter @repo/db... --filter @repo/e2e...
+      - name: Migrate database
+        run: |
+          curl -fsSL -o cloud-sql-proxy \
+            https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy/v2.14.1/cloud-sql-proxy.linux.amd64
+          chmod +x cloud-sql-proxy
+          ./cloud-sql-proxy --port 5432 "$CLOUDSQL_CONNECTION" > proxy.log 2>&1 &
+          for i in $(seq 1 20); do (echo > /dev/tcp/127.0.0.1/5432) 2>/dev/null && break; sleep 1; done
+
+          DB_PASSWORD="$(gcloud secrets versions access latest --secret=db-password)"
+          echo "::add-mask::$DB_PASSWORD"
+          if [ "$IS_PR" = "true" ]; then DB_NAME=app_preview; else DB_NAME=app; fi
+          DATABASE_URL="postgres://app:${DB_PASSWORD}@127.0.0.1:5432/${DB_NAME}" pnpm db:migrate
+          kill %1 || true
+
+      # 1) example-zone first: the shell needs its URL at build time
+      - name: Build & push example-zone
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          build-args: APP=example-zone
+          tags: ${{ env.REGISTRY }}/example-zone:${{ github.sha }}
+          cache-from: type=gha,scope=example-zone
+          cache-to: type=gha,scope=example-zone,mode=max
+      - name: Deploy example-zone
+        run: infra/scripts/deploy-service.sh example-zone "$REGISTRY/example-zone:${{ github.sha }}"
+      - name: Resolve example-zone URL
+        id: example
+        run: echo "url=$(infra/scripts/service-url.sh example-zone)" >> "$GITHUB_OUTPUT"
+
+      # 2) shell, pointed at that example-zone revision
+      - name: Build & push shell
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          build-args: |
+            APP=shell
+            EXAMPLE_ZONE_URL=${{ steps.example.outputs.url }}
+          tags: ${{ env.REGISTRY }}/shell:${{ github.sha }}
+          cache-from: type=gha,scope=shell
+          cache-to: type=gha,scope=shell,mode=max
+      - name: Deploy shell
+        run: infra/scripts/deploy-service.sh shell "$REGISTRY/shell:${{ github.sha }}"
+      - name: Resolve shell URL
+        id: shell
+        run: echo "url=$(infra/scripts/service-url.sh shell)" >> "$GITHUB_OUTPUT"
+
+      # 3) Acceptance tests against the deployed preview
+      - if: env.IS_PR == 'true'
+        run: pnpm exec playwright install --with-deps chromium
+        working-directory: e2e
+      - name: Run Playwright against preview
+        if: env.IS_PR == 'true'
+        run: pnpm test:e2e
+        env:
+          BASE_URL: ${{ steps.shell.outputs.url }}
+      - if: ${{ env.IS_PR == 'true' && !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: preview-playwright-report
+          path: e2e/playwright-report
+          retention-days: 7
+
+      - name: Comment preview URL
+        if: env.IS_PR == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh pr comment "$PR_NUMBER" --edit-last --create-if-none \
+            --body "Preview: ${{ steps.shell.outputs.url }} (commit ${GITHUB_SHA::7})"

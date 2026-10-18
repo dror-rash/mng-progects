@@ -1,0 +1,23 @@
+terraform {
+  required_version = ">= 1.9"
+
+  required_providers {
+    google = {
+      source  = "hashicorp/google"
+      version = "~> 6.0"
+    }
+    random = {
+      source  = "hashicorp/random"
+      version = "~> 3.6"
+    }
+  }
+
+  # State lives in a GCS bucket you create once by hand (see README).
+  # Init with: terraform init -backend-config=backend.hcl
+  backend "gcs" {}
+}
+
+provider "google" {
+  project = var.project_id
+  region  = var.region
+}
