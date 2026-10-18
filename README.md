@@ -1,4 +1,4 @@
-# Waypoint
+# Project Management Application
 
 Full-stack web app template: Next.js multi-zone, shadcn/ui, Storybook, Playwright (ATDD), Vitest (TDD), GCP, GitHub Actions.
 
