@@ -7,15 +7,19 @@ export type StackedBarSegment = { label: string; value: number };
 type StackedBarProps = Omit<React.ComponentProps<"figure">, "children"> & {
   /** Accessible name of the chart, e.g. "Tasks by status". */
   label: string;
-  /** Up to three segments, colored in fixed order (chart-1, chart-2, chart-3). */
+  /** Up to five segments, colored in fixed order (chart-1 … chart-5). */
   segments: StackedBarSegment[];
   emptyText?: string;
 };
 
-const SEGMENT_COLORS = ["bg-chart-1", "bg-chart-2", "bg-chart-3"];
+// Fixed order, never cycled: validated as adjacent pairs for color-vision deficiency in light and dark.
+const SEGMENT_COLORS = ["bg-chart-1", "bg-chart-2", "bg-chart-3", "bg-chart-4", "bg-chart-5"];
 
 /** Part-to-whole in one bar. The legend repeats each value, so color is never the only cue. */
 function StackedBar({ label, segments, emptyText = "No data yet", className, ...props }: StackedBarProps) {
+  if (segments.length > SEGMENT_COLORS.length) {
+    throw new Error(`StackedBar supports at most ${SEGMENT_COLORS.length} segments; fold the rest into "Other".`);
+  }
   const total = segments.reduce((sum, s) => sum + s.value, 0);
 
   return (
