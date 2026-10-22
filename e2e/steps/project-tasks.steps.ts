@@ -60,6 +60,11 @@ When("I open the other user's project", async ({ page, state }) => {
   await page.goto(state.otherUsersProjectUrl!);
 });
 
+When("I open the other user's project {string} page", async ({ page, state }, subpage: string) => {
+  expect(state.otherUsersProjectUrl).toBeDefined();
+  await page.goto(`${state.otherUsersProjectUrl!}/${subpage}`);
+});
+
 When("I move the task {string} to {string}", async ({ page }, title: string, status: string) => {
   await taskCard(page, title).getByRole("button", { name: `Move to ${status}` }).click();
   // Wait for the save to land, so a following navigation can't cancel it.
