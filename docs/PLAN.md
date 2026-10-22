@@ -22,10 +22,10 @@ Build a modern, full-stack Project Management application on a Next.js multi-zon
 | M1 | Shell Polish | Modern landing page and upgraded login experience in `apps/shell` | done |
 | M2 | Project Management Dashboard | Dedicated `apps/dashboard` zone at `/dashboard` with DB persistence (projects & tasks) | done |
 | M3 | Template Scaffolding Script | Interactive bash script to scaffold a new project from the template | done |
-| M4 | Core Project Management | Open a project, manage its tasks on a To do / In progress / Done board, real overview stats, edit/delete projects (tasks 005–007) | in-progress |
+| M4 | Core Project Management | Open a project, manage its tasks on a To do / In progress / Done board, real overview stats, edit/delete projects (tasks 005–007) | in-review |
 
 ## Current milestone
-**M4** – Core Project Management. Active task: `docs/tasks/005-project-tasks-board.md`.
+**M4** – Core Project Management. Tasks 005–007 implemented on `feat/m4-core-project-management`, awaiting review.
 
 ## Risks & open questions
 - Multi-zone rewrites configuration for new `/dashboard` zone in Next.js shell and Cloud Run deployment.
