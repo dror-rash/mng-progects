@@ -1,6 +1,6 @@
 # Task 006: Real overview stats and project progress
 
-- **Status:** todo
+- **Status:** in-review
 - **Milestone:** M4
 - **Zone / package:** `apps/dashboard`
 - **Feature file:** `docs/features/project-dashboard.feature`
@@ -16,11 +16,11 @@ The dashboard overview shows placeholder numbers ("Sprint Status: Active", "Team
 - Charts, history, velocity over time.
 
 ## Acceptance criteria
-- [ ] Overview shows correct open-task count and completion rate for the signed-in user's tasks.
-- [ ] A project card shows how many of its tasks are done.
+- [x] Overview shows correct open-task count and completion rate for the signed-in user's tasks.
+- [x] A project card shows how many of its tasks are done.
 
 ## Approach (brief)
-Pure `projectProgress()` helper in `features/tasks/task-status.ts` (unit-tested), one owner-scoped aggregate query.
+Pure `summarizeTasks()` helper in `features/tasks/progress.ts` (unit-tested); one owner-scoped query `listOwnedTaskStatuses()` feeds both the overview and per-project progress.
 
 ## Test plan
 - Acceptance: new scenarios in `project-dashboard.feature`.
@@ -28,5 +28,7 @@ Pure `projectProgress()` helper in `features/tasks/task-status.ts` (unit-tested)
 
 ## Progress log
 - 2026-10-22 – Task created.
+- 2026-10-22 – 3 acceptance scenarios red → green; 3 unit tests; fixed a flaky step (navigation could cancel a pending task save). Full suite (22 e2e) green, lint + typecheck clean.
 
 ## Parking lot
+- Do the per-project counts in SQL (`GROUP BY`) if task volume grows; today they are computed in memory from one query.
