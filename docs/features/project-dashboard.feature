@@ -22,3 +22,35 @@ Feature: Project Management Dashboard
     And I press "Create Project"
     Then I see the text "Website Redesign"
     And I see the text "Revamping our marketing site"
+
+  @task:006
+  Scenario: Overview shows real task numbers
+    Given I am signed in with an existing account
+    And I have a project named "Website Redesign"
+    And I am on the "Website Redesign" project page
+    And the project has a task "Write copy"
+    And the project has a task "Pick fonts"
+    And the project has a task "Ship it"
+    And I move the task "Ship it" to "Done"
+    When I open "/dashboard"
+    Then the "Total Projects" stat shows "1"
+    And the "Open Tasks" stat shows "2"
+    And the "Completion Rate" stat shows "33%"
+
+  @task:006
+  Scenario: Overview with no tasks yet
+    Given I am signed in with an existing account
+    When I open "/dashboard"
+    Then the "Open Tasks" stat shows "0"
+    And the "Completion Rate" stat shows "0%"
+
+  @task:006
+  Scenario: Project card shows task progress
+    Given I am signed in with an existing account
+    And I have a project named "Website Redesign"
+    And I am on the "Website Redesign" project page
+    And the project has a task "Write copy"
+    And the project has a task "Ship it"
+    And I move the task "Ship it" to "Done"
+    When I open "/dashboard"
+    Then the "Website Redesign" project card shows "1 of 2 tasks done"
