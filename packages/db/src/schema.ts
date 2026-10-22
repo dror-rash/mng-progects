@@ -74,6 +74,8 @@ export const task = pgTable("task", {
   title: text("title").notNull(),
   status: text("status").notNull().default("todo"),
   priority: text("priority").notNull().default("medium"),
+  /** Set when the task moves to Done, cleared when it moves out. Null for tasks completed before this column existed. */
+  completedAt: timestamp("completed_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });

@@ -15,6 +15,13 @@
       "when": 1792340860886,
       "tag": "0001_modern_blindfold",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792695961237,
+      "tag": "0002_married_leper_queen",
+      "breakpoints": true
     }
   ]
 }
