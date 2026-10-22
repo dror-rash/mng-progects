@@ -48,3 +48,26 @@ Feature: Dashboard home
     When I fill in "Project name" with "Golf"
     And I press "Create Project"
     Then I see the "Golf" link
+
+  @task:010
+  Scenario: Home shows tasks created this week
+    Given I have a project named "Website Redesign"
+    And I am on the "Website Redesign" project page
+    And the project has a task "Write copy"
+    And the project has a task "Ship it"
+    When I open "/dashboard"
+    Then the "Created This Week" stat shows "2"
+    And the "Completed This Week" stat shows "0"
+
+  @task:010
+  Scenario: Completing a task counts this week until it is reopened
+    Given I have a project named "Website Redesign"
+    And I am on the "Website Redesign" project page
+    And the project has a task "Ship it"
+    And I move the task "Ship it" to "Done"
+    When I open "/dashboard"
+    Then the "Completed This Week" stat shows "1"
+    When I am on the "Website Redesign" project page
+    And I move the task "Ship it" to "To do"
+    And I open "/dashboard"
+    Then the "Completed This Week" stat shows "0"

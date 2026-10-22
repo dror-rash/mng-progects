@@ -1,6 +1,6 @@
 # Task 010: Activity this week on the dashboard home
 
-- **Status:** todo
+- **Status:** in-progress
 - **Milestone:** M5
 - **Zone / package:** `apps/dashboard`, `packages/db`
 - **Feature file:** `docs/features/dashboard-home.feature`
