@@ -17,3 +17,4 @@ infra/terraform.tfvars
 infra/backend.hcl
 .features-gen
 next-env.d.ts
+*.tsbuildinfo

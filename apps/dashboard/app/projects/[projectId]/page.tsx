@@ -1,4 +1,3 @@
-import { SignOutButton } from "@repo/auth/components";
 import { Button } from "@repo/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@repo/ui/card";
 import { Input } from "@repo/ui/input";
@@ -6,6 +5,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { requireSession } from "@/features/auth/require-session";
+import { AppHeader } from "@/features/layout/app-header";
 import { getOwnedProject } from "@/features/projects/queries";
 import { createTaskAction, deleteTaskAction, updateTaskStatusAction } from "@/features/tasks/actions";
 import { listProjectTasks } from "@/features/tasks/queries";
@@ -26,17 +26,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ projec
 
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
-      <header className="border-b bg-card">
-        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6">
-          <Button asChild variant="ghost" size="sm">
-            <Link href="/">← All projects</Link>
-          </Button>
-          <div className="flex items-center gap-4">
-            <span className="text-sm text-muted-foreground">{session.user.email}</span>
-            <SignOutButton />
-          </div>
-        </div>
-      </header>
+      <AppHeader email={session.user.email} />
 
       <main className="mx-auto w-full max-w-6xl space-y-8 p-6">
         <section className="flex flex-wrap items-start justify-between gap-4">

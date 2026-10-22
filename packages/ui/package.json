@@ -8,7 +8,9 @@
     "./lib/utils": "./src/lib/utils.ts",
     "./theme.css": "./src/theme.css",
     "./input": "./src/components/input.tsx",
-    "./card": "./src/components/card.tsx"
+    "./card": "./src/components/card.tsx",
+    "./meter": "./src/components/meter.tsx",
+    "./stacked-bar": "./src/components/stacked-bar.tsx"
   },
   "scripts": {
     "lint": "eslint .",

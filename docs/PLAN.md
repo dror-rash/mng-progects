@@ -22,10 +22,11 @@ Build a modern, full-stack Project Management application on a Next.js multi-zon
 | M1 | Shell Polish | Modern landing page and upgraded login experience in `apps/shell` | done |
 | M2 | Project Management Dashboard | Dedicated `apps/dashboard` zone at `/dashboard` with DB persistence (projects & tasks) | done |
 | M3 | Template Scaffolding Script | Interactive bash script to scaffold a new project from the template | done |
-| M4 | Core Project Management | Open a project, manage its tasks on a To do / In progress / Done board, real overview stats, edit/delete projects (tasks 005–007) | in-review |
+| M4 | Core Project Management | Open a project, manage its tasks on a To do / In progress / Done board, real overview stats, edit/delete projects (tasks 005–008) | in-review |
+| M5 | Home Metrics | `/dashboard` becomes a metrics home (totals, tasks by status, recently started projects with progress, activity this week); full list + create form move to `/dashboard/projects` (tasks 009–010) | in-review |
 
 ## Current milestone
-**M4** – Core Project Management. Tasks 005–007 implemented on `feat/m4-core-project-management`, awaiting review.
+**M5** – Home Metrics. Tasks 009–010 implemented on `feat/m5-home-metrics`, awaiting review. (M4 in review: PR #1.)
 
 ## Risks & open questions
 - Multi-zone rewrites configuration for new `/dashboard` zone in Next.js shell and Cloud Run deployment.
@@ -33,3 +34,4 @@ Build a modern, full-stack Project Management application on a Next.js multi-zon
 ## Change log
 - 2026-10-18 – Updated plan for Project Management app: M1 Landing & Login polish, M2 Dashboard zone.
 - 2026-10-22 – Added M4 Core Project Management: project page with task board (005), real stats (006), edit/delete projects (007). Keep it simple; new capabilities go in `features/<name>/` folders in the dashboard zone.
+- 2026-10-22 – Added M5 Home Metrics at the user's request: home page dedicated to metrics and recently started projects (5), with an All projects page.
