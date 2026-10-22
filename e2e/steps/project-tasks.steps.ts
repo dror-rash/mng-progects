@@ -5,7 +5,7 @@ import { Given, Then, When } from "./fixtures";
 const origin = process.env.BASE_URL ?? "http://localhost:3000";
 
 async function createProject(page: Page, name: string) {
-  await page.goto("/dashboard");
+  await page.goto("/dashboard/projects");
   await page.getByLabel("Project name").fill(name);
   await page.getByRole("button", { name: "Create Project" }).click();
   await expect(page.getByRole("link", { name })).toBeVisible();
@@ -30,8 +30,14 @@ Given("I have a project named {string}", async ({ page }, name: string) => {
   await createProject(page, name);
 });
 
+Given("I have projects named {string}", async ({ page }, names: string) => {
+  for (const name of names.split(",").map((n) => n.trim())) {
+    await createProject(page, name);
+  }
+});
+
 Given("I am on the {string} project page", async ({ page }, name: string) => {
-  await page.goto("/dashboard");
+  await page.goto("/dashboard/projects");
   await openProjectFromDashboard(page, name);
 });
 
