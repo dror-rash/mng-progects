@@ -2,11 +2,11 @@
 
 import { getSession } from "@repo/auth/server";
 import { eq, getDb, schema } from "@repo/db";
-import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { parseProjectInput } from "./project-input";
 import { requireOwnedProject } from "./require-owned-project";
+import { revalidateOverviews } from "./revalidate";
 
 export async function createProjectAction(formData: FormData) {
   const session = await getSession();
@@ -19,9 +19,7 @@ export async function createProjectAction(formData: FormData) {
   }
 
   await getDb().insert(schema.project).values({ id: crypto.randomUUID(), ...input.value, ownerId: session.user.id });
-  // Paths are relative to the basePath: "/" is /dashboard.
-  revalidatePath("/");
-  revalidatePath("/projects");
+  revalidateOverviews();
 }
 
 export async function updateProjectAction(formData: FormData) {
@@ -35,7 +33,7 @@ export async function updateProjectAction(formData: FormData) {
     .update(schema.project)
     .set({ ...input.value, updatedAt: new Date() })
     .where(eq(schema.project.id, project.id));
-  revalidatePath("/");
+  revalidateOverviews();
   redirect(`/projects/${project.id}`);
 }
 
@@ -44,6 +42,6 @@ export async function deleteProjectAction(formData: FormData) {
   const project = await requireOwnedProject(String(formData.get("projectId") ?? ""));
 
   await getDb().delete(schema.project).where(eq(schema.project.id, project.id));
-  revalidatePath("/");
+  revalidateOverviews();
   redirect("/");
 }
