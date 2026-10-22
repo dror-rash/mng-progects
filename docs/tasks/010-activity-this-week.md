@@ -1,6 +1,6 @@
 # Task 010: Activity this week on the dashboard home
 
-- **Status:** in-progress
+- **Status:** in-review
 - **Milestone:** M5
 - **Zone / package:** `apps/dashboard`, `packages/db`
 - **Feature file:** `docs/features/dashboard-home.feature`
@@ -17,8 +17,8 @@ The user wants the home page to show recent activity: tasks created and complete
 - Per-day charts / history.
 
 ## Acceptance criteria
-- [ ] Creating tasks increases "Created this week".
-- [ ] Moving a task to Done increases "Completed this week"; moving it back decreases it.
+- [x] Creating tasks increases "Created this week".
+- [x] Moving a task to Done increases "Completed this week"; moving it back decreases it.
 
 ## Approach (brief)
 Pure `countThisWeek(tasks, now)` helper with the clock passed in (unit-tested at the 7-day boundary).
@@ -29,5 +29,6 @@ Pure `countThisWeek(tasks, now)` helper with the clock passed in (unit-tested at
 
 ## Progress log
 - 2026-10-22 – Task created.
+- 2026-10-22 – Migration `0002` adds nullable `task.completed_at`. 2 scenarios red → green (stable over 3 repeats); 4 unit tests. Full suite (36 e2e) green, lint + typecheck clean; screenshot-checked desktop and mobile.
 
 ## Parking lot

@@ -23,10 +23,10 @@ Build a modern, full-stack Project Management application on a Next.js multi-zon
 | M2 | Project Management Dashboard | Dedicated `apps/dashboard` zone at `/dashboard` with DB persistence (projects & tasks) | done |
 | M3 | Template Scaffolding Script | Interactive bash script to scaffold a new project from the template | done |
 | M4 | Core Project Management | Open a project, manage its tasks on a To do / In progress / Done board, real overview stats, edit/delete projects (tasks 005–008) | in-review |
-| M5 | Home Metrics | `/dashboard` becomes a metrics home (totals, tasks by status, recently started projects with progress, activity this week); full list + create form move to `/dashboard/projects` (tasks 009–010) | in-progress |
+| M5 | Home Metrics | `/dashboard` becomes a metrics home (totals, tasks by status, recently started projects with progress, activity this week); full list + create form move to `/dashboard/projects` (tasks 009–010) | in-review |
 
 ## Current milestone
-**M5** – Home Metrics. Active task: `docs/tasks/009-dashboard-home-metrics.md`. (M4 in review: PR #1.)
+**M5** – Home Metrics. Tasks 009–010 implemented on `feat/m5-home-metrics`, awaiting review. (M4 in review: PR #1.)
 
 ## Risks & open questions
 - Multi-zone rewrites configuration for new `/dashboard` zone in Next.js shell and Cloud Run deployment.
