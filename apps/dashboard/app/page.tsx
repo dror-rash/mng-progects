@@ -1,5 +1,4 @@
 import { SignOutButton } from "@repo/auth/components";
-import { getSession } from "@repo/auth/server";
 import { desc, eq, getDb, schema } from "@repo/db";
 import { Button } from "@repo/ui/button";
 import {
@@ -11,7 +10,8 @@ import {
 } from "@repo/ui/card";
 import { Input } from "@repo/ui/input";
 import Link from "next/link";
-import { redirect } from "next/navigation";
+
+import { requireSession } from "@/features/auth/require-session";
 import { summarizeTasks } from "@/features/tasks/progress";
 import { listOwnedTaskStatuses } from "@/features/tasks/queries";
 
@@ -20,10 +20,7 @@ import { createProjectAction } from "./actions";
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
-  const session = await getSession();
-  if (!session) {
-    redirect("/login");
-  }
+  const session = await requireSession("/");
 
   const db = getDb();
   const projects = await db

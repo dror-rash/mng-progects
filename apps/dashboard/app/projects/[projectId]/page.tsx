@@ -1,11 +1,11 @@
 import { SignOutButton } from "@repo/auth/components";
-import { getSession } from "@repo/auth/server";
 import { Button } from "@repo/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@repo/ui/card";
 import { Input } from "@repo/ui/input";
 import Link from "next/link";
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 
+import { requireSession } from "@/features/auth/require-session";
 import { getOwnedProject } from "@/features/projects/queries";
 import { createTaskAction, deleteTaskAction, updateTaskStatusAction } from "@/features/tasks/actions";
 import { listProjectTasks } from "@/features/tasks/queries";
@@ -14,12 +14,9 @@ import { groupTasksByStatus, TASK_STATUSES } from "@/features/tasks/task-status"
 export const dynamic = "force-dynamic";
 
 export default async function ProjectPage({ params }: { params: Promise<{ projectId: string }> }) {
-  const session = await getSession();
-  if (!session) {
-    redirect("/login");
-  }
 
   const { projectId } = await params;
+  const session = await requireSession(`/projects/${projectId}`);
   const project = await getOwnedProject(session.user.id, projectId);
   if (!project) {
     notFound();
