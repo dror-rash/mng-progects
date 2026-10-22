@@ -12,6 +12,9 @@ import {
 import { Input } from "@repo/ui/input";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { summarizeTasks } from "@/features/tasks/progress";
+import { listOwnedTaskStatuses } from "@/features/tasks/queries";
+
 import { createProjectAction } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -28,6 +31,15 @@ export default async function DashboardPage() {
     .from(schema.project)
     .where(eq(schema.project.ownerId, session.user.id))
     .orderBy(desc(schema.project.createdAt));
+  const taskStatuses = await listOwnedTaskStatuses(session.user.id);
+  const overall = summarizeTasks(taskStatuses);
+  const progressFor = (projectId: string) => summarizeTasks(taskStatuses.filter((t) => t.projectId === projectId));
+
+  const stats = [
+    { id: "total-projects", label: "Total Projects", value: String(projects.length), hint: "Active in your workspace" },
+    { id: "open-tasks", label: "Open Tasks", value: String(overall.open), hint: "To do or in progress" },
+    { id: "completion-rate", label: "Completion Rate", value: `${overall.completionRate}%`, hint: `${overall.done} of ${overall.total} tasks done` },
+  ];
 
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
@@ -56,35 +68,17 @@ export default async function DashboardPage() {
         <section className="space-y-4">
           <h2 className="text-2xl font-bold tracking-tight">Overview</h2>
           <div className="grid gap-4 sm:grid-cols-3">
-            <Card>
-              <CardHeader className="pb-2">
-                <CardDescription>Total Projects</CardDescription>
-                <CardTitle className="text-3xl">{projects.length}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-xs text-muted-foreground">Active in your workspace</p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="pb-2">
-                <CardDescription>Sprint Status</CardDescription>
-                <CardTitle className="text-3xl">Active</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-xs text-muted-foreground">Tracking milestones</p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="pb-2">
-                <CardDescription>Team Velocity</CardDescription>
-                <CardTitle className="text-3xl">100%</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-xs text-muted-foreground">On target delivery</p>
-              </CardContent>
-            </Card>
+            {stats.map((stat) => (
+              <Card key={stat.id} role="group" aria-labelledby={`stat-${stat.id}`}>
+                <CardHeader className="pb-2">
+                  <CardDescription id={`stat-${stat.id}`}>{stat.label}</CardDescription>
+                  <CardTitle className="text-3xl">{stat.value}</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-xs text-muted-foreground">{stat.hint}</p>
+                </CardContent>
+              </Card>
+            ))}
           </div>
         </section>
 
@@ -119,28 +113,31 @@ export default async function DashboardPage() {
               No projects created yet. Use the form above to add your first project.
             </Card>
           ) : (
-            <div className="grid gap-4 md:grid-cols-2">
-              {projects.map((proj) => (
-                <Card key={proj.id}>
-                  <CardHeader>
-                    <CardTitle className="text-lg">
-                      <Link href={`/projects/${proj.id}`} className="hover:underline">
-                        {proj.name}
-                      </Link>
-                    </CardTitle>
-                    {proj.description && (
-                      <CardDescription>{proj.description}</CardDescription>
-                    )}
-                  </CardHeader>
-                  <CardContent className="flex items-center justify-between text-xs text-muted-foreground">
-                    <span>Created: {new Date(proj.createdAt).toLocaleDateString()}</span>
-                    <span className="rounded-full bg-secondary px-2.5 py-0.5 font-medium text-secondary-foreground">
-                      Active
-                    </span>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+            <ul className="grid gap-4 md:grid-cols-2">
+              {projects.map((proj) => {
+                const progress = progressFor(proj.id);
+                return (
+                  <li key={proj.id}>
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="text-lg">
+                          <Link href={`/projects/${proj.id}`} className="hover:underline">
+                            {proj.name}
+                          </Link>
+                        </CardTitle>
+                        {proj.description && <CardDescription>{proj.description}</CardDescription>}
+                      </CardHeader>
+                      <CardContent className="flex items-center justify-between text-xs text-muted-foreground">
+                        <span>Created: {new Date(proj.createdAt).toLocaleDateString()}</span>
+                        <span className="rounded-full bg-secondary px-2.5 py-0.5 font-medium text-secondary-foreground">
+                          {progress.done} of {progress.total} tasks done
+                        </span>
+                      </CardContent>
+                    </Card>
+                  </li>
+                );
+              })}
+            </ul>
           )}
         </section>
       </main>
