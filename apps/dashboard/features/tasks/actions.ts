@@ -32,7 +32,7 @@ export async function updateTaskStatusAction(formData: FormData) {
 
   await getDb()
     .update(schema.task)
-    .set({ status, updatedAt: new Date() })
+    .set({ status, completedAt: status === "done" ? new Date() : null, updatedAt: new Date() })
     .where(taskInProject(formData, project.id));
   revalidatePath(`/projects/${project.id}`);
   revalidatePath("/");

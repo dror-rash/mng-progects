@@ -7,6 +7,7 @@ import { requireSession } from "@/features/auth/require-session";
 import { AppHeader } from "@/features/layout/app-header";
 import { ProjectList } from "@/features/projects/project-list";
 import { countProjects, listProjects } from "@/features/projects/queries";
+import { countThisWeek } from "@/features/tasks/activity";
 import { summarizeByProject, summarizeTasks } from "@/features/tasks/progress";
 import { listOwnedTaskStatuses } from "@/features/tasks/queries";
 import { groupTasksByStatus } from "@/features/tasks/task-status";
@@ -28,6 +29,11 @@ export default async function DashboardPage() {
     { id: "total-projects", label: "Total Projects", value: String(projectCount), hint: "Active in your workspace" },
     { id: "open-tasks", label: "Open Tasks", value: String(overall.open), hint: "To do or in progress" },
     { id: "completion-rate", label: "Completion Rate", value: `${overall.completionRate}%`, hint: `${overall.done} of ${overall.total} tasks done` },
+  ];
+  const thisWeek = countThisWeek(taskStatuses, new Date());
+  const weekStats = [
+    { id: "created-this-week", label: "Created", value: thisWeek.created, hint: "New tasks, last seven days" },
+    { id: "completed-this-week", label: "Completed", value: thisWeek.completed, hint: "Moved to Done, last seven days" },
   ];
   const byStatus = groupTasksByStatus(taskStatuses).map((column) => ({ label: column.label, value: column.tasks.length }));
 
@@ -54,14 +60,34 @@ export default async function DashboardPage() {
             ))}
           </div>
 
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base">Tasks by status</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <StackedBar label="Tasks by status" segments={byStatus} emptyText="No tasks yet. Open a project to add some." />
-            </CardContent>
-          </Card>
+          <div className="grid gap-4 md:grid-cols-3">
+            <Card className="md:col-span-2">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base">Tasks by status</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <StackedBar label="Tasks by status" segments={byStatus} emptyText="No tasks yet. Open a project to add some." />
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base">This week</CardTitle>
+              </CardHeader>
+              <CardContent className="grid grid-cols-2 gap-4">
+                {weekStats.map((stat) => (
+                  <div key={stat.id} role="group" aria-labelledby={`stat-${stat.id}`} className="space-y-1">
+                    <p id={`stat-${stat.id}`} className="text-sm text-muted-foreground">
+                      {stat.label}
+                      <span className="sr-only"> this week</span>
+                    </p>
+                    <p className="text-2xl font-semibold tabular-nums">{stat.value}</p>
+                    <p className="text-xs text-muted-foreground">{stat.hint}</p>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          </div>
         </section>
 
         <section aria-labelledby="recent-projects" className="space-y-4">

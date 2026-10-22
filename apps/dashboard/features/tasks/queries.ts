@@ -8,10 +8,15 @@ export async function listProjectTasks(projectId: string) {
     .orderBy(asc(schema.task.createdAt));
 }
 
-/** Status of every task in projects `ownerId` owns, for overview stats. */
+/** Every task in projects `ownerId` owns, with just the fields the overview needs. */
 export async function listOwnedTaskStatuses(ownerId: string) {
   return getDb()
-    .select({ projectId: schema.task.projectId, status: schema.task.status })
+    .select({
+      projectId: schema.task.projectId,
+      status: schema.task.status,
+      createdAt: schema.task.createdAt,
+      completedAt: schema.task.completedAt,
+    })
     .from(schema.task)
     .innerJoin(schema.project, eq(schema.task.projectId, schema.project.id))
     .where(eq(schema.project.ownerId, ownerId));
