@@ -6,8 +6,9 @@ import { Input } from "@repo/ui/input";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
+import { getOwnedProject } from "@/features/projects/queries";
 import { createTaskAction, deleteTaskAction, updateTaskStatusAction } from "@/features/tasks/actions";
-import { getOwnedProject, listProjectTasks } from "@/features/tasks/queries";
+import { listProjectTasks } from "@/features/tasks/queries";
 import { groupTasksByStatus, TASK_STATUSES } from "@/features/tasks/task-status";
 
 export const dynamic = "force-dynamic";
@@ -41,9 +42,19 @@ export default async function ProjectPage({ params }: { params: Promise<{ projec
       </header>
 
       <main className="mx-auto w-full max-w-6xl space-y-8 p-6">
-        <section className="space-y-1">
-          <h1 className="text-2xl font-bold tracking-tight">{project.name}</h1>
-          {project.description && <p className="text-muted-foreground">{project.description}</p>}
+        <section className="flex flex-wrap items-start justify-between gap-4">
+          <div className="space-y-1">
+            <h1 className="text-2xl font-bold tracking-tight">{project.name}</h1>
+            {project.description && <p className="text-muted-foreground">{project.description}</p>}
+          </div>
+          <div className="flex gap-2">
+            <Button asChild variant="outline" size="sm">
+              <Link href={`/projects/${project.id}/edit`}>Edit project</Link>
+            </Button>
+            <Button asChild variant="ghost" size="sm">
+              <Link href={`/projects/${project.id}/delete`}>Delete project</Link>
+            </Button>
+          </div>
         </section>
 
         <form action={createTaskAction} className="flex max-w-xl items-end gap-2">

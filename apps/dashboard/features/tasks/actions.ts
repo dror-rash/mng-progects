@@ -4,7 +4,8 @@ import { getSession } from "@repo/auth/server";
 import { and, eq, getDb, schema } from "@repo/db";
 import { revalidatePath } from "next/cache";
 
-import { getOwnedProject } from "./queries";
+import { getOwnedProject } from "@/features/projects/queries";
+
 import { parseTaskStatus } from "./task-status";
 
 /** Every task action re-checks that the signed-in user owns the project. */
