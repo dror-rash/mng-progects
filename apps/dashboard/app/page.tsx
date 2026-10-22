@@ -10,6 +10,7 @@ import {
   CardTitle,
 } from "@repo/ui/card";
 import { Input } from "@repo/ui/input";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createProjectAction } from "./actions";
 
@@ -122,7 +123,11 @@ export default async function DashboardPage() {
               {projects.map((proj) => (
                 <Card key={proj.id}>
                   <CardHeader>
-                    <CardTitle className="text-lg">{proj.name}</CardTitle>
+                    <CardTitle className="text-lg">
+                      <Link href={`/projects/${proj.id}`} className="hover:underline">
+                        {proj.name}
+                      </Link>
+                    </CardTitle>
                     {proj.description && (
                       <CardDescription>{proj.description}</CardDescription>
                     )}
