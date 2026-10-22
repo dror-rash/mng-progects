@@ -1,6 +1,6 @@
 # Task 007: Edit and delete projects
 
-- **Status:** in-review
+- **Status:** done
 - **Milestone:** M4
 - **Zone / package:** `apps/dashboard`
 - **Feature file:** `docs/features/project-settings.feature`
@@ -33,6 +33,7 @@ Server actions in `features/projects/` reusing `getOwnedProject`; move it there 
 ## Progress log
 - 2026-10-22 – Task created.
 - 2026-10-22 – 5 acceptance scenarios red → green (stable over 5 repeats); 3 unit tests. Moved `getOwnedProject` to `features/projects/queries.ts`; `createProjectAction` now uses `parseProjectInput`. Full suite (27 e2e) green, lint + typecheck clean.
+- 2026-10-22 – Merged in PR #1.
 
 ## Parking lot
 - Show validation errors inline (today an empty name is blocked by `required`; the server throws as a backstop).

@@ -1,6 +1,6 @@
 # Task 010: Activity this week on the dashboard home
 
-- **Status:** in-review
+- **Status:** done
 - **Milestone:** M5
 - **Zone / package:** `apps/dashboard`, `packages/db`
 - **Feature file:** `docs/features/dashboard-home.feature`
@@ -31,6 +31,7 @@ Pure `countThisWeek(tasks, now)` helper with the clock passed in (unit-tested at
 - 2026-10-22 – Task created.
 - 2026-10-22 – Migration `0002` adds nullable `task.completed_at`. 2 scenarios red → green (stable over 3 repeats); 4 unit tests. Full suite (36 e2e) green, lint + typecheck clean; screenshot-checked desktop and mobile.
 - 2026-10-22 – Review fixes: keep the original completion time on a repeated Done; no upper bound on the 7-day window (DB/app clock skew); backfill migration; refresh `/projects` after every change; `StackedBar` supports 5 validated colors and rejects more.
+- 2026-10-22 – Merged in PR #2.
 
 ## Parking lot
 - From review of PR #2:
