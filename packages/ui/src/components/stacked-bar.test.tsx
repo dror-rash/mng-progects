@@ -33,4 +33,14 @@ describe("StackedBar", () => {
     render(<StackedBar label="Tasks by status" segments={[{ label: "To do", value: 0 }]} emptyText="No tasks yet" />);
     expect(screen.getByText("No tasks yet")).toBeInTheDocument();
   });
+
+  it("gives up to five segments their own color", () => {
+    const five = ["A", "B", "C", "D", "E"].map((label) => ({ label, value: 1 }));
+    const { container } = render(<StackedBar label="Five" segments={five} />);
+
+    const colors = [...container.querySelectorAll<HTMLElement>("[data-segment]")].map((el) =>
+      [...el.classList].find((c) => c.startsWith("bg-chart-")),
+    );
+    expect(colors).toEqual(["bg-chart-1", "bg-chart-2", "bg-chart-3", "bg-chart-4", "bg-chart-5"]);
+  });
 });
