@@ -1,27 +1,14 @@
 "use server";
 
-import { getSession } from "@repo/auth/server";
 import { eq, getDb, schema } from "@repo/db";
+import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { parseProjectInput } from "./project-input";
-import { getOwnedProject } from "./queries";
-
-/** Every project action re-checks that the signed-in user owns the project. */
-async function requireOwnedProject(formData: FormData) {
-  const session = await getSession();
-  if (!session) {
-    throw new Error("Unauthorized");
-  }
-  const project = await getOwnedProject(session.user.id, String(formData.get("projectId") ?? ""));
-  if (!project) {
-    throw new Error("Project not found");
-  }
-  return project;
-}
+import { requireOwnedProject } from "./require-owned-project";
 
 export async function updateProjectAction(formData: FormData) {
-  const project = await requireOwnedProject(formData);
+  const project = await requireOwnedProject(String(formData.get("projectId") ?? ""));
   const input = parseProjectInput(formData);
   if (!input.ok) {
     throw new Error(input.error);
@@ -31,13 +18,15 @@ export async function updateProjectAction(formData: FormData) {
     .update(schema.project)
     .set({ ...input.value, updatedAt: new Date() })
     .where(eq(schema.project.id, project.id));
+  revalidatePath("/");
   redirect(`/projects/${project.id}`);
 }
 
 /** Tasks go with the project (`onDelete: "cascade"`). */
 export async function deleteProjectAction(formData: FormData) {
-  const project = await requireOwnedProject(formData);
+  const project = await requireOwnedProject(String(formData.get("projectId") ?? ""));
 
   await getDb().delete(schema.project).where(eq(schema.project.id, project.id));
+  revalidatePath("/");
   redirect("/");
 }

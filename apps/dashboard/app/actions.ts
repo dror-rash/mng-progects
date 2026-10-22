@@ -24,5 +24,6 @@ export async function createProjectAction(formData: FormData) {
     ownerId: session.user.id,
   });
 
-  revalidatePath("/dashboard");
+  // Paths are relative to the basePath: "/" is /dashboard.
+  revalidatePath("/");
 }
