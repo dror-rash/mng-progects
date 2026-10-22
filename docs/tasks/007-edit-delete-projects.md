@@ -36,4 +36,4 @@ Server actions in `features/projects/` reusing `getOwnedProject`; move it there 
 
 ## Parking lot
 - Show validation errors inline (today an empty name is blocked by `required`; the server throws as a backstop).
-- Pages call `redirect("/login")` when there is no session; inside the `/dashboard` basePath that resolves to `/dashboard/login`. Middleware redirects first so it isn't hit today — verify and fix in its own task.
+- Pages call `redirect("/login")` when there is no session; inside the `/dashboard` basePath that resolves to `/dashboard/login`. Middleware redirects first so it isn't hit today — fixed in task 008.

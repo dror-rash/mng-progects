@@ -31,4 +31,5 @@ Pure `summarizeTasks()` helper in `features/tasks/progress.ts` (unit-tested); on
 - 2026-10-22 – 3 acceptance scenarios red → green; 3 unit tests; fixed a flaky step (navigation could cancel a pending task save). Full suite (22 e2e) green, lint + typecheck clean.
 
 ## Parking lot
+- From review: run the projects and task-status queries in parallel (`Promise.all`); build per-project progress in one pass (Map) instead of filtering per project; move `createProjectAction` into `features/projects/actions.ts`; share the zone header between pages.
 - Do the per-project counts in SQL (`GROUP BY`) if task volume grows; today they are computed in memory from one query.
