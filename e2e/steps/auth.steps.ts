@@ -71,3 +71,22 @@ Then("I see the error {string}", async ({ page }, message: string) => {
 Then("I am sent to the login page", async ({ page }) => {
   await expect(page).toHaveURL(/\/login(\?.*)?$/);
 });
+
+// A cookie that passes the middleware's presence check but matches no session in the database.
+Given("I have an expired session", async ({ context }) => {
+  // Production builds (CI) use the __Secure- prefixed name.
+  const { hostname } = new URL(origin);
+  await context.addCookies(
+    ["better-auth.session_token", "__Secure-better-auth.session_token"].map((name) => ({
+      name,
+      value: "expired.session",
+      domain: hostname,
+      path: "/",
+      secure: name.startsWith("__Secure-"),
+    })),
+  );
+});
+
+Then("I am sent to the login page to return to {string}", async ({ page }, next: string) => {
+  await expect(page).toHaveURL((url) => url.pathname === "/login" && url.searchParams.get("next") === next);
+});

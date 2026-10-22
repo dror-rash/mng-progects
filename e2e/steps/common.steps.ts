@@ -22,6 +22,10 @@ Then("I see the {string} link", async ({ page }, name: string) => {
   await expect(page.getByRole("link", { name })).toBeVisible();
 });
 
+Then("I do not see the {string} link", async ({ page }, name: string) => {
+  await expect(page.getByRole("link", { name })).toHaveCount(0);
+});
+
 Then("the URL path is {string}", async ({ page }, path: string) => {
   await expect(page).toHaveURL(new RegExp(`${path}$`));
 });
