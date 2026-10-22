@@ -22,6 +22,10 @@ function taskCard(page: Page, title: string) {
   return page.getByRole("listitem").filter({ hasText: title });
 }
 
+function taskInColumn(page: Page, title: string, column: string) {
+  return page.getByRole("region", { name: column }).getByRole("listitem").filter({ hasText: title });
+}
+
 Given("I have a project named {string}", async ({ page }, name: string) => {
   await createProject(page, name);
 });
@@ -58,14 +62,17 @@ When("I open the other user's project", async ({ page, state }) => {
 
 When("I move the task {string} to {string}", async ({ page }, title: string, status: string) => {
   await taskCard(page, title).getByRole("button", { name: `Move to ${status}` }).click();
+  // Wait for the save to land, so a following navigation can't cancel it.
+  await expect(taskInColumn(page, title, status)).toBeVisible();
 });
 
 When("I delete the task {string}", async ({ page }, title: string) => {
   await taskCard(page, title).getByRole("button", { name: "Delete task" }).click();
+  await expect(taskCard(page, title)).toHaveCount(0);
 });
 
 Then("the task {string} is in the {string} column", async ({ page }, title: string, column: string) => {
-  await expect(page.getByRole("region", { name: column }).getByRole("listitem").filter({ hasText: title })).toBeVisible();
+  await expect(taskInColumn(page, title, column)).toBeVisible();
 });
 
 Then("I do not see the task {string}", async ({ page }, title: string) => {
