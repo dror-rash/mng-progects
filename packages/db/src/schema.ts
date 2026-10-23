@@ -3,7 +3,8 @@
  * then run `pnpm db:generate` and commit the new migration.
  * If you enable Better Auth plugins that need tables, regenerate with `npx @better-auth/cli generate`.
  */
-import { boolean, pgTable, text, timestamp } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
+import { boolean, index, pgTable, text, timestamp } from "drizzle-orm/pg-core";
 
 export const user = pgTable("user", {
   id: text("id").primaryKey(),
@@ -81,3 +82,27 @@ export const task = pgTable("task", {
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
+/** Customers and other outside organizations, in one directory with a `kind` (ADR-0004). */
+export const organization = pgTable(
+  "organization",
+  {
+    id: text("id").primaryKey(),
+    ownerId: text("owner_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    kind: text("kind").notNull().default("customer"),
+    name: text("name").notNull(),
+    status: text("status").notNull().default("active"),
+    email: text("email"),
+    phone: text("phone"),
+    address: text("address"),
+    website: text("website"),
+    companyId: text("company_id"),
+    /** "General information": one editable text. Dated notes live in their own table (task 015). */
+    about: text("about"),
+    tags: text("tags").array().notNull().default(sql`'{}'::text[]`),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (table) => [index("organization_owner_kind_idx").on(table.ownerId, table.kind)],
+);
