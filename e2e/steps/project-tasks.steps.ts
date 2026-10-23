@@ -93,3 +93,10 @@ Then("I do not see the task {string}", async ({ page }, title: string) => {
 Then("I do not see the text {string}", async ({ page }, text: string) => {
   await expect(page.getByText(text)).toHaveCount(0);
 });
+
+// Opens a task from the project board the browser is on.
+Given("I am on the {string} task page", async ({ page }, title: string) => {
+  await page.getByRole("link", { name: title, exact: true }).click();
+  await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/tasks\/[^/]+$/);
+  await expect(page.getByRole("heading", { name: title, level: 1 })).toBeVisible();
+});

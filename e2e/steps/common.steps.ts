@@ -11,7 +11,14 @@ When("I open {string}", async ({ page }, path: string) => {
 });
 
 When("I follow the {string} link", async ({ page }, name: string) => {
-  await page.getByRole("link", { name }).click();
+  const link = page.getByRole("link", { name, exact: true });
+  const href = await link.getAttribute("href");
+  await link.click();
+  // Wait for the navigation, so the next step can't pass against the page we just left.
+  if (href?.startsWith("/")) {
+    const path = href.split("?")[0]!.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    await expect(page).toHaveURL(new RegExp(`${path}(\\?.*)?$`));
+  }
 });
 
 Then("I see the heading {string}", async ({ page }, text: string) => {
@@ -38,7 +45,8 @@ When("I press {string}", async ({ page }, name: string) => {
   await page.getByRole("button", { name }).click();
 });
 
+// Text the page shows, not values sitting in form fields.
 Then("I see the text {string}", async ({ page }, text: string) => {
-  await expect(page.getByText(text)).toBeVisible();
+  await expect(page.getByText(text).and(page.locator(":not(textarea):not(input):not(option)")).first()).toBeVisible();
 });
 
