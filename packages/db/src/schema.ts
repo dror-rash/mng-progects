@@ -106,3 +106,21 @@ export const organization = pgTable(
   },
   (table) => [index("organization_owner_kind_idx").on(table.ownerId, table.kind)],
 );
+
+/** People at an organization (task 014). Deleted with the organization. */
+export const organizationContact = pgTable(
+  "organization_contact",
+  {
+    id: text("id").primaryKey(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    role: text("role"),
+    phone: text("phone"),
+    email: text("email"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (table) => [index("organization_contact_organization_idx").on(table.organizationId)],
+);

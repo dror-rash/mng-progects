@@ -1,5 +1,5 @@
 export { buildPoolConfig } from "./pool-config";
 export { getDb } from "./client";
 export * as schema from "./schema";
-export { and, arrayContains, asc, desc, eq } from "drizzle-orm";
+export { and, arrayContains, asc, desc, eq, inArray } from "drizzle-orm";
 
