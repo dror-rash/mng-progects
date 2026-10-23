@@ -4,6 +4,8 @@ import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { nextCookies, toNextJsHandler } from "better-auth/next-js";
 import { headers } from "next/headers";
 
+import { rateLimitOptions } from "./rate-limit";
+
 function createAuth() {
   // Preview deploys have unpredictable *.run.app hosts; only they set ALLOW_PREVIEW_ORIGINS.
   const allowPreviewOrigins = process.env.ALLOW_PREVIEW_ORIGINS === "true";
@@ -14,6 +16,7 @@ function createAuth() {
     baseURL: process.env.BETTER_AUTH_URL,
     trustedOrigins: allowPreviewOrigins ? ["https://*.run.app", "https://*.a.run.app"] : [],
     emailAndPassword: { enabled: true, minPasswordLength: 8 },
+    ...rateLimitOptions(process.env),
     // Must be identical in every zone, or one zone can't read another's cookie.
     advanced: { useSecureCookies: process.env.NODE_ENV === "production" },
     plugins: [nextCookies()], // keep last

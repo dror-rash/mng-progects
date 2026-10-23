@@ -1,6 +1,6 @@
 # Task 008: Send expired sessions in the dashboard zone to the shell login
 
-- **Status:** in-review
+- **Status:** done
 - **Milestone:** M4
 - **Zone / package:** `apps/dashboard`
 - **Feature file:** `docs/features/project-dashboard.feature`
@@ -28,5 +28,6 @@ Found in code review of M4. Dashboard pages call `redirect("/login")` when `getS
 ## Progress log
 - 2026-10-22 – Task created from code review.
 - 2026-10-22 – 2 scenarios red (landed on `/dashboard/login`) → green; full suite (29 e2e) green.
+- 2026-10-22 – Merged in PR #1.
 
 ## Parking lot

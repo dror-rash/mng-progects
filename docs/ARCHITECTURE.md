@@ -37,6 +37,7 @@ Rules:
 - Protecting a page in a zone: add `middleware.ts` using `redirectToLoginIfNoSession` for the fast path, **and** call `getSession()` in the page. See `apps/example-zone` (`/example/account`).
 - Cross-zone redirects use relative `Location`/`window.location.assign`, never `next/link`, and `next` targets pass through `safeNext`.
 - Cookie settings (`useSecureCookies`) must match in all zones.
+- Better Auth rate-limits sign-up/sign-in in production builds. Only the Playwright test servers set `AUTH_DISABLE_RATE_LIMIT=true` (in `e2e/playwright.config.ts`); never set it in a deployed environment.
 - Schema changes: edit `packages/db/src/schema.ts` → `pnpm db:generate` → commit the migration. CI/CD applies migrations before deploy.
 
 ## Environments

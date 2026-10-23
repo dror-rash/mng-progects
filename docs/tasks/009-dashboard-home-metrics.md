@@ -1,6 +1,6 @@
 # Task 009: Dashboard home dedicated to metrics and recent projects
 
-- **Status:** in-review
+- **Status:** done
 - **Milestone:** M5
 - **Zone / package:** `apps/dashboard`, `packages/ui`
 - **Feature file:** `docs/features/dashboard-home.feature`
@@ -40,6 +40,7 @@ Chart palette: first three categorical slots of the dataviz reference palette (b
 ## Progress log
 - 2026-10-22 – Task created.
 - 2026-10-22 – 5 new scenarios red → green (stable over 3 repeats); `Meter`/`StackedBar` + stories + 6 component tests; `summarizeByProject` unit tests. Screenshot-checked desktop and 390px mobile (fixed header overflow on mobile). Full suite (34 e2e) green, lint + typecheck + Storybook build clean.
+- 2026-10-22 – Merged in PR #2.
 
 ## Parking lot
 - Richer hover tooltips on chart segments (today: native `title`).

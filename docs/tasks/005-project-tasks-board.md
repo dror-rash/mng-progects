@@ -1,6 +1,6 @@
 # Task 005: Project page with a task board
 
-- **Status:** in-review
+- **Status:** done
 - **Milestone:** M4
 - **Zone / package:** `apps/dashboard`
 - **Feature file:** `docs/features/project-tasks.feature`
@@ -44,6 +44,7 @@ Projects are only a list today; the `task` table exists but nothing uses it. Use
 ## Progress log
 - 2026-10-22 – Task created for M4.
 - 2026-10-22 – 5 acceptance scenarios red → green; 6 unit tests for task statuses; full suite (19 e2e) green, lint + typecheck clean.
+- 2026-10-22 – Merged in PR #1.
 
 ## Parking lot
 - Task priority/due date/description/assignee.

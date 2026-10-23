@@ -25,7 +25,8 @@ export default defineConfig({
   webServer: process.env.BASE_URL
     ? undefined
     : [
-        { command: `pnpm --filter @repo/shell ${mode}`, url: "http://localhost:3000", reuseExistingServer: !process.env.CI, timeout: 120_000 },
+        // The shell owns /api/auth. Every scenario signs up from one IP, which production rate limits would block.
+        { command: `pnpm --filter @repo/shell ${mode}`, url: "http://localhost:3000", reuseExistingServer: !process.env.CI, timeout: 120_000, env: { AUTH_DISABLE_RATE_LIMIT: "true" } },
         { command: `pnpm --filter @repo/example-zone ${mode}`, url: "http://localhost:3001/example", reuseExistingServer: !process.env.CI, timeout: 120_000 },
         { command: `pnpm --filter @repo/dashboard ${mode}`, url: "http://localhost:3002/dashboard", reuseExistingServer: !process.env.CI, timeout: 120_000 },
       ],

@@ -1,6 +1,6 @@
 # Task 006: Real overview stats and project progress
 
-- **Status:** in-review
+- **Status:** done
 - **Milestone:** M4
 - **Zone / package:** `apps/dashboard`
 - **Feature file:** `docs/features/project-dashboard.feature`
@@ -29,6 +29,7 @@ Pure `summarizeTasks()` helper in `features/tasks/progress.ts` (unit-tested); on
 ## Progress log
 - 2026-10-22 – Task created.
 - 2026-10-22 – 3 acceptance scenarios red → green; 3 unit tests; fixed a flaky step (navigation could cancel a pending task save). Full suite (22 e2e) green, lint + typecheck clean.
+- 2026-10-22 – Merged in PR #1.
 
 ## Parking lot
 - From review: run the projects and task-status queries in parallel (`Promise.all`); build per-project progress in one pass (Map) instead of filtering per project; move `createProjectAction` into `features/projects/actions.ts`; share the zone header between pages.
