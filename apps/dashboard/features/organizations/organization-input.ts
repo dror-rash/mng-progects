@@ -16,6 +16,10 @@ type Result = { ok: true; value: OrganizationInput } | { ok: false; field: strin
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+export function isValidEmail(value: string): boolean {
+  return EMAIL.test(value);
+}
+
 /** Comma-separated tags, trimmed, without duplicates (case-insensitive; the first spelling wins). */
 export function normalizeTags(raw: string): string[] {
   const seen = new Set<string>();
@@ -52,7 +56,7 @@ export function parseOrganizationInput(formData: FormData): Result {
   if (!status) return { ok: false, field: "status", error: "Choose a status" };
 
   const email = optional("email");
-  if (email && !EMAIL.test(email)) return { ok: false, field: "email", error: "Enter a valid email address" };
+  if (email && !isValidEmail(email)) return { ok: false, field: "email", error: "Enter a valid email address" };
 
   const rawWebsite = optional("website");
   const website = rawWebsite ? normalizeWebsite(rawWebsite) : null;

@@ -6,6 +6,8 @@ import { notFound } from "next/navigation";
 
 import { requireSession } from "@/features/auth/require-session";
 import { AppHeader } from "@/features/layout/app-header";
+import { ContactsSection } from "@/features/organizations/contacts/contacts-section";
+import { listContacts } from "@/features/organizations/contacts/queries";
 import { organizationStatusLabel } from "@/features/organizations/organization-kinds";
 import { getOwnedOrganization } from "@/features/organizations/queries";
 
@@ -29,6 +31,7 @@ export default async function CustomerPage({ params }: { params: Promise<{ custo
   if (!customer) {
     notFound();
   }
+  const contacts = await listContacts(customer.id);
 
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
@@ -98,6 +101,8 @@ export default async function CustomerPage({ params }: { params: Promise<{ custo
             )}
           </CardContent>
         </Card>
+
+        <ContactsSection customerId={customer.id} contacts={contacts} />
       </main>
     </div>
   );

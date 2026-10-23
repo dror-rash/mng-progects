@@ -7,6 +7,7 @@ import Link from "next/link";
 import { requireSession } from "@/features/auth/require-session";
 import { AppHeader } from "@/features/layout/app-header";
 import { ORGANIZATION_STATUSES, organizationStatusLabel, parseOrganizationStatus } from "@/features/organizations/organization-kinds";
+import { firstContactNames } from "@/features/organizations/contacts/queries";
 import { listOrganizations, listOrganizationTags } from "@/features/organizations/queries";
 
 export const dynamic = "force-dynamic";
@@ -38,6 +39,7 @@ export default async function CustomersPage({ searchParams }: { searchParams: Se
     listOrganizations(session.user.id, "customer", { status, tag }),
     listOrganizationTags(session.user.id, "customer"),
   ]);
+  const contactNames = await firstContactNames(customers.map((c) => c.id));
 
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
@@ -96,6 +98,7 @@ export default async function CustomersPage({ searchParams }: { searchParams: Se
                   )}
                 </div>
                 <div className="text-right text-sm text-muted-foreground">
+                  {contactNames.get(c.id) && <div className="font-medium text-foreground">{contactNames.get(c.id)}</div>}
                   {c.email && <div>{c.email}</div>}
                   {c.phone && <div>{c.phone}</div>}
                 </div>
