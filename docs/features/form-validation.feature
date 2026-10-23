@@ -1,4 +1,4 @@
-@wip @zone:dashboard @task:012
+@zone:dashboard @task:012
 Feature: Form validation
   As a signed-in user
   I want clear messages when I leave a required field blank

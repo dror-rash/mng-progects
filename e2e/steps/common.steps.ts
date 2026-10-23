@@ -50,3 +50,7 @@ Then("I see the text {string}", async ({ page }, text: string) => {
   await expect(page.getByText(text).and(page.locator(":not(textarea):not(input):not(option)")).first()).toBeVisible();
 });
 
+
+Then("the {string} field contains {string}", async ({ page }, label: string, value: string) => {
+  await expect(page.getByLabel(label, { exact: true })).toHaveValue(value);
+});
