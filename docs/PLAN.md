@@ -6,6 +6,7 @@
 Build a modern, full-stack Project Management application on a Next.js multi-zone architecture with authentication, polished landing and login pages, and an authenticated project management dashboard with database persistence.
 
 ## Non-goals
+- Multiple users per project (sharing, assignees) until M7, which needs an authorization ADR first
 - Third-party OAuth integrations (keep email/password for initial milestone)
 - Real-time WebSockets/collaborative editing (keep standard server queries & actions for now)
 
@@ -24,9 +25,10 @@ Build a modern, full-stack Project Management application on a Next.js multi-zon
 | M3 | Template Scaffolding Script | Interactive bash script to scaffold a new project from the template | done |
 | M4 | Core Project Management | Open a project, manage its tasks on a To do / In progress / Done board, real overview stats, edit/delete projects (tasks 005–008) | done |
 | M5 | Home Metrics | `/dashboard` becomes a metrics home (totals, tasks by status, recently started projects with progress, activity this week); full list + create form move to `/dashboard/projects` (tasks 009–010) | done |
+| M6 | Task Details | Tasks get a detail page (description, edit, delete), priority, and due dates with overdue/due-soon on the home page; forms show validation errors inline (tasks 011–014) | planned |
 
 ## Current milestone
-**M5** – Completed (PRs #1, #2 merged). Next milestone not yet planned; follow-ups are in the parking lots of tasks 006–010.
+**M6** – Task Details (planned). Specs ready for review: tasks 011–014. Start with `docs/tasks/011-task-detail-page.md`.
 
 ## Risks & open questions
 - CI `deploy` fails until GCP is set up (`infra/README.md`): no Workload Identity provider or project vars configured.
@@ -38,3 +40,4 @@ Build a modern, full-stack Project Management application on a Next.js multi-zon
 - 2026-10-22 – Added M4 Core Project Management: project page with task board (005), real stats (006), edit/delete projects (007). Keep it simple; new capabilities go in `features/<name>/` folders in the dashboard zone.
 - 2026-10-22 – Added M5 Home Metrics at the user's request: home page dedicated to metrics and recently started projects (5), with an All projects page.
 - 2026-10-22 – M4 and M5 merged. CI `verify` no longer runs the e2e package via `pnpm test` (it needs a build first); acceptance tests run in the `e2e` job.
+- 2026-10-23 – Planned M6 Task Details (011 detail page, 012 priority, 013 due dates, 014 inline validation). Proposed M7: sharing projects with teammates and assignees (needs an authorization ADR).
