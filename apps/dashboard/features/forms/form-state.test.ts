@@ -21,4 +21,15 @@ describe("invalid", () => {
 
     expect(invalid("Bad", data).values).toEqual({ name: "x" });
   });
+
+  it("names the field the error belongs to, when given", () => {
+    const data = new FormData();
+    data.set("email", "nope");
+
+    expect(invalid("Enter a valid email address", data, "email")).toEqual({
+      error: "Enter a valid email address",
+      field: "email",
+      values: { email: "nope" },
+    });
+  });
 });

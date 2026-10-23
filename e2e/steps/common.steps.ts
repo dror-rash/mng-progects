@@ -54,3 +54,7 @@ Then("I see the text {string}", async ({ page }, text: string) => {
 Then("the {string} field contains {string}", async ({ page }, label: string, value: string) => {
   await expect(page.getByLabel(label, { exact: true })).toHaveValue(value);
 });
+
+When("I select {string} from {string}", async ({ page }, option: string, label: string) => {
+  await page.getByLabel(label, { exact: true }).selectOption({ label: option });
+});

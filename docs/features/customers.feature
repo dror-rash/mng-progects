@@ -1,4 +1,4 @@
-@wip @zone:dashboard @task:013
+@zone:dashboard @task:013
 Feature: Customers
   As a signed-in user
   I want a list of my customers with their details

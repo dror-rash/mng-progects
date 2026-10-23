@@ -3,7 +3,7 @@ import { test as base, createBdd } from "playwright-bdd";
 export type Account = { email: string; password: string };
 
 /** Values a step records for later steps in the same scenario. */
-export type ScenarioState = { otherUsersProjectUrl?: string };
+export type ScenarioState = { otherUsersProjectUrl?: string; otherUsersCustomerUrl?: string };
 
 /** Every scenario gets its own unique account, so runs never collide in a persistent database. */
 export const test = base.extend<{ account: Account; state: ScenarioState }>({
