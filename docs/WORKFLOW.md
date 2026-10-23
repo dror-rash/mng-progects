@@ -2,7 +2,7 @@
 
 ## The loop
 1. **Plan** – confirm the item exists in `PLAN.md`. Create a task from `templates/task.md` in `docs/tasks/`.
-2. **Specify** – write or update the Gherkin in `docs/features/<feature>.feature`. Get it reviewed before coding.
+2. **Specify** – write or update the Gherkin in `docs/features/<feature>.feature`. Get it reviewed before coding. Scenarios written ahead of their task are tagged `@wip` so the suite skips them; remove the tag when the task starts (step 3).
 3. **Red (acceptance)** – generate step definitions, run `pnpm test:e2e`, confirm the new scenario fails for the *right reason*.
 4. **Red (unit)** – pick the smallest next behavior, write a failing Vitest/Testing Library test.
 5. **Green** – write the minimum code to pass. Nothing more.
