@@ -1,4 +1,4 @@
-@wip @zone:dashboard @task:015
+@zone:dashboard @task:015
 Feature: Customer notes
   As a signed-in user
   I want to keep dated notes about a customer

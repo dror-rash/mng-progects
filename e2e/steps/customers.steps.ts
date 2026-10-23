@@ -1,6 +1,6 @@
 import { expect, type Page } from "@playwright/test";
 
-import { Given, When } from "./fixtures";
+import { Given, Then, When } from "./fixtures";
 
 const origin = process.env.BASE_URL ?? "http://localhost:3000";
 
@@ -50,4 +50,30 @@ Given("the customer has a contact {string}", async ({ page }, name: string) => {
   await page.getByLabel("Contact name", { exact: true }).fill(name);
   await page.getByRole("button", { name: "Add contact" }).click();
   await expect(page.getByRole("region", { name: "Contacts" })).toContainText(name);
+});
+
+function notesSection(page: Page) {
+  return page.getByRole("region", { name: "Notes", exact: true });
+}
+
+When("I add the note {string}", async ({ page }, body: string) => {
+  await page.getByLabel("Note", { exact: true }).fill(body);
+  await page.getByRole("button", { name: "Add note" }).click();
+  await expect(notesSection(page)).toContainText(body);
+});
+
+Then("the notes are {string}", async ({ page }, bodies: string) => {
+  const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const expected = bodies.split(",").map((b) => new RegExp(escape(b.trim())));
+  await expect(notesSection(page).getByRole("listitem")).toHaveText(expected);
+});
+
+// Dates are stamped and shown in UTC for now (time-zone item parked in task 010).
+Then("each note shows today's date", async ({ page }) => {
+  const today = new Date().toISOString().slice(0, 10);
+  const stamps = notesSection(page).getByRole("listitem").locator("time");
+  await expect(stamps.first()).toBeVisible();
+  for (const stamp of await stamps.all()) {
+    expect((await stamp.getAttribute("datetime"))?.slice(0, 10)).toBe(today);
+  }
 });
