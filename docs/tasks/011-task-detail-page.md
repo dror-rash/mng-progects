@@ -16,7 +16,7 @@ A task is only a title today. People need somewhere to write what the task actua
 - Owner-only, using the existing `getOwnedProject` / `requireOwnedProject`; a task id from another project or user shows "Task not found".
 
 ## Out of scope
-- Priority and due dates (012, 013). Rich text / markdown. Comments, attachments, history.
+- Customer link (017), priority and due dates (018, 019, M7). Rich text / markdown. Comments, attachments, history.
 
 ## Acceptance criteria
 - [ ] Opening a task from the board shows its detail page.

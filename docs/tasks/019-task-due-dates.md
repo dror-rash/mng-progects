@@ -1,7 +1,7 @@
-# Task 013: Due dates and overdue tasks on the home page
+# Task 019: Due dates and overdue tasks on the home page
 
 - **Status:** todo
-- **Milestone:** M6
+- **Milestone:** M7
 - **Zone / package:** `apps/dashboard`, `packages/db`
 - **Feature file:** `docs/features/task-due-dates.feature`
 

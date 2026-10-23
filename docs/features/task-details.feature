@@ -1,4 +1,4 @@
-@zone:dashboard @task:011
+@wip @zone:dashboard @task:011
 Feature: Task details
   As a signed-in user
   I want a page for each task

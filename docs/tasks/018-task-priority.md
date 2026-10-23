@@ -1,7 +1,7 @@
-# Task 012: Task priority
+# Task 018: Task priority
 
 - **Status:** todo
-- **Milestone:** M6
+- **Milestone:** M7
 - **Zone / package:** `apps/dashboard`, `packages/ui`
 - **Feature file:** `docs/features/task-priority.feature`
 
@@ -12,7 +12,7 @@ Not every task is equally urgent. The `task.priority` column already exists (def
 - Priorities Low / Medium / High defined once in `features/tasks/task-priority.ts` (same pattern as `task-status.ts`).
 - Set priority on the task detail page.
 - Board cards show a priority label as text (not color alone); within each column, tasks sort High → Medium → Low, then oldest first.
-- `packages/ui`: `NativeSelect` (shadcn native-select pattern, server-renderable) with story and test.
+- Uses `NativeSelect` from task 016.
 
 ## Out of scope
 - Custom priority levels. Drag-and-drop ordering.
@@ -27,7 +27,7 @@ Not every task is equally urgent. The `task.priority` column already exists (def
 ## Test plan
 - Acceptance: `task-priority.feature` (2 scenarios).
 - Unit: parsing, ordering, unknown value fallback.
-- Storybook: `NativeSelect` (default, with value, disabled).
+- Storybook: none new.
 
 ## Progress log
 - 2026-10-23 – Task created.

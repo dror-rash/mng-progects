@@ -1,4 +1,4 @@
-# Task 014: Inline validation errors on forms
+# Task 012: Inline validation errors on forms
 
 - **Status:** todo
 - **Milestone:** M6
@@ -11,6 +11,7 @@ Parked in tasks 007 and 009 and flagged in review: a name or title of only space
 ## Scope
 - Create/edit project and create/edit task forms show the error under the field ("Project name is required", "Task title is required") and keep what the user typed.
 - Server actions return `{ error }` instead of throwing for invalid input; authorization failures still throw.
+- Sets the pattern the customer forms (013–015) reuse: a shared `FormError`, actions returning `{ error }`.
 - Small client islands using `useActionState` around the existing forms; pages stay Server Components.
 - `app/error.tsx` in the dashboard zone as a friendly fallback for unexpected errors.
 
