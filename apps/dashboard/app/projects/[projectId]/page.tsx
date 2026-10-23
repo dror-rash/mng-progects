@@ -72,7 +72,11 @@ export default async function ProjectPage({ params }: { params: Promise<{ projec
                     <li key={task.id}>
                       <Card>
                         <CardHeader className="pb-2">
-                          <CardTitle className="text-sm font-medium">{task.title}</CardTitle>
+                          <CardTitle className="text-sm font-medium">
+                            <Link href={`/projects/${project.id}/tasks/${task.id}`} className="hover:underline">
+                              {task.title}
+                            </Link>
+                          </CardTitle>
                         </CardHeader>
                         <CardContent className="flex flex-wrap gap-1">
                           {TASK_STATUSES.filter((s) => s.status !== column.status).map((target) => (

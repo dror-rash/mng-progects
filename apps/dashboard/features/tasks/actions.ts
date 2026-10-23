@@ -2,11 +2,13 @@
 
 import { and, eq, getDb, schema } from "@repo/db";
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 
 import { revalidateOverviews } from "@/features/projects/revalidate";
 import { requireOwnedProject } from "@/features/projects/require-owned-project";
 
 import { nextCompletedAt } from "./activity";
+import { parseTaskInput } from "./task-input";
 import { parseTaskStatus } from "./task-status";
 
 /** The project's board plus every page that shows task counts. */
@@ -21,12 +23,12 @@ function taskInProject(formData: FormData, projectId: string) {
 
 export async function createTaskAction(formData: FormData) {
   const project = await requireOwnedProject(String(formData.get("projectId") ?? ""));
-  const title = String(formData.get("title") ?? "").trim();
-  if (!title) {
-    throw new Error("Task title is required");
+  const input = parseTaskInput(formData);
+  if (!input.ok) {
+    throw new Error(input.error);
   }
 
-  await getDb().insert(schema.task).values({ id: crypto.randomUUID(), projectId: project.id, title });
+  await getDb().insert(schema.task).values({ id: crypto.randomUUID(), projectId: project.id, ...input.value });
   revalidateProject(project.id);
 }
 
@@ -59,4 +61,28 @@ export async function deleteTaskAction(formData: FormData) {
 
   await getDb().delete(schema.task).where(taskInProject(formData, project.id));
   revalidateProject(project.id);
+}
+
+export async function updateTaskAction(formData: FormData) {
+  const project = await requireOwnedProject(String(formData.get("projectId") ?? ""));
+  const input = parseTaskInput(formData);
+  if (!input.ok) {
+    throw new Error(input.error);
+  }
+
+  await getDb()
+    .update(schema.task)
+    .set({ ...input.value, updatedAt: new Date() })
+    .where(taskInProject(formData, project.id));
+  revalidatePath(`/projects/${project.id}/tasks/${String(formData.get("taskId") ?? "")}`);
+  revalidateProject(project.id);
+}
+
+/** Delete from the task's own page, then go back to the board. */
+export async function deleteTaskFromPageAction(formData: FormData) {
+  const project = await requireOwnedProject(String(formData.get("projectId") ?? ""));
+
+  await getDb().delete(schema.task).where(taskInProject(formData, project.id));
+  revalidateProject(project.id);
+  redirect(`/projects/${project.id}`);
 }
