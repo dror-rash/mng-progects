@@ -17,6 +17,9 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: 0, // flaky tests are bugs; fix them
+  // Dev servers compile each route on its first visit, which can take several seconds under parallel load.
+  // CI runs production builds, so it keeps Playwright's default 5s.
+  expect: { timeout: process.env.CI ? 5_000 : 15_000 },
   reporter: process.env.CI ? [["html", { open: "never" }], ["github"]] : "list",
   use: {
     baseURL: process.env.BASE_URL ?? "http://localhost:3000",

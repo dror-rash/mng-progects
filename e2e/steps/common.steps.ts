@@ -14,10 +14,10 @@ When("I follow the {string} link", async ({ page }, name: string) => {
   const link = page.getByRole("link", { name, exact: true });
   const href = await link.getAttribute("href");
   await link.click();
-  // Wait for the navigation, so the next step can't pass against the page we just left.
+  // Wait for the navigation (query string included), so the next step can't pass against the page we just left.
   if (href?.startsWith("/")) {
-    const path = href.split("?")[0]!.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    await expect(page).toHaveURL(new RegExp(`${path}(\\?.*)?$`));
+    const target = href.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    await expect(page).toHaveURL(new RegExp(`${target}$`));
   }
 });
 
@@ -43,6 +43,8 @@ When("I fill in {string} with {string}", async ({ page }, label: string, value: 
 
 When("I press {string}", async ({ page }, name: string) => {
   await page.getByRole("button", { name }).click();
+  // Let the form submission finish, so a following navigation can't cancel it.
+  await page.waitForLoadState("networkidle");
 });
 
 // Text the page shows, not values sitting in form fields.
