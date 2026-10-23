@@ -11,7 +11,8 @@
     "./card": "./src/components/card.tsx",
     "./meter": "./src/components/meter.tsx",
     "./stacked-bar": "./src/components/stacked-bar.tsx",
-    "./textarea": "./src/components/textarea.tsx"
+    "./textarea": "./src/components/textarea.tsx",
+    "./field-error": "./src/components/field-error.tsx"
   },
   "scripts": {
     "lint": "eslint .",
