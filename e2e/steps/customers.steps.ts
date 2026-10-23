@@ -77,3 +77,19 @@ Then("each note shows today's date", async ({ page }) => {
     expect((await stamp.getAttribute("datetime"))?.slice(0, 10)).toBe(today);
   }
 });
+
+Given("I have a project named {string} for customer {string}", async ({ page }, name: string, customer: string) => {
+  await page.goto("/dashboard/projects");
+  await page.getByLabel("Project name", { exact: true }).fill(name);
+  await page.getByLabel("Customer", { exact: true }).selectOption({ label: customer });
+  await page.getByRole("button", { name: "Create Project" }).click();
+  await expect(page.getByRole("link", { name, exact: true })).toBeVisible();
+});
+
+When("I delete the customer {string}", async ({ page }, name: string) => {
+  await page.goto("/dashboard/customers");
+  await page.getByRole("link", { name, exact: true }).click();
+  await page.getByRole("link", { name: "Delete customer" }).click();
+  await page.getByRole("button", { name: "Yes, delete customer" }).click();
+  await expect(page).toHaveURL(/\/dashboard\/customers$/);
+});
