@@ -57,6 +57,13 @@
       "when": 1792744715960,
       "tag": "0007_familiar_ricochet",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1792746355656,
+      "tag": "0008_clear_cardiac",
+      "breakpoints": true
     }
   ]
 }

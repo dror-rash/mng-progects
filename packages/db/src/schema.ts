@@ -63,6 +63,8 @@ export const project = pgTable("project", {
   ownerId: text("owner_id")
     .notNull()
     .references(() => user.id, { onDelete: "cascade" }),
+  /** The customer this project is for (task 016). Cleared if the customer is deleted. */
+  organizationId: text("organization_id").references(() => organization.id, { onDelete: "set null" }),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
