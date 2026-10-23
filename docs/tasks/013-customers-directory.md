@@ -1,6 +1,6 @@
 # Task 013: Customers directory
 
-- **Status:** todo
+- **Status:** in-review
 - **Milestone:** M6
 - **Zone / package:** `apps/dashboard`, `packages/db`, `packages/ui`
 - **Feature file:** `docs/features/customers.feature`
@@ -22,12 +22,12 @@ Work is done for customers. We need one place that lists them and holds their de
 - Import/export, duplicate detection, search beyond the filters.
 
 ## Acceptance criteria
-- [ ] Create a customer with all details and see them on its page.
-- [ ] The list shows customers and filters by status and by tag.
-- [ ] Edit a customer's details.
-- [ ] Delete a customer after confirming.
-- [ ] Invalid email shows an inline error.
-- [ ] Another user's customer shows "Customer not found".
+- [x] Create a customer with all details and see them on its page.
+- [x] The list shows customers and filters by status and by tag.
+- [x] Edit a customer's details.
+- [x] Delete a customer after confirming.
+- [x] Invalid email shows an inline error.
+- [x] Another user's customer shows "Customer not found".
 
 ## Approach (brief)
 Mirror `features/projects/` (queries, actions, `parseOrganizationInput`, `require-owned-organization`). Tags entered comma-separated, stored normalized (trimmed, de-duplicated, case-insensitive).
@@ -35,10 +35,11 @@ Mirror `features/projects/` (queries, actions, `parseOrganizationInput`, `requir
 ## Test plan
 - Acceptance: `customers.feature` (6 scenarios).
 - Unit: `parseOrganizationInput` (required name, email/website format, website scheme, tag normalization); status/kind parsing.
-- Storybook: `Badge` for status and tags (if not reusing an existing component).
+- Storybook: `Badge` (status, tags) and `NativeSelect` (status picker; moved up from 016).
 
 ## Progress log
 - 2026-10-23 – Task created.
+- 2026-10-23 – 6 scenarios red → green (stable over 3 repeats); 12 unit tests (input, statuses, tags), `Badge`/`NativeSelect` component tests + stories, `invalid()` now names the field. Migration `0005` creates `organization`. Header gets a Customers link and wraps on mobile (it overflowed at 390px). Full suite (49 e2e) green, lint, typecheck, Storybook clean.
 
 ## Parking lot
 - Other kinds in the UI (service providers, suppliers).

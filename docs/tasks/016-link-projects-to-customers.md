@@ -22,12 +22,12 @@ Seeing every project done for a customer ("previous projects") is the main reaso
 - [ ] Deleting the customer keeps the project, without a customer.
 
 ## Approach (brief)
-Customer picker is the `NativeSelect` (introduced here; moved from 018). Owner check covers both the project and the chosen customer.
+Customer picker uses `NativeSelect` (added in 013). Owner check covers both the project and the chosen customer.
 
 ## Test plan
 - Acceptance: 2 scenarios in `customer-links.feature`.
 - Unit: none beyond existing parsers (customer id validated as owned).
-- Storybook: `NativeSelect`.
+- Storybook: none new.
 
 ## Progress log
 - 2026-10-23 – Task created.

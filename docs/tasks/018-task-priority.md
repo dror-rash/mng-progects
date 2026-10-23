@@ -12,7 +12,7 @@ Not every task is equally urgent. The `task.priority` column already exists (def
 - Priorities Low / Medium / High defined once in `features/tasks/task-priority.ts` (same pattern as `task-status.ts`).
 - Set priority on the task detail page.
 - Board cards show a priority label as text (not color alone); within each column, tasks sort High → Medium → Low, then oldest first.
-- Uses `NativeSelect` from task 016.
+- Uses `NativeSelect` from task 013.
 
 ## Out of scope
 - Custom priority levels. Drag-and-drop ordering.
