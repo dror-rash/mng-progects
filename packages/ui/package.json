@@ -10,7 +10,8 @@
     "./input": "./src/components/input.tsx",
     "./card": "./src/components/card.tsx",
     "./meter": "./src/components/meter.tsx",
-    "./stacked-bar": "./src/components/stacked-bar.tsx"
+    "./stacked-bar": "./src/components/stacked-bar.tsx",
+    "./textarea": "./src/components/textarea.tsx"
   },
   "scripts": {
     "lint": "eslint .",
