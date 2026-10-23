@@ -1,0 +1,35 @@
+"use server";
+
+import { and, eq, getDb, schema } from "@repo/db";
+import { revalidatePath } from "next/cache";
+
+import { type FormState, invalid } from "@/features/forms/form-state";
+
+import { requireOwnedOrganization } from "../require-owned-organization";
+import { parseNoteInput } from "./note-input";
+
+export async function addNoteAction(_prev: FormState, formData: FormData): Promise<FormState> {
+  const customer = await requireOwnedOrganization(String(formData.get("customerId") ?? ""), "customer");
+  const input = parseNoteInput(formData);
+  if (!input.ok) {
+    return invalid(input.error, formData, input.field);
+  }
+
+  await getDb().insert(schema.organizationNote).values({ id: crypto.randomUUID(), organizationId: customer.id, ...input.value });
+  revalidatePath(`/customers/${customer.id}`);
+  return {};
+}
+
+export async function deleteNoteAction(formData: FormData) {
+  const customer = await requireOwnedOrganization(String(formData.get("customerId") ?? ""), "customer");
+
+  await getDb()
+    .delete(schema.organizationNote)
+    .where(
+      and(
+        eq(schema.organizationNote.id, String(formData.get("noteId") ?? "")),
+        eq(schema.organizationNote.organizationId, customer.id),
+      ),
+    );
+  revalidatePath(`/customers/${customer.id}`);
+}
