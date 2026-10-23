@@ -124,3 +124,17 @@ export const organizationContact = pgTable(
   },
   (table) => [index("organization_contact_organization_idx").on(table.organizationId)],
 );
+
+/** Dated notes about an organization, newest first in the UI (task 015). Deleted with the organization. */
+export const organizationNote = pgTable(
+  "organization_note",
+  {
+    id: text("id").primaryKey(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    body: text("body").notNull(),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (table) => [index("organization_note_organization_idx").on(table.organizationId, table.createdAt)],
+);
