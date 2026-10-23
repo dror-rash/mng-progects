@@ -93,3 +93,23 @@ When("I delete the customer {string}", async ({ page }, name: string) => {
   await page.getByRole("button", { name: "Yes, delete customer" }).click();
   await expect(page).toHaveURL(/\/dashboard\/customers$/);
 });
+
+Given(
+  "the project {string} has a task {string} for customer {string}",
+  async ({ page }, project: string, title: string, customer: string) => {
+    await page.goto("/dashboard/projects");
+    await page.getByRole("link", { name: project, exact: true }).click();
+    await expect(page.getByRole("heading", { name: project, level: 1 })).toBeVisible();
+    await page.getByLabel("Task title", { exact: true }).fill(title);
+    await page.getByRole("button", { name: "Add task" }).click();
+    await page.getByRole("link", { name: title, exact: true }).click();
+    await expect(page.getByRole("heading", { name: title, level: 1 })).toBeVisible();
+    await page.getByLabel("Customer", { exact: true }).selectOption({ label: customer });
+    await page.getByRole("button", { name: "Save changes" }).click();
+    await expect(page.getByRole("link", { name: customer, exact: true })).toBeVisible();
+  },
+);
+
+Then("{string} is selected in {string}", async ({ page }, option: string, label: string) => {
+  await expect(page.getByLabel(label, { exact: true }).locator("option:checked")).toHaveText(option);
+});

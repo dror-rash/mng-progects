@@ -100,3 +100,7 @@ Given("I am on the {string} task page", async ({ page }, title: string) => {
   await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/tasks\/[^/]+$/);
   await expect(page.getByRole("heading", { name: title, level: 1 })).toBeVisible();
 });
+
+Then("the task {string} shows {string}", async ({ page }, title: string, text: string) => {
+  await expect(taskCard(page, title)).toContainText(text);
+});

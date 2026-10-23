@@ -26,7 +26,7 @@ Feature: Customer links
     And I am on the "Website Redesign" project page
     Then I see the text "No customer"
 
-  @wip @task:017
+  @task:017
   Scenario: A task in an internal project can point at a customer
     Given I have a project named "Internal Ops"
     And I am on the "Internal Ops" project page
@@ -35,17 +35,18 @@ Feature: Customer links
     When I select "Acme Ltd" from "Customer"
     And I press "Save changes"
     Then I see the "Acme Ltd" link
+    And "Acme Ltd" is selected in "Customer"
     When I am on the "Internal Ops" project page
     Then the task "Call about invoice" shows "Acme Ltd"
 
-  @wip @task:017
+  @task:017
   Scenario: The customer page lists its open tasks from any project
     Given I have a project named "Internal Ops"
     And the project "Internal Ops" has a task "Call about invoice" for customer "Acme Ltd"
     When I am on the "Acme Ltd" customer page
     Then the "Open tasks" section shows "Call about invoice"
 
-  @wip @task:017
+  @task:017
   Scenario: A task for a project's customer defaults to that customer
     Given I have a project named "Website Redesign" for customer "Acme Ltd"
     And I am on the "Website Redesign" project page
