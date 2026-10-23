@@ -72,6 +72,7 @@ export const task = pgTable("task", {
     .notNull()
     .references(() => project.id, { onDelete: "cascade" }),
   title: text("title").notNull(),
+  description: text("description"),
   status: text("status").notNull().default("todo"),
   priority: text("priority").notNull().default("medium"),
   /** Set when the task moves to Done, cleared when it moves out. Null for tasks completed before this column existed. */

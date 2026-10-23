@@ -29,6 +29,13 @@
       "when": 1792696392048,
       "tag": "0003_backfill_task_completed_at",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1792734233490,
+      "tag": "0004_plain_harrier",
+      "breakpoints": true
     }
   ]
 }
