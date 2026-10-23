@@ -1,13 +1,13 @@
 import { Button } from "@repo/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@repo/ui/card";
-import { Input } from "@repo/ui/input";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { requireSession } from "@/features/auth/require-session";
 import { AppHeader } from "@/features/layout/app-header";
 import { getOwnedProject } from "@/features/projects/queries";
-import { createTaskAction, deleteTaskAction, updateTaskStatusAction } from "@/features/tasks/actions";
+import { deleteTaskAction, updateTaskStatusAction } from "@/features/tasks/actions";
+import { AddTaskForm } from "@/features/tasks/add-task-form";
 import { listProjectTasks } from "@/features/tasks/queries";
 import { groupTasksByStatus, TASK_STATUSES } from "@/features/tasks/task-status";
 
@@ -44,14 +44,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ projec
           </div>
         </section>
 
-        <form action={createTaskAction} className="flex max-w-xl items-end gap-2">
-          <input type="hidden" name="projectId" value={project.id} />
-          <div className="flex-1 space-y-1">
-            <label htmlFor="title" className="text-sm font-medium">Task title</label>
-            <Input id="title" name="title" placeholder="e.g. Write homepage copy" required />
-          </div>
-          <Button type="submit">Add task</Button>
-        </form>
+        <AddTaskForm projectId={project.id} />
 
         <div className="grid gap-4 md:grid-cols-3">
           {columns.map((column) => (

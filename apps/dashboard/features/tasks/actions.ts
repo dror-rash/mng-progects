@@ -4,6 +4,7 @@ import { and, eq, getDb, schema } from "@repo/db";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
+import { type FormState, invalid } from "@/features/forms/form-state";
 import { revalidateOverviews } from "@/features/projects/revalidate";
 import { requireOwnedProject } from "@/features/projects/require-owned-project";
 
@@ -21,15 +22,16 @@ function taskInProject(formData: FormData, projectId: string) {
   return and(eq(schema.task.id, String(formData.get("taskId") ?? "")), eq(schema.task.projectId, projectId));
 }
 
-export async function createTaskAction(formData: FormData) {
+export async function createTaskAction(_prev: FormState, formData: FormData): Promise<FormState> {
   const project = await requireOwnedProject(String(formData.get("projectId") ?? ""));
   const input = parseTaskInput(formData);
   if (!input.ok) {
-    throw new Error(input.error);
+    return invalid(input.error, formData);
   }
 
   await getDb().insert(schema.task).values({ id: crypto.randomUUID(), projectId: project.id, ...input.value });
   revalidateProject(project.id);
+  return {};
 }
 
 export async function updateTaskStatusAction(formData: FormData) {
@@ -63,11 +65,11 @@ export async function deleteTaskAction(formData: FormData) {
   revalidateProject(project.id);
 }
 
-export async function updateTaskAction(formData: FormData) {
+export async function updateTaskAction(_prev: FormState, formData: FormData): Promise<FormState> {
   const project = await requireOwnedProject(String(formData.get("projectId") ?? ""));
   const input = parseTaskInput(formData);
   if (!input.ok) {
-    throw new Error(input.error);
+    return invalid(input.error, formData);
   }
 
   await getDb()
@@ -76,6 +78,7 @@ export async function updateTaskAction(formData: FormData) {
     .where(taskInProject(formData, project.id));
   revalidatePath(`/projects/${project.id}/tasks/${String(formData.get("taskId") ?? "")}`);
   revalidateProject(project.id);
+  return {};
 }
 
 /** Delete from the task's own page, then go back to the board. */

@@ -1,14 +1,13 @@
 import { Button } from "@repo/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@repo/ui/card";
-import { Input } from "@repo/ui/input";
-import { Textarea } from "@repo/ui/textarea";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { requireSession } from "@/features/auth/require-session";
 import { AppHeader } from "@/features/layout/app-header";
 import { getOwnedProject } from "@/features/projects/queries";
-import { deleteTaskFromPageAction, updateTaskAction } from "@/features/tasks/actions";
+import { deleteTaskFromPageAction } from "@/features/tasks/actions";
+import { EditTaskForm } from "@/features/tasks/edit-task-form";
 import { getProjectTask } from "@/features/tasks/queries";
 import { parseTaskStatus, TASK_STATUSES } from "@/features/tasks/task-status";
 
@@ -53,19 +52,7 @@ export default async function TaskPage({ params }: { params: Promise<{ projectId
             <CardTitle className="text-base">Edit task</CardTitle>
           </CardHeader>
           <CardContent>
-            <form action={updateTaskAction} className="space-y-4">
-              <input type="hidden" name="projectId" value={project.id} />
-              <input type="hidden" name="taskId" value={task.id} />
-              <div className="space-y-1">
-                <label htmlFor="title" className="text-sm font-medium">Title</label>
-                <Input id="title" name="title" defaultValue={task.title} required />
-              </div>
-              <div className="space-y-1">
-                <label htmlFor="description" className="text-sm font-medium">Description</label>
-                <Textarea id="description" name="description" defaultValue={task.description ?? ""} rows={5} />
-              </div>
-              <Button type="submit">Save changes</Button>
-            </form>
+            <EditTaskForm projectId={project.id} task={task} />
           </CardContent>
         </Card>
 

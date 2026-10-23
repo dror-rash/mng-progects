@@ -1,10 +1,8 @@
-import { Button } from "@repo/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@repo/ui/card";
-import { Input } from "@repo/ui/input";
 
 import { requireSession } from "@/features/auth/require-session";
 import { AppHeader } from "@/features/layout/app-header";
-import { createProjectAction } from "@/features/projects/actions";
+import { ProjectForm } from "@/features/projects/project-form";
 import { ProjectList } from "@/features/projects/project-list";
 import { listProjects } from "@/features/projects/queries";
 import { summarizeByProject } from "@/features/tasks/progress";
@@ -32,17 +30,7 @@ export default async function AllProjectsPage() {
             <CardDescription>Start tracking deliverables and tasks with your team</CardDescription>
           </CardHeader>
           <CardContent>
-            <form action={createProjectAction} className="space-y-4">
-              <div className="space-y-1">
-                <label htmlFor="name" className="text-sm font-medium">Project name</label>
-                <Input id="name" name="name" placeholder="e.g. Website Redesign" required />
-              </div>
-              <div className="space-y-1">
-                <label htmlFor="description" className="text-sm font-medium">Description</label>
-                <Input id="description" name="description" placeholder="Short description of this project" />
-              </div>
-              <Button type="submit">Create Project</Button>
-            </form>
+            <ProjectForm />
           </CardContent>
         </Card>
 
