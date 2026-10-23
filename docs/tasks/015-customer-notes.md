@@ -1,6 +1,6 @@
 # Task 015: Notes log on a customer
 
-- **Status:** todo
+- **Status:** in-review
 - **Milestone:** M6
 - **Zone / package:** `apps/dashboard`, `packages/db`
 - **Feature file:** `docs/features/customer-notes.feature`
@@ -17,8 +17,8 @@ Things learned about a customer (a call, a preference, an issue) need to be kept
 - Editing a note after saving (delete and re-add), note authors (needs M8 sharing), rich text, attachments.
 
 ## Acceptance criteria
-- [ ] Added notes show newest first with their date.
-- [ ] A note can be deleted.
+- [x] Added notes show newest first with their date.
+- [x] A note can be deleted.
 
 ## Approach (brief)
 Same structure as contacts; body required (pattern from 012).
@@ -29,6 +29,8 @@ Same structure as contacts; body required (pattern from 012).
 
 ## Progress log
 - 2026-10-23 – Task created.
+- 2026-10-23 – 2 scenarios red → green (stable over 3 repeats); `parseNoteInput` unit tests. Migration `0007` creates `organization_note`. Notes show date and time in UTC (parked time-zone item, task 010). Full suite (53 e2e) green, lint, typecheck clean.
 
 ## Parking lot
+- Show note times in the viewer's time zone (with the `timestamptz` ADR).
 - Note author once projects/customers are shared (M8).
