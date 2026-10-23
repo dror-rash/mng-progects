@@ -4,6 +4,7 @@ import { requireSession } from "@/features/auth/require-session";
 import { AppHeader } from "@/features/layout/app-header";
 import { ProjectForm } from "@/features/projects/project-form";
 import { ProjectList } from "@/features/projects/project-list";
+import { listOrganizations } from "@/features/organizations/queries";
 import { listProjects } from "@/features/projects/queries";
 import { summarizeByProject } from "@/features/tasks/progress";
 import { listOwnedTaskStatuses } from "@/features/tasks/queries";
@@ -12,9 +13,10 @@ export const dynamic = "force-dynamic";
 
 export default async function AllProjectsPage() {
   const session = await requireSession("/projects");
-  const [projects, taskStatuses] = await Promise.all([
+  const [projects, taskStatuses, customers] = await Promise.all([
     listProjects(session.user.id),
     listOwnedTaskStatuses(session.user.id),
+    listOrganizations(session.user.id, "customer"),
   ]);
 
   return (
@@ -30,7 +32,7 @@ export default async function AllProjectsPage() {
             <CardDescription>Start tracking deliverables and tasks with your team</CardDescription>
           </CardHeader>
           <CardContent>
-            <ProjectForm />
+            <ProjectForm customers={customers} />
           </CardContent>
         </Card>
 

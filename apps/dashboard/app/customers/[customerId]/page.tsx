@@ -12,6 +12,10 @@ import { NotesSection } from "@/features/organizations/notes/notes-section";
 import { listNotes } from "@/features/organizations/notes/queries";
 import { organizationStatusLabel } from "@/features/organizations/organization-kinds";
 import { getOwnedOrganization } from "@/features/organizations/queries";
+import { ProjectList } from "@/features/projects/project-list";
+import { listCustomerProjects } from "@/features/projects/queries";
+import { summarizeByProject } from "@/features/tasks/progress";
+import { listOwnedTaskStatuses } from "@/features/tasks/queries";
 
 export const dynamic = "force-dynamic";
 
@@ -33,7 +37,12 @@ export default async function CustomerPage({ params }: { params: Promise<{ custo
   if (!customer) {
     notFound();
   }
-  const [contacts, notes] = await Promise.all([listContacts(customer.id), listNotes(customer.id)]);
+  const [contacts, notes, projects, taskStatuses] = await Promise.all([
+    listContacts(customer.id),
+    listNotes(customer.id),
+    listCustomerProjects(session.user.id, customer.id),
+    listOwnedTaskStatuses(session.user.id),
+  ]);
 
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
@@ -103,6 +112,17 @@ export default async function CustomerPage({ params }: { params: Promise<{ custo
             )}
           </CardContent>
         </Card>
+
+        <section aria-labelledby="projects-heading" className="space-y-3">
+          <h2 id="projects-heading" className="text-base font-semibold">Projects</h2>
+          {projects.length === 0 ? (
+            <Card className="border-dashed p-6 text-center text-sm text-muted-foreground">
+              No projects for this customer yet. Pick this customer when you create or edit a project.
+            </Card>
+          ) : (
+            <ProjectList projects={projects} progress={summarizeByProject(taskStatuses)} showCustomer={false} />
+          )}
+        </section>
 
         <ContactsSection customerId={customer.id} contacts={contacts} />
         <NotesSection customerId={customer.id} notes={notes} />

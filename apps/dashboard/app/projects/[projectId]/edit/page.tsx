@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 
 import { requireSession } from "@/features/auth/require-session";
 import { ProjectForm } from "@/features/projects/project-form";
+import { listOrganizations } from "@/features/organizations/queries";
 import { getOwnedProject } from "@/features/projects/queries";
 
 export const dynamic = "force-dynamic";
@@ -23,7 +24,7 @@ export default async function EditProjectPage({ params }: { params: Promise<{ pr
           <CardTitle>Edit project</CardTitle>
         </CardHeader>
         <CardContent>
-          <ProjectForm project={project} />
+          <ProjectForm project={project} customers={await listOrganizations(session.user.id, "customer")} />
         </CardContent>
       </Card>
     </main>

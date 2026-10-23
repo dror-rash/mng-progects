@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 
 import { requireSession } from "@/features/auth/require-session";
 import { AppHeader } from "@/features/layout/app-header";
+import { getOwnedOrganization } from "@/features/organizations/queries";
 import { getOwnedProject } from "@/features/projects/queries";
 import { deleteTaskAction, updateTaskStatusAction } from "@/features/tasks/actions";
 import { AddTaskForm } from "@/features/tasks/add-task-form";
@@ -22,7 +23,11 @@ export default async function ProjectPage({ params }: { params: Promise<{ projec
     notFound();
   }
 
-  const columns = groupTasksByStatus(await listProjectTasks(project.id));
+  const [tasks, customer] = await Promise.all([
+    listProjectTasks(project.id),
+    project.organizationId ? getOwnedOrganization(session.user.id, project.organizationId, "customer") : null,
+  ]);
+  const columns = groupTasksByStatus(tasks);
 
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
@@ -33,6 +38,18 @@ export default async function ProjectPage({ params }: { params: Promise<{ projec
           <div className="space-y-1">
             <h1 className="text-2xl font-bold tracking-tight">{project.name}</h1>
             {project.description && <p className="text-muted-foreground">{project.description}</p>}
+            <p className="text-sm text-muted-foreground">
+              {customer ? (
+                <>
+                  Customer:{" "}
+                  <Link href={`/customers/${customer.id}`} className="font-medium text-foreground hover:underline">
+                    {customer.name}
+                  </Link>
+                </>
+              ) : (
+                "No customer"
+              )}
+            </p>
           </div>
           <div className="flex gap-2">
             <Button asChild variant="outline" size="sm">

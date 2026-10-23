@@ -3,6 +3,7 @@
 import { Button } from "@repo/ui/button";
 import { FieldError } from "@repo/ui/field-error";
 import { Input } from "@repo/ui/input";
+import { NativeSelect } from "@repo/ui/native-select";
 import Link from "next/link";
 import { useActionState } from "react";
 
@@ -10,15 +11,19 @@ import type { FormState } from "@/features/forms/form-state";
 
 import { createProjectAction, updateProjectAction } from "./actions";
 
-type Project = { id: string; name: string; description: string | null };
+type Project = { id: string; name: string; description: string | null; organizationId: string | null };
+type CustomerOption = { id: string; name: string };
 
 /** Create a project, or edit one when `project` is given. Shows validation errors and keeps what was typed. */
-export function ProjectForm({ project }: { project?: Project }) {
+export function ProjectForm({ project, customers }: { project?: Project; customers: CustomerOption[] }) {
   const [state, formAction, pending] = useActionState<FormState, FormData>(
     project ? updateProjectAction : createProjectAction,
     {},
   );
-  const value = (field: "name" | "description", fallback: string) => state.values?.[field] ?? fallback;
+  const value = (field: "name" | "description" | "customerId", fallback: string) => state.values?.[field] ?? fallback;
+  // Errors without a field are about the name, the only other required input.
+  const nameError = state.field ? undefined : state.error;
+  const customerError = state.field === "customerId" ? state.error : undefined;
 
   return (
     <form action={formAction} className="space-y-4">
@@ -30,11 +35,11 @@ export function ProjectForm({ project }: { project?: Project }) {
           name="name"
           placeholder="e.g. Website Redesign"
           defaultValue={value("name", project?.name ?? "")}
-          aria-invalid={state.error ? true : undefined}
-          aria-describedby={state.error ? "name-error" : undefined}
+          aria-invalid={nameError ? true : undefined}
+          aria-describedby={nameError ? "name-error" : undefined}
           required
         />
-        <FieldError id="name-error" message={state.error} />
+        <FieldError id="name-error" message={nameError} />
       </div>
       <div className="space-y-1">
         <label htmlFor="description" className="text-sm font-medium">Description</label>
@@ -44,6 +49,22 @@ export function ProjectForm({ project }: { project?: Project }) {
           placeholder="Short description of this project"
           defaultValue={value("description", project?.description ?? "")}
         />
+      </div>
+      <div className="space-y-1">
+        <label htmlFor="customerId" className="text-sm font-medium">Customer</label>
+        <NativeSelect
+          id="customerId"
+          name="customerId"
+          defaultValue={value("customerId", project?.organizationId ?? "")}
+          aria-invalid={customerError ? true : undefined}
+          aria-describedby={customerError ? "customerId-error" : undefined}
+        >
+          <option value="">No customer</option>
+          {customers.map((c) => (
+            <option key={c.id} value={c.id}>{c.name}</option>
+          ))}
+        </NativeSelect>
+        <FieldError id="customerId-error" message={customerError} />
       </div>
       <div className="flex gap-2">
         <Button type="submit" disabled={pending}>{project ? "Save changes" : "Create Project"}</Button>
