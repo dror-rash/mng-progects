@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { type FormState, invalid } from "@/features/forms/form-state";
+import { getOwnedOrganization } from "@/features/organizations/queries";
 import { revalidateOverviews } from "@/features/projects/revalidate";
 import { requireOwnedProject } from "@/features/projects/require-owned-project";
 
@@ -12,9 +13,10 @@ import { nextCompletedAt } from "./activity";
 import { parseTaskInput } from "./task-input";
 import { parseTaskStatus } from "./task-status";
 
-/** The project's board plus every page that shows task counts. */
+/** The project's board plus every page that shows task counts or a customer's open tasks. */
 function revalidateProject(projectId: string) {
   revalidatePath(`/projects/${projectId}`);
+  revalidatePath("/customers/[customerId]", "page");
   revalidateOverviews();
 }
 
@@ -29,7 +31,20 @@ export async function createTaskAction(_prev: FormState, formData: FormData): Pr
     return invalid(input.error, formData);
   }
 
-  await getDb().insert(schema.task).values({ id: crypto.randomUUID(), projectId: project.id, ...input.value });
+  const { organizationId, ...fields } = input.value;
+  if (organizationId && !(await getOwnedOrganization(project.ownerId, organizationId, "customer"))) {
+    return invalid("Choose one of your customers", formData, "customerId");
+  }
+
+  // A new task is about the project's customer unless the form chose otherwise.
+  await getDb()
+    .insert(schema.task)
+    .values({
+      id: crypto.randomUUID(),
+      projectId: project.id,
+      ...fields,
+      organizationId: organizationId === undefined ? project.organizationId : organizationId,
+    });
   revalidateProject(project.id);
   return {};
 }
@@ -72,9 +87,14 @@ export async function updateTaskAction(_prev: FormState, formData: FormData): Pr
     return invalid(input.error, formData);
   }
 
+  const { organizationId, ...fields } = input.value;
+  if (organizationId && !(await getOwnedOrganization(project.ownerId, organizationId, "customer"))) {
+    return invalid("Choose one of your customers", formData, "customerId");
+  }
+
   await getDb()
     .update(schema.task)
-    .set({ ...input.value, updatedAt: new Date() })
+    .set({ ...fields, ...(organizationId !== undefined && { organizationId }), updatedAt: new Date() })
     .where(taskInProject(formData, project.id));
   revalidatePath(`/projects/${project.id}/tasks/${String(formData.get("taskId") ?? "")}`);
   revalidateProject(project.id);

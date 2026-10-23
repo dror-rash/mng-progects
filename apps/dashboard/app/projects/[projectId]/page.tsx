@@ -87,6 +87,9 @@ export default async function ProjectPage({ params }: { params: Promise<{ projec
                               {task.title}
                             </Link>
                           </CardTitle>
+                          {task.customerName && (
+                            <p className="text-xs text-muted-foreground">For {task.customerName}</p>
+                          )}
                         </CardHeader>
                         <CardContent className="flex flex-wrap gap-1">
                           {TASK_STATUSES.filter((s) => s.status !== column.status).map((target) => (

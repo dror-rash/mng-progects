@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 
 import { requireSession } from "@/features/auth/require-session";
 import { AppHeader } from "@/features/layout/app-header";
+import { getOwnedOrganization, listOrganizations } from "@/features/organizations/queries";
 import { getOwnedProject } from "@/features/projects/queries";
 import { deleteTaskFromPageAction } from "@/features/tasks/actions";
 import { EditTaskForm } from "@/features/tasks/edit-task-form";
@@ -22,6 +23,10 @@ export default async function TaskPage({ params }: { params: Promise<{ projectId
     notFound();
   }
 
+  const [customer, customers] = await Promise.all([
+    task.organizationId ? getOwnedOrganization(session.user.id, task.organizationId, "customer") : null,
+    listOrganizations(session.user.id, "customer"),
+  ]);
   const status = TASK_STATUSES.find((s) => s.status === (parseTaskStatus(task.status) ?? "todo"))!;
 
   return (
@@ -37,9 +42,21 @@ export default async function TaskPage({ params }: { params: Promise<{ projectId
 
         <section className="space-y-2">
           <h1 className="text-2xl font-bold tracking-tight">{task.title}</h1>
-          <span className="inline-block rounded-full bg-secondary px-2.5 py-0.5 text-xs font-medium text-secondary-foreground">
-            {status.label}
-          </span>
+          <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+            <span className="inline-block rounded-full bg-secondary px-2.5 py-0.5 text-xs font-medium text-secondary-foreground">
+              {status.label}
+            </span>
+            {customer ? (
+              <span>
+                Customer:{" "}
+                <Link href={`/customers/${customer.id}`} className="font-medium text-foreground hover:underline">
+                  {customer.name}
+                </Link>
+              </span>
+            ) : (
+              <span>No customer</span>
+            )}
+          </div>
           {task.description ? (
             <p className="whitespace-pre-wrap pt-2 text-muted-foreground">{task.description}</p>
           ) : (
@@ -52,7 +69,14 @@ export default async function TaskPage({ params }: { params: Promise<{ projectId
             <CardTitle className="text-base">Edit task</CardTitle>
           </CardHeader>
           <CardContent>
-            <EditTaskForm projectId={project.id} task={task} />
+            {/* Keyed on the last save, so the form starts from the saved values after each save
+                (React resets a submitted form to its initial defaults otherwise). */}
+            <EditTaskForm
+              key={task.updatedAt.toISOString()}
+              projectId={project.id}
+              task={task}
+              customers={customers}
+            />
           </CardContent>
         </Card>
 

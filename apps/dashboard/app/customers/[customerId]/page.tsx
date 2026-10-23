@@ -15,7 +15,8 @@ import { getOwnedOrganization } from "@/features/organizations/queries";
 import { ProjectList } from "@/features/projects/project-list";
 import { listCustomerProjects } from "@/features/projects/queries";
 import { summarizeByProject } from "@/features/tasks/progress";
-import { listOwnedTaskStatuses } from "@/features/tasks/queries";
+import { listCustomerOpenTasks, listOwnedTaskStatuses } from "@/features/tasks/queries";
+import { TASK_STATUSES } from "@/features/tasks/task-status";
 
 export const dynamic = "force-dynamic";
 
@@ -37,11 +38,12 @@ export default async function CustomerPage({ params }: { params: Promise<{ custo
   if (!customer) {
     notFound();
   }
-  const [contacts, notes, projects, taskStatuses] = await Promise.all([
+  const [contacts, notes, projects, taskStatuses, openTasks] = await Promise.all([
     listContacts(customer.id),
     listNotes(customer.id),
     listCustomerProjects(session.user.id, customer.id),
     listOwnedTaskStatuses(session.user.id),
+    listCustomerOpenTasks(session.user.id, customer.id),
   ]);
 
   return (
@@ -122,6 +124,35 @@ export default async function CustomerPage({ params }: { params: Promise<{ custo
           ) : (
             <ProjectList projects={projects} progress={summarizeByProject(taskStatuses)} showCustomer={false} />
           )}
+        </section>
+
+        <section aria-labelledby="open-tasks-heading">
+          <Card>
+            <CardHeader>
+              <CardTitle id="open-tasks-heading" className="text-base">Open tasks</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {openTasks.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No open tasks for this customer.</p>
+              ) : (
+                <ul className="divide-y">
+                  {openTasks.map((t) => (
+                    <li key={t.id} className="flex flex-wrap items-center justify-between gap-2 py-2 first:pt-0 last:pb-0">
+                      <Link href={`/projects/${t.projectId}/tasks/${t.id}`} className="text-sm font-medium hover:underline">
+                        {t.title}
+                      </Link>
+                      <span className="flex items-center gap-2 text-xs text-muted-foreground">
+                        {t.projectName}
+                        <Badge variant="outline">
+                          {TASK_STATUSES.find((s) => s.status === t.status)?.label ?? "To do"}
+                        </Badge>
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </CardContent>
+          </Card>
         </section>
 
         <ContactsSection customerId={customer.id} contacts={contacts} />
