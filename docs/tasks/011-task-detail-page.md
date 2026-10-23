@@ -1,6 +1,6 @@
 # Task 011: Task detail page with description
 
-- **Status:** todo
+- **Status:** in-review
 - **Milestone:** M6
 - **Zone / package:** `apps/dashboard`, `packages/db`, `packages/ui`
 - **Feature file:** `docs/features/task-details.feature`
@@ -19,10 +19,10 @@ A task is only a title today. People need somewhere to write what the task actua
 - Customer link (017), priority and due dates (018, 019, M7). Rich text / markdown. Comments, attachments, history.
 
 ## Acceptance criteria
-- [ ] Opening a task from the board shows its detail page.
-- [ ] Editing title and description saves and shows them on the detail page; the new title shows on the board.
-- [ ] Deleting a task from its page returns to the board without it.
-- [ ] Another user's task shows "Task not found".
+- [x] Opening a task from the board shows its detail page.
+- [x] Editing title and description saves and shows them on the detail page; the new title shows on the board.
+- [x] Deleting a task from its page returns to the board without it.
+- [x] Another user's task shows "Task not found".
 
 ## Approach (brief)
 `features/tasks/queries.ts` gets `getOwnedTask(ownerId, projectId, taskId)`; reuse `parseTaskInput` (new, like `parseProjectInput`) for title/description. Revalidate the board and overviews after changes.
@@ -34,5 +34,6 @@ A task is only a title today. People need somewhere to write what the task actua
 
 ## Progress log
 - 2026-10-23 – Task created.
+- 2026-10-23 – 4 scenarios red → green (stable over 3 repeats); `parseTaskInput` and `Textarea` tests; migration `0004` adds `task.description`. Step fixes: "I follow the link" now waits for the navigation; "I see the text" ignores form field values. Full suite (40 e2e) green, lint + typecheck + Storybook clean.
 
 ## Parking lot
