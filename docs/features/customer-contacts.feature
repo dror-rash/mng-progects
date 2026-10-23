@@ -1,4 +1,4 @@
-@wip @zone:dashboard @task:014
+@zone:dashboard @task:014
 Feature: Customer contacts
   As a signed-in user
   I want to keep the people I work with at each customer

@@ -58,3 +58,11 @@ Then("the {string} field contains {string}", async ({ page }, label: string, val
 When("I select {string} from {string}", async ({ page }, option: string, label: string) => {
   await page.getByLabel(label, { exact: true }).selectOption({ label: option });
 });
+
+Then("the {string} section shows {string}", async ({ page }, section: string, text: string) => {
+  await expect(page.getByRole("region", { name: section, exact: true })).toContainText(text);
+});
+
+Then("the {string} section does not show {string}", async ({ page }, section: string, text: string) => {
+  await expect(page.getByRole("region", { name: section, exact: true })).not.toContainText(text);
+});

@@ -45,3 +45,9 @@ When("I open the other user's customer page", async ({ page, state }) => {
   expect(state.otherUsersCustomerUrl).toBeDefined();
   await page.goto(state.otherUsersCustomerUrl!);
 });
+
+Given("the customer has a contact {string}", async ({ page }, name: string) => {
+  await page.getByLabel("Contact name", { exact: true }).fill(name);
+  await page.getByRole("button", { name: "Add contact" }).click();
+  await expect(page.getByRole("region", { name: "Contacts" })).toContainText(name);
+});
