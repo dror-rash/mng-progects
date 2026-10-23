@@ -76,6 +76,8 @@ export const task = pgTable("task", {
     .references(() => project.id, { onDelete: "cascade" }),
   title: text("title").notNull(),
   description: text("description"),
+  /** The customer this task is about (task 017); may differ from the project's. Cleared if it is deleted. */
+  organizationId: text("organization_id").references(() => organization.id, { onDelete: "set null" }),
   status: text("status").notNull().default("todo"),
   priority: text("priority").notNull().default("medium"),
   /** Set when the task moves to Done, cleared when it moves out. Null for tasks completed before this column existed. */
