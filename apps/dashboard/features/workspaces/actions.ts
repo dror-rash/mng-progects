@@ -11,13 +11,16 @@ import { type FormState, invalid } from "@/features/forms/form-state";
 
 import { WORKSPACE_COOKIE } from "./current-workspace";
 import { hashInviteToken, inviteExpiresAt, inviteState, newInviteToken } from "./invite-token";
-import { findInvite, listMembers } from "./members";
+import { findInvite } from "./members";
 import { ensurePersonalWorkspace, isMember, listMemberships } from "./queries";
 import { requireWorkspaceForAction } from "./require-workspace";
-import { keepsAnAdmin, parseWorkspaceRole } from "./roles";
+import { keepsAnAdmin, parseWorkspaceRole, type WorkspaceRole } from "./roles";
 import { parseWorkspaceName } from "./workspace-name";
 
 const LAST_ADMIN = "A workspace needs at least one admin";
+const ADMINS_ONLY = "Only admins can manage this workspace";
+
+type Tx = Parameters<Parameters<ReturnType<typeof getDb>["transaction"]>[0]>[0];
 
 async function useWorkspace(workspaceId: string) {
   (await cookies()).set(WORKSPACE_COOKIE, workspaceId, {
@@ -28,19 +31,19 @@ async function useWorkspace(workspaceId: string) {
   });
 }
 
-/** The current workspace, only for its admins. Every admin action starts here (ADR-0005). */
-async function requireAdmin() {
-  const context = await requireWorkspaceForAction();
+/** The form's workspace, only for its admins. Every admin action starts here (ADR-0005). */
+async function requireAdmin(formData: FormData) {
+  const context = await requireWorkspaceForAction(formData);
   if (context.workspace.role !== "admin") {
-    throw new Error("Only admins can manage this workspace");
+    throw new Error(ADMINS_ONLY);
   }
   return context;
 }
 
 /** Leaving a workspace drops your assignments in it (ADR-0005). */
-async function clearAssignments(workspaceId: string, userId: string) {
-  const projects = getDb().select({ id: schema.project.id }).from(schema.project).where(eq(schema.project.workspaceId, workspaceId));
-  await getDb()
+async function clearAssignments(tx: Tx, workspaceId: string, userId: string) {
+  const projects = tx.select({ id: schema.project.id }).from(schema.project).where(eq(schema.project.workspaceId, workspaceId));
+  await tx
     .update(schema.task)
     .set({ assigneeId: null })
     .where(and(eq(schema.task.assigneeId, userId), inArray(schema.task.projectId, projects)));
@@ -48,6 +51,49 @@ async function clearAssignments(workspaceId: string, userId: string) {
 
 function memberOf(workspaceId: string, userId: string) {
   return and(eq(schema.workspaceMember.workspaceId, workspaceId), eq(schema.workspaceMember.userId, userId));
+}
+
+/**
+ * Gives `userId` a new role, or removes them (`role: null`) and clears their assignments, keeping at
+ * least one admin (ADR-0005). The workspace row is locked first, so two admins changing each other at
+ * once can't both pass the check; `adminId` (who is acting) must still be an admin under that lock.
+ */
+async function changeMembership(
+  workspaceId: string,
+  change: { userId: string; role: WorkspaceRole | null },
+  adminId?: string,
+): Promise<"done" | "not-a-member" | "not-an-admin" | "last-admin"> {
+  return getDb().transaction(async (tx) => {
+    await tx.select({ id: schema.workspace.id }).from(schema.workspace).where(eq(schema.workspace.id, workspaceId)).for("update");
+    const members = await tx
+      .select({ userId: schema.workspaceMember.userId, role: schema.workspaceMember.role })
+      .from(schema.workspaceMember)
+      .where(eq(schema.workspaceMember.workspaceId, workspaceId));
+    if (adminId && members.find((m) => m.userId === adminId)?.role !== "admin") {
+      return "not-an-admin";
+    }
+    if (!members.some((m) => m.userId === change.userId)) {
+      return "not-a-member";
+    }
+    if (!keepsAnAdmin(members, change)) {
+      return "last-admin";
+    }
+    if (change.role) {
+      await tx.update(schema.workspaceMember).set({ role: change.role }).where(memberOf(workspaceId, change.userId));
+    } else {
+      await tx.delete(schema.workspaceMember).where(memberOf(workspaceId, change.userId));
+      await clearAssignments(tx, workspaceId, change.userId);
+    }
+    return "done";
+  });
+}
+
+/** For actions without a form state: anything but "done" is an error. */
+function assertDone(result: Awaited<ReturnType<typeof changeMembership>>) {
+  const errors = { "not-a-member": "Not a member of this workspace", "not-an-admin": ADMINS_ONLY, "last-admin": LAST_ADMIN };
+  if (result !== "done") {
+    throw new Error(errors[result]);
+  }
 }
 
 async function publicOrigin() {
@@ -63,8 +109,11 @@ async function publicOrigin() {
 export type InviteState = FormState & { link?: string };
 
 /** Creates a link and returns it once; only its hash is stored. */
-export async function createInviteAction(_prev: InviteState): Promise<InviteState> {
-  const { session, workspace } = await requireAdmin();
+export async function createInviteAction(_prev: InviteState, formData: FormData): Promise<InviteState> {
+  const { session, workspace } = await requireWorkspaceForAction(formData);
+  if (workspace.role !== "admin") {
+    return { error: ADMINS_ONLY };
+  }
   const token = newInviteToken();
   await getDb()
     .insert(schema.workspaceInvite)
@@ -80,8 +129,8 @@ export async function createInviteAction(_prev: InviteState): Promise<InviteStat
 }
 
 export async function revokeInviteAction(formData: FormData) {
-  const { workspace } = await requireAdmin();
-  await getDb()
+  const { workspace } = await requireAdmin(formData);
+  const revoked = await getDb()
     .update(schema.workspaceInvite)
     .set({ revokedAt: new Date() })
     .where(
@@ -89,42 +138,37 @@ export async function revokeInviteAction(formData: FormData) {
         eq(schema.workspaceInvite.id, String(formData.get("inviteId") ?? "")),
         eq(schema.workspaceInvite.workspaceId, workspace.id),
       ),
-    );
+    )
+    .returning({ id: schema.workspaceInvite.id });
+  if (revoked.length === 0) {
+    throw new Error("Invite link not found");
+  }
   revalidatePath("/workspace");
 }
 
 export async function changeRoleAction(formData: FormData) {
-  const { workspace } = await requireAdmin();
-  const userId = String(formData.get("userId") ?? "");
+  const { session, workspace } = await requireAdmin(formData);
   const role = parseWorkspaceRole(formData.get("role"));
   if (!role) {
     throw new Error("Unknown role");
   }
-  if (!keepsAnAdmin(await listMembers(workspace.id), { userId, role })) {
-    throw new Error(LAST_ADMIN);
-  }
-  await getDb().update(schema.workspaceMember).set({ role }).where(memberOf(workspace.id, userId));
+  assertDone(await changeMembership(workspace.id, { userId: String(formData.get("userId") ?? ""), role }, session.user.id));
   revalidatePath("/workspace");
 }
 
 export async function removeMemberAction(formData: FormData) {
-  const { workspace } = await requireAdmin();
-  const userId = String(formData.get("userId") ?? "");
-  if (!keepsAnAdmin(await listMembers(workspace.id), { userId, role: null })) {
-    throw new Error(LAST_ADMIN);
-  }
-  await getDb().delete(schema.workspaceMember).where(memberOf(workspace.id, userId));
-  await clearAssignments(workspace.id, userId);
+  const { session, workspace } = await requireAdmin(formData);
+  assertDone(await changeMembership(workspace.id, { userId: String(formData.get("userId") ?? ""), role: null }, session.user.id));
   revalidatePath("/workspace");
 }
 
-export async function leaveWorkspaceAction(_prev: FormState): Promise<FormState> {
-  const { session, workspace } = await requireWorkspaceForAction();
-  if (!keepsAnAdmin(await listMembers(workspace.id), { userId: session.user.id, role: null })) {
+export async function leaveWorkspaceAction(_prev: FormState, formData: FormData): Promise<FormState> {
+  const { session, workspace } = await requireWorkspaceForAction(formData);
+  const result = await changeMembership(workspace.id, { userId: session.user.id, role: null });
+  if (result === "last-admin") {
     return { error: LAST_ADMIN };
   }
-  await getDb().delete(schema.workspaceMember).where(memberOf(workspace.id, session.user.id));
-  await clearAssignments(workspace.id, session.user.id);
+  assertDone(result);
   (await cookies()).delete(WORKSPACE_COOKIE);
   redirect("/");
 }
@@ -176,9 +220,10 @@ export async function createWorkspaceAction(_prev: FormState, formData: FormData
     return invalid(name.error, formData, "name");
   }
   const id = crypto.randomUUID();
-  const db = getDb();
-  await db.insert(schema.workspace).values({ id, name: name.value });
-  await db.insert(schema.workspaceMember).values({ workspaceId: id, userId: session.user.id, role: "admin" });
+  await getDb().transaction(async (tx) => {
+    await tx.insert(schema.workspace).values({ id, name: name.value });
+    await tx.insert(schema.workspaceMember).values({ workspaceId: id, userId: session.user.id, role: "admin" });
+  });
   await useWorkspace(id);
   redirect("/");
 }

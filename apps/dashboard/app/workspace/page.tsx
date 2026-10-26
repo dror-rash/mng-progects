@@ -54,6 +54,7 @@ export default async function WorkspacePage() {
                         {isAdmin && !isMe && (
                           <>
                             <form action={changeRoleAction}>
+                              <input type="hidden" name="workspaceId" value={workspace.id} />
                               <input type="hidden" name="userId" value={m.userId} />
                               <input type="hidden" name="role" value={m.role === "admin" ? "member" : "admin"} />
                               <Button type="submit" variant="ghost" size="sm">
@@ -62,6 +63,7 @@ export default async function WorkspacePage() {
                               </Button>
                             </form>
                             <form action={removeMemberAction}>
+                              <input type="hidden" name="workspaceId" value={workspace.id} />
                               <input type="hidden" name="userId" value={m.userId} />
                               <Button type="submit" variant="ghost" size="sm">
                                 Remove<span className="sr-only"> {m.name}</span>
@@ -85,7 +87,7 @@ export default async function WorkspacePage() {
                 <CardTitle id="invites-heading" className="text-base">Invite links</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <InviteForm />
+                <InviteForm workspaceId={workspace.id} />
                 {invites.length > 0 && (
                   <ul className="divide-y border-t">
                     {invites.map((invite) => {
@@ -97,6 +99,7 @@ export default async function WorkspacePage() {
                             {expired ? "expired" : `expires ${DATE.format(invite.expiresAt)}`}
                           </span>
                           <form action={revokeInviteAction}>
+                            <input type="hidden" name="workspaceId" value={workspace.id} />
                             <input type="hidden" name="inviteId" value={invite.id} />
                             <Button type="submit" variant="ghost" size="sm">
                               Revoke invite link<span className="sr-only"> created {DATE.format(invite.createdAt)}</span>
@@ -112,7 +115,7 @@ export default async function WorkspacePage() {
           </section>
         )}
 
-        <LeaveForm />
+        <LeaveForm workspaceId={workspace.id} />
       </main>
     </div>
   );

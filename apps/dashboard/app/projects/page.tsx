@@ -32,7 +32,7 @@ export default async function AllProjectsPage() {
             <CardDescription>Start tracking deliverables and tasks with your team</CardDescription>
           </CardHeader>
           <CardContent>
-            <ProjectForm customers={customers} />
+            <ProjectForm workspaceId={workspace.id} customers={customers} />
           </CardContent>
         </Card>
 

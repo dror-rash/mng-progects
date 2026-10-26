@@ -29,11 +29,19 @@ export async function requireWorkspace(path: string) {
   return { session, workspace: await currentWorkspace(session) };
 }
 
-/** For server actions: the session and the current workspace, or throws. */
-export async function requireWorkspaceForAction() {
+/**
+ * For server actions: the session and the workspace the form was rendered for (its hidden `workspaceId`),
+ * or throws. Not the cookie: it may have changed in another tab since the page was shown.
+ */
+export async function requireWorkspaceForAction(formData: FormData) {
   const session = await getSession();
   if (!session) {
     throw new Error("Unauthorized");
   }
-  return { session, workspace: await currentWorkspace(session) };
+  const workspaceId = String(formData.get("workspaceId") ?? "");
+  const membership = (await listMemberships(session.user.id)).find((m) => m.workspaceId === workspaceId);
+  if (!membership) {
+    throw new Error("Not a member of this workspace");
+  }
+  return { session, workspace: { id: membership.workspaceId, name: membership.name, role: membership.role } };
 }

@@ -1,18 +1,21 @@
 "use client";
 
 import { Button } from "@repo/ui/button";
+import { FieldError } from "@repo/ui/field-error";
 import { Input } from "@repo/ui/input";
 import { useActionState } from "react";
 
 import { createInviteAction, type InviteState } from "./actions";
 
 /** Creates an invite link and shows it once (only its hash is stored). */
-export function InviteForm() {
-  const [state, formAction, pending] = useActionState<InviteState>(createInviteAction, {});
+export function InviteForm({ workspaceId }: { workspaceId: string }) {
+  const [state, formAction, pending] = useActionState<InviteState, FormData>(createInviteAction, {});
 
   return (
     <form action={formAction} className="space-y-3">
+      <input type="hidden" name="workspaceId" value={workspaceId} />
       <Button type="submit" size="sm" disabled={pending}>Create invite link</Button>
+      <FieldError message={state.error} />
       {state.link && (
         <div className="space-y-1">
           <label htmlFor="invite-link" className="text-sm font-medium">Invite link</label>

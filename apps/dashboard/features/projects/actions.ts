@@ -12,7 +12,7 @@ import { requireProjectAccess } from "./require-project-access";
 import { revalidateOverviews } from "./revalidate";
 
 export async function createProjectAction(_prev: FormState, formData: FormData): Promise<FormState> {
-  const { session, workspace } = await requireWorkspaceForAction();
+  const { session, workspace } = await requireWorkspaceForAction(formData);
   const input = parseProjectInput(formData);
   if (!input.ok) {
     return invalid(input.error, formData);

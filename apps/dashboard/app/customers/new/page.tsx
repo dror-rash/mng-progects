@@ -18,7 +18,7 @@ export default async function NewCustomerPage() {
             <CardTitle>New customer</CardTitle>
           </CardHeader>
           <CardContent>
-            <CustomerForm />
+            <CustomerForm workspaceId={workspace.id} />
           </CardContent>
         </Card>
       </main>

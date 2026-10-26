@@ -15,7 +15,16 @@ type Project = { id: string; name: string; description: string | null; organizat
 type CustomerOption = { id: string; name: string };
 
 /** Create a project, or edit one when `project` is given. Shows validation errors and keeps what was typed or chosen. */
-export function ProjectForm({ project, customers }: { project?: Project; customers: CustomerOption[] }) {
+export function ProjectForm({
+  project,
+  workspaceId,
+  customers,
+}: {
+  project?: Project;
+  /** For a new project: the workspace it goes in (the one this page shows). */
+  workspaceId?: string;
+  customers: CustomerOption[];
+}) {
   const [state, formAction, pending] = useActionState<FormState, FormData>(
     project ? updateProjectAction : createProjectAction,
     {},
@@ -28,6 +37,7 @@ export function ProjectForm({ project, customers }: { project?: Project; custome
   return (
     <form action={formAction} className="space-y-4">
       {project && <input type="hidden" name="projectId" value={project.id} />}
+      {workspaceId && <input type="hidden" name="workspaceId" value={workspaceId} />}
       <div className="space-y-1">
         <label htmlFor="name" className="text-sm font-medium">Project name</label>
         <Input
