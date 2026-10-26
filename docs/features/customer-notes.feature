@@ -19,3 +19,8 @@ Feature: Customer notes
     Given I add the note "Kick-off call went well"
     When I press "Delete note"
     Then the "Notes" section does not show "Kick-off call went well"
+
+  @task:025
+  Scenario: A note shows who wrote it
+    When I add the note "Kick-off call went well"
+    Then the "Notes" section shows "by Test User"
