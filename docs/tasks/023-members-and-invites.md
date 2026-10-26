@@ -1,6 +1,6 @@
 # Task 023: Members, roles and invite links (M8 step 2)
 
-- **Status:** in-progress
+- **Status:** in-review
 - **Milestone:** M8
 - **Zone / package:** `packages/db`, `apps/dashboard`, `e2e`
 - **Feature file:** `docs/features/workspace-members.feature`
@@ -20,12 +20,12 @@ Workspaces exist (task 022) but nobody can join one. This lets an admin invite t
 - Switcher and creating more workspaces (024); assignees (025); email invites; a Viewer role.
 
 ## Acceptance criteria
-- [ ] An admin creates an invite link; a teammate who joins sees the workspace's projects, and appears on the members page.
-- [ ] A removed member can no longer open the workspace's projects.
-- [ ] A member doesn't get admin controls.
-- [ ] A revoked link can't be used.
-- [ ] The last admin can't leave.
-- [ ] A signed-out visitor opening an invite link is sent to log in.
+- [x] An admin creates an invite link; a teammate who joins sees the workspace's projects, and appears on the members page.
+- [x] A removed member can no longer open the workspace's projects.
+- [x] A member doesn't get admin controls.
+- [x] A revoked link can't be used.
+- [x] The last admin can't leave.
+- [x] A signed-out visitor opening an invite link is sent to log in.
 
 ## Approach (brief)
 Pure helpers in `features/workspaces/` (roles, invite token/hash/expiry/state, "keeps an admin" rule) with unit tests; `requireAdmin(workspaceId)` for admin actions; SHA-256 via `node:crypto`.
@@ -36,5 +36,8 @@ Pure helpers in `features/workspaces/` (roles, invite token/hash/expiry/state, "
 
 ## Progress log
 - 2026-10-26 – Task created.
+- 2026-10-26 – Migration `0013` adds `workspace_invite`. 6 scenarios red → green (stable over 3 repeats) using a `people` fixture that closes extra browser contexts; unit tests for roles, the admin-keeping rule and invite tokens. Full suite 83/83 twice. The workspace name in the header links to the members page.
 
 ## Parking lot
+- Test that the server refuses a member's direct admin request (today the UI hides the controls and every admin action calls `requireAdmin`, but no test sends the request).
+- Copy-to-clipboard button for a new invite link.
