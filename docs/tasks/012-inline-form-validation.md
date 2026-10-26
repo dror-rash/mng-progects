@@ -1,6 +1,6 @@
 # Task 012: Inline validation errors on forms
 
-- **Status:** in-review
+- **Status:** done
 - **Milestone:** M6
 - **Zone / package:** `apps/dashboard`
 - **Feature file:** `docs/features/form-validation.feature`
@@ -33,5 +33,6 @@ Each action gets a `(prevState, formData)` signature returning `{ error?: string
 ## Progress log
 - 2026-10-23 – Task created.
 - 2026-10-23 – 3 scenarios red → green (stable over 3 repeats); `FieldError` component tests + story, `invalid` unit tests. Forms converted: create/edit project, add task, edit task. Full suite (43 e2e) green; lint, typecheck, Storybook and dashboard production build clean.
+- 2026-10-26 – Merged in PR #4.
 
 ## Parking lot

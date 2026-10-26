@@ -1,6 +1,6 @@
 # Task 013: Customers directory
 
-- **Status:** in-review
+- **Status:** done
 - **Milestone:** M6
 - **Zone / package:** `apps/dashboard`, `packages/db`, `packages/ui`
 - **Feature file:** `docs/features/customers.feature`
@@ -40,6 +40,7 @@ Mirror `features/projects/` (queries, actions, `parseOrganizationInput`, `requir
 ## Progress log
 - 2026-10-23 – Task created.
 - 2026-10-23 – 6 scenarios red → green (stable over 3 repeats); 12 unit tests (input, statuses, tags), `Badge`/`NativeSelect` component tests + stories, `invalid()` now names the field. Migration `0005` creates `organization`. Header gets a Customers link and wraps on mobile (it overflowed at 390px). Full suite (49 e2e) green, lint, typecheck, Storybook clean.
+- 2026-10-26 – Merged in PR #4.
 
 ## Parking lot
 - Other kinds in the UI (service providers, suppliers).

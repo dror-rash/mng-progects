@@ -1,6 +1,6 @@
 # Task 016: Link projects to a customer
 
-- **Status:** in-review
+- **Status:** done
 - **Milestone:** M6
 - **Zone / package:** `apps/dashboard`, `packages/db`
 - **Feature file:** `docs/features/customer-links.feature`
@@ -32,5 +32,6 @@ Customer picker uses `NativeSelect` (added in 013). Owner check covers both the 
 ## Progress log
 - 2026-10-23 – Task created.
 - 2026-10-23 – 2 scenarios red → green; `parseProjectInput` reads the customer; actions refuse a customer the user doesn't own. Migration `0008` adds `project.organization_id` (SET NULL). Fixed test-step races found under load: "I press" waits for the submission to finish; "I follow the link" waits for the full URL incl. query. Dev-mode expect timeout 15s (routes compile on first visit); CI keeps 5s. Full suite 55/55 three runs in a row.
+- 2026-10-26 – Merged in PR #4.
 
 ## Parking lot

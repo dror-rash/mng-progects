@@ -1,6 +1,6 @@
 # Task 017: Link a task to a customer
 
-- **Status:** in-review
+- **Status:** done
 - **Milestone:** M6
 - **Zone / package:** `apps/dashboard`, `packages/db`
 - **Feature file:** `docs/features/customer-links.feature`
@@ -32,6 +32,7 @@ Same picker and owner check as 016.
 - 2026-10-23 – Task created.
 - 2026-10-23 – 3 scenarios red → green; `parseTaskInput` distinguishes chosen / none / not on the form (quick add uses the project's customer). Migration `0009` adds `task.organization_id` (SET NULL). Screenshot review caught a bug: after saving, the task form's Customer select reset to its first-load value, so a second save would clear the customer. Added a check to the scenario (red), fixed by keying the form on the last save. Full suite 58/58 twice; production build 58/58 three times with flat memory (221 → 315 MB).
 - 2026-10-23 – Slow, flaky local runs were long-running dev servers near Next's memory threshold (dashboard dev ~4 GB, auto-restarting mid-run). Restarting `pnpm dev` fixed it; noted in WORKFLOW.md.
+- 2026-10-26 – Merged in PR #4.
 
 ## Parking lot
 - Show tasks for service providers once that kind has UI.
