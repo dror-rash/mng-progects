@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 
 import { type FormState, invalid } from "@/features/forms/form-state";
 import { customerInWorkspace } from "@/features/organizations/queries";
+import { isMember } from "@/features/workspaces/queries";
 import { revalidateOverviews } from "@/features/projects/revalidate";
 import { requireProjectAccess } from "@/features/projects/require-project-access";
 
@@ -31,9 +32,12 @@ export async function createTaskAction(_prev: FormState, formData: FormData): Pr
     return invalid(input.error, formData, input.field);
   }
 
-  const { organizationId, priority, dueDate, ...fields } = input.value;
+  const { organizationId, priority, dueDate, assigneeId, ...fields } = input.value;
   if (!(await customerInWorkspace(project.workspaceId, organizationId))) {
     return invalid("Choose one of your customers", formData, "customerId");
+  }
+  if (assigneeId && !(await isMember(assigneeId, project.workspaceId))) {
+    return invalid("Choose someone in this workspace", formData, "assigneeId");
   }
 
   // A new task is about the project's customer unless the form chose otherwise.
@@ -46,6 +50,7 @@ export async function createTaskAction(_prev: FormState, formData: FormData): Pr
       organizationId: organizationId === undefined ? project.organizationId : organizationId,
       ...(priority && { priority }),
       ...(dueDate !== undefined && { dueDate }),
+      ...(assigneeId !== undefined && { assigneeId }),
     });
   revalidateProject(project.id);
   return {};
@@ -89,9 +94,12 @@ export async function updateTaskAction(_prev: FormState, formData: FormData): Pr
     return invalid(input.error, formData, input.field);
   }
 
-  const { organizationId, priority, dueDate, ...fields } = input.value;
+  const { organizationId, priority, dueDate, assigneeId, ...fields } = input.value;
   if (!(await customerInWorkspace(project.workspaceId, organizationId))) {
     return invalid("Choose one of your customers", formData, "customerId");
+  }
+  if (assigneeId && !(await isMember(assigneeId, project.workspaceId))) {
+    return invalid("Choose someone in this workspace", formData, "assigneeId");
   }
 
   const updated = await getDb()
@@ -101,6 +109,7 @@ export async function updateTaskAction(_prev: FormState, formData: FormData): Pr
       ...(organizationId !== undefined && { organizationId }),
       ...(priority && { priority }),
       ...(dueDate !== undefined && { dueDate }),
+      ...(assigneeId !== undefined && { assigneeId }),
       updatedAt: new Date(),
     })
     .where(taskInProject(formData, project.id))

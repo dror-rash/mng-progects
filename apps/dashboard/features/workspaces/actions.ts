@@ -2,7 +2,7 @@
 
 import { resolvePublicOrigin } from "@repo/auth/redirect";
 import { getSession } from "@repo/auth/server";
-import { and, eq, getDb, schema } from "@repo/db";
+import { and, eq, getDb, inArray, schema } from "@repo/db";
 import { revalidatePath } from "next/cache";
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
@@ -35,6 +35,15 @@ async function requireAdmin() {
     throw new Error("Only admins can manage this workspace");
   }
   return context;
+}
+
+/** Leaving a workspace drops your assignments in it (ADR-0005). */
+async function clearAssignments(workspaceId: string, userId: string) {
+  const projects = getDb().select({ id: schema.project.id }).from(schema.project).where(eq(schema.project.workspaceId, workspaceId));
+  await getDb()
+    .update(schema.task)
+    .set({ assigneeId: null })
+    .where(and(eq(schema.task.assigneeId, userId), inArray(schema.task.projectId, projects)));
 }
 
 function memberOf(workspaceId: string, userId: string) {
@@ -105,6 +114,7 @@ export async function removeMemberAction(formData: FormData) {
     throw new Error(LAST_ADMIN);
   }
   await getDb().delete(schema.workspaceMember).where(memberOf(workspace.id, userId));
+  await clearAssignments(workspace.id, userId);
   revalidatePath("/workspace");
 }
 
@@ -114,6 +124,7 @@ export async function leaveWorkspaceAction(_prev: FormState): Promise<FormState>
     return { error: LAST_ADMIN };
   }
   await getDb().delete(schema.workspaceMember).where(memberOf(workspace.id, session.user.id));
+  await clearAssignments(workspace.id, session.user.id);
   (await cookies()).delete(WORKSPACE_COOKIE);
   redirect("/");
 }

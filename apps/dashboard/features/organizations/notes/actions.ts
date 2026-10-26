@@ -1,5 +1,6 @@
 "use server";
 
+import { getSession } from "@repo/auth/server";
 import { and, eq, getDb, schema } from "@repo/db";
 import { revalidatePath } from "next/cache";
 
@@ -15,7 +16,10 @@ export async function addNoteAction(_prev: FormState, formData: FormData): Promi
     return invalid(input.error, formData, input.field);
   }
 
-  await getDb().insert(schema.organizationNote).values({ id: crypto.randomUUID(), organizationId: customer.id, ...input.value });
+  const session = await getSession();
+  await getDb()
+    .insert(schema.organizationNote)
+    .values({ id: crypto.randomUUID(), organizationId: customer.id, authorId: session?.user.id ?? null, ...input.value });
   revalidatePath(`/customers/${customer.id}`);
   return {};
 }

@@ -102,6 +102,9 @@ export default async function ProjectPage({ params }: { params: Promise<{ projec
                               )}
                             </p>
                           )}
+                          {task.assigneeName && (
+                            <p className="text-xs text-muted-foreground">Assigned to {task.assigneeName}</p>
+                          )}
                           {task.customerName && (
                             <p className="text-xs text-muted-foreground">For {task.customerName}</p>
                           )}

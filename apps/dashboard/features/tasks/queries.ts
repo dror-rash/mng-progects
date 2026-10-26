@@ -1,11 +1,16 @@
-import { and, asc, desc, eq, getDb, getTableColumns, ne, schema } from "@repo/db";
+import { alias, and, asc, desc, eq, getDb, getTableColumns, ne, schema } from "@repo/db";
 
-/** The project's tasks, with each task's customer name (null when none). */
+import { visibleTo } from "@/features/workspaces/access";
+
+const assignee = alias(schema.user, "assignee");
+
+/** The project's tasks, with each task's customer and assignee names (null when none). */
 export async function listProjectTasks(projectId: string) {
   return getDb()
-    .select({ ...getTableColumns(schema.task), customerName: schema.organization.name })
+    .select({ ...getTableColumns(schema.task), customerName: schema.organization.name, assigneeName: assignee.name })
     .from(schema.task)
     .leftJoin(schema.organization, eq(schema.task.organizationId, schema.organization.id))
+    .leftJoin(assignee, eq(schema.task.assigneeId, assignee.id))
     .where(eq(schema.task.projectId, projectId))
     .orderBy(asc(schema.task.createdAt));
 }
@@ -54,4 +59,29 @@ export async function listCustomerOpenTasks(workspaceId: string, organizationId:
       ),
     )
     .orderBy(desc(schema.task.createdAt));
+}
+
+/** Open tasks assigned to `userId`, in every workspace they belong to, with project and workspace names. */
+export async function listMyOpenTasks(userId: string) {
+  return getDb()
+    .select({
+      id: schema.task.id,
+      title: schema.task.title,
+      status: schema.task.status,
+      priority: schema.task.priority,
+      dueDate: schema.task.dueDate,
+      projectId: schema.project.id,
+      projectName: schema.project.name,
+      workspaceName: schema.workspace.name,
+    })
+    .from(schema.task)
+    .innerJoin(schema.project, eq(schema.task.projectId, schema.project.id))
+    .innerJoin(schema.workspace, eq(schema.project.workspaceId, schema.workspace.id))
+    .where(
+      and(
+        eq(schema.task.assigneeId, userId),
+        ne(schema.task.status, "done"),
+        visibleTo(userId, schema.project.workspaceId),
+      ),
+    );
 }
