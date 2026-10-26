@@ -1,6 +1,7 @@
-import { and, arrayContains, asc, eq, getDb, schema } from "@repo/db";
+import { and, asc, eq, getDb, schema, sql } from "@repo/db";
 
 import type { OrganizationKind, OrganizationStatus } from "./organization-kinds";
+import { distinctTags } from "./tag-list";
 
 /** Returns the organization only if `ownerId` owns it and it is of `kind`. */
 export async function getOwnedOrganization(ownerId: string, id: string, kind: OrganizationKind) {
@@ -30,21 +31,30 @@ export async function listOrganizations(
         eq(schema.organization.ownerId, ownerId),
         eq(schema.organization.kind, kind),
         filter.status ? eq(schema.organization.status, filter.status) : undefined,
-        filter.tag ? arrayContains(schema.organization.tags, [filter.tag]) : undefined,
+        // Tags match without regard to case, the same way the tag list merges them.
+        filter.tag
+          ? sql`exists (select 1 from unnest(${schema.organization.tags}) as t where lower(t) = lower(${filter.tag}))`
+          : undefined,
       ),
     )
     .orderBy(asc(schema.organization.name));
 }
 
-/** Every tag used by the owner's organizations of `kind`, de-duplicated case-insensitively and sorted. */
+/** Every tag used by the owner's organizations of `kind`; see `distinctTags` (oldest spelling wins). */
 export async function listOrganizationTags(ownerId: string, kind: OrganizationKind) {
   const rows = await getDb()
     .select({ tags: schema.organization.tags })
     .from(schema.organization)
-    .where(and(eq(schema.organization.ownerId, ownerId), eq(schema.organization.kind, kind)));
-  const byKey = new Map<string, string>();
-  for (const tag of rows.flatMap((r) => r.tags)) {
-    if (!byKey.has(tag.toLowerCase())) byKey.set(tag.toLowerCase(), tag);
-  }
-  return [...byKey.values()].sort((a, b) => a.localeCompare(b));
+    .where(and(eq(schema.organization.ownerId, ownerId), eq(schema.organization.kind, kind)))
+    .orderBy(asc(schema.organization.createdAt));
+  return distinctTags(rows.map((r) => r.tags));
+}
+
+/**
+ * Whether `ownerId` may link a project or task to `organizationId`: "no customer" (null/undefined)
+ * is always allowed; otherwise it must be one of the owner's customers. The only guard against
+ * linking another user's customer by tampering with the form.
+ */
+export async function ownsCustomer(ownerId: string, organizationId: string | null | undefined) {
+  return !organizationId || (await getOwnedOrganization(ownerId, organizationId, "customer")) !== null;
 }

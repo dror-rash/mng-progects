@@ -27,6 +27,7 @@ export function ContactForm({ customerId, contact }: { customerId: string; conta
     <form action={formAction} className="space-y-3">
       <input type="hidden" name="customerId" value={customerId} />
       {contact && <input type="hidden" name="contactId" value={contact.id} />}
+      <FieldError message={state.field ? undefined : state.error} />
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="space-y-1">
           <label htmlFor="contact-name" className="text-sm font-medium">Contact name</label>

@@ -50,7 +50,14 @@ export function CustomerForm({ customer }: { customer?: Customer }) {
         </div>
         <div className="space-y-1">
           <label htmlFor="status" className="text-sm font-medium">Status</label>
-          <NativeSelect id="status" name="status" defaultValue={value("status", customer?.status ?? "active")} {...fieldProps("status")}>
+          {/* Keyed on the submitted value: a select only applies defaultValue when it mounts (see project-form). */}
+          <NativeSelect
+            key={value("status", customer?.status ?? "active")}
+            id="status"
+            name="status"
+            defaultValue={value("status", customer?.status ?? "active")}
+            {...fieldProps("status")}
+          >
             {ORGANIZATION_STATUSES.map((s) => (
               <option key={s.status} value={s.status}>{s.label}</option>
             ))}

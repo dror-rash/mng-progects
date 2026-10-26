@@ -10,6 +10,11 @@ import { type FormState, invalid } from "@/features/forms/form-state";
 import { parseOrganizationInput } from "./organization-input";
 import { requireOwnedOrganization } from "./require-owned-organization";
 
+/** Customer names appear on project lists, project and task pages: refresh the whole zone ("/" is /dashboard). */
+function revalidateCustomerNames() {
+  revalidatePath("/", "layout");
+}
+
 export async function createCustomerAction(_prev: FormState, formData: FormData): Promise<FormState> {
   const session = await getSession();
   if (!session) {
@@ -22,7 +27,7 @@ export async function createCustomerAction(_prev: FormState, formData: FormData)
 
   const id = crypto.randomUUID();
   await getDb().insert(schema.organization).values({ id, kind: "customer", ownerId: session.user.id, ...input.value });
-  revalidatePath("/customers");
+  revalidateCustomerNames();
   redirect(`/customers/${id}`);
 }
 
@@ -37,7 +42,7 @@ export async function updateCustomerAction(_prev: FormState, formData: FormData)
     .update(schema.organization)
     .set({ ...input.value, updatedAt: new Date() })
     .where(eq(schema.organization.id, customer.id));
-  revalidatePath("/customers");
+  revalidateCustomerNames();
   redirect(`/customers/${customer.id}`);
 }
 
@@ -45,6 +50,6 @@ export async function deleteCustomerAction(formData: FormData) {
   const customer = await requireOwnedOrganization(String(formData.get("customerId") ?? ""), "customer");
 
   await getDb().delete(schema.organization).where(eq(schema.organization.id, customer.id));
-  revalidatePath("/customers");
+  revalidateCustomerNames();
   redirect("/customers");
 }

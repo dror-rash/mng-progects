@@ -1,39 +1,28 @@
 import { Badge } from "@repo/ui/badge";
 import { Button } from "@repo/ui/button";
 import { Card } from "@repo/ui/card";
-import { cn } from "@repo/ui/lib/utils";
+import { FilterChip } from "@repo/ui/filter-chip";
 import Link from "next/link";
 
 import { requireSession } from "@/features/auth/require-session";
 import { AppHeader } from "@/features/layout/app-header";
-import { ORGANIZATION_STATUSES, organizationStatusLabel, parseOrganizationStatus } from "@/features/organizations/organization-kinds";
+import { firstParam, withParams } from "@/features/navigation/search-params";
 import { firstContactNames } from "@/features/organizations/contacts/queries";
+import { ORGANIZATION_STATUSES, organizationStatusLabel, parseOrganizationStatus } from "@/features/organizations/organization-kinds";
 import { listOrganizations, listOrganizationTags } from "@/features/organizations/queries";
+import { sameTag } from "@/features/organizations/tag-list";
 
 export const dynamic = "force-dynamic";
 
-type SearchParams = Promise<{ status?: string; tag?: string }>;
-
-function FilterLink({ href, active, children }: { href: string; active: boolean; children: React.ReactNode }) {
-  return (
-    <Link
-      href={href}
-      aria-current={active ? "page" : undefined}
-      className={cn(
-        "rounded-full border px-3 py-1 text-sm hover:bg-secondary",
-        active && "border-primary bg-primary text-primary-foreground hover:bg-primary/90",
-      )}
-    >
-      {children}
-    </Link>
-  );
-}
+type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
 export default async function CustomersPage({ searchParams }: { searchParams: SearchParams }) {
-  const session = await requireSession("/customers");
   const params = await searchParams;
-  const status = parseOrganizationStatus(params.status) ?? undefined;
-  const tag = params.tag?.trim() || undefined;
+  const status = parseOrganizationStatus(firstParam(params.status)) ?? undefined;
+  const tag = firstParam(params.tag);
+  // Each filter link changes its own filter and keeps the other one.
+  const link = (next: { status?: string; tag?: string }) => withParams("/customers", { status, tag, ...next });
+  const session = await requireSession(link({}));
 
   const [customers, tags] = await Promise.all([
     listOrganizations(session.user.id, "customer", { status, tag }),
@@ -55,28 +44,46 @@ export default async function CustomersPage({ searchParams }: { searchParams: Se
 
         <div className="space-y-3">
           <nav aria-label="Filter by status" className="flex flex-wrap gap-2">
-            <FilterLink href="/customers" active={!status && !tag}>All</FilterLink>
+            <FilterChip selected={!status}>
+              <Link href={link({ status: undefined })}>All statuses</Link>
+            </FilterChip>
             {ORGANIZATION_STATUSES.map((s) => (
-              <FilterLink key={s.status} href={`/customers?status=${s.status}`} active={status === s.status}>
-                {s.label}
-              </FilterLink>
+              <FilterChip key={s.status} selected={status === s.status}>
+                <Link href={link({ status: s.status })}>{s.label}</Link>
+              </FilterChip>
             ))}
           </nav>
-          {tags.length > 0 && (
+          {(tags.length > 0 || tag) && (
             <nav aria-label="Filter by tag" className="flex flex-wrap items-center gap-2">
               <span className="text-sm text-muted-foreground">Tags:</span>
+              <FilterChip selected={!tag}>
+                <Link href={link({ tag: undefined })}>Any tag</Link>
+              </FilterChip>
               {tags.map((t) => (
-                <FilterLink key={t} href={`/customers?tag=${encodeURIComponent(t)}`} active={tag === t}>
-                  {t}
-                </FilterLink>
+                <FilterChip key={t} selected={sameTag(tag, t)}>
+                  <Link href={link({ tag: t })}>{t}</Link>
+                </FilterChip>
               ))}
+              {/* A filter from an old link or a typo still shows, so it can be seen and cleared. */}
+              {tag && !tags.some((t) => sameTag(tag, t)) && (
+                <FilterChip selected>
+                  <Link href={link({ tag })}>{tag}</Link>
+                </FilterChip>
+              )}
             </nav>
           )}
         </div>
 
         {customers.length === 0 ? (
           <Card className="border-dashed p-8 text-center text-muted-foreground">
-            {status || tag ? "No customers match this filter." : "No customers yet. Add your first one with “New customer”."}
+            {status || tag ? (
+              <>
+                No customers match these filters.{" "}
+                <Link href="/customers" className="underline">Clear filters</Link>
+              </>
+            ) : (
+              "No customers yet. Add your first one with “New customer”."
+            )}
           </Card>
         ) : (
           <ul className="divide-y rounded-lg border">
@@ -98,7 +105,7 @@ export default async function CustomersPage({ searchParams }: { searchParams: Se
                   )}
                 </div>
                 <div className="text-right text-sm text-muted-foreground">
-                  {contactNames.get(c.id) && <div className="font-medium text-foreground">{contactNames.get(c.id)}</div>}
+                  {contactNames.has(c.id) && <div className="font-medium text-foreground">{contactNames.get(c.id)}</div>}
                   {c.email && <div>{c.email}</div>}
                   {c.phone && <div>{c.phone}</div>}
                 </div>

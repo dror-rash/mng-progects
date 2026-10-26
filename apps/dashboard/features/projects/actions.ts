@@ -5,16 +5,11 @@ import { eq, getDb, schema } from "@repo/db";
 import { redirect } from "next/navigation";
 
 import { type FormState, invalid } from "@/features/forms/form-state";
-import { getOwnedOrganization } from "@/features/organizations/queries";
+import { ownsCustomer } from "@/features/organizations/queries";
 
 import { parseProjectInput } from "./project-input";
 import { requireOwnedProject } from "./require-owned-project";
 import { revalidateOverviews } from "./revalidate";
-
-/** No customer is always allowed; otherwise it must be one of the user's customers. */
-async function ownsCustomer(ownerId: string, organizationId: string | null) {
-  return organizationId === null || (await getOwnedOrganization(ownerId, organizationId, "customer")) !== null;
-}
 
 export async function createProjectAction(_prev: FormState, formData: FormData): Promise<FormState> {
   const session = await getSession();

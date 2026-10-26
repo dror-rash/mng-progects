@@ -1,3 +1,5 @@
+import { cleanText } from "@/features/forms/clean-text";
+
 import { isValidEmail } from "../organization-input";
 
 export type ContactInput = { name: string; role: string | null; phone: string | null; email: string | null };
@@ -5,7 +7,7 @@ export type ContactInput = { name: string; role: string | null; phone: string | 
 type Result = { ok: true; value: ContactInput } | { ok: false; field: string; error: string };
 
 export function parseContactInput(formData: FormData): Result {
-  const text = (field: string) => String(formData.get(field) ?? "").trim();
+  const text = (field: string) => cleanText(formData.get(field));
   const optional = (field: string) => text(field) || null;
 
   const name = text("name");

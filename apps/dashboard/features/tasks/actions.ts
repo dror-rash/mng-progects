@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { type FormState, invalid } from "@/features/forms/form-state";
-import { getOwnedOrganization } from "@/features/organizations/queries";
+import { ownsCustomer } from "@/features/organizations/queries";
 import { revalidateOverviews } from "@/features/projects/revalidate";
 import { requireOwnedProject } from "@/features/projects/require-owned-project";
 
@@ -32,7 +32,7 @@ export async function createTaskAction(_prev: FormState, formData: FormData): Pr
   }
 
   const { organizationId, ...fields } = input.value;
-  if (organizationId && !(await getOwnedOrganization(project.ownerId, organizationId, "customer"))) {
+  if (!(await ownsCustomer(project.ownerId, organizationId))) {
     return invalid("Choose one of your customers", formData, "customerId");
   }
 
@@ -88,14 +88,18 @@ export async function updateTaskAction(_prev: FormState, formData: FormData): Pr
   }
 
   const { organizationId, ...fields } = input.value;
-  if (organizationId && !(await getOwnedOrganization(project.ownerId, organizationId, "customer"))) {
+  if (!(await ownsCustomer(project.ownerId, organizationId))) {
     return invalid("Choose one of your customers", formData, "customerId");
   }
 
-  await getDb()
+  const updated = await getDb()
     .update(schema.task)
     .set({ ...fields, ...(organizationId !== undefined && { organizationId }), updatedAt: new Date() })
-    .where(taskInProject(formData, project.id));
+    .where(taskInProject(formData, project.id))
+    .returning({ id: schema.task.id });
+  if (updated.length === 0) {
+    return invalid("This task no longer exists", formData);
+  }
   revalidatePath(`/projects/${project.id}/tasks/${String(formData.get("taskId") ?? "")}`);
   revalidateProject(project.id);
   return {};

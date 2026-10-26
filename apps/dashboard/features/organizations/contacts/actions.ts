@@ -42,10 +42,14 @@ export async function updateContactAction(_prev: FormState, formData: FormData):
     return invalid(input.error, formData, input.field);
   }
 
-  await getDb()
+  const updated = await getDb()
     .update(schema.organizationContact)
     .set({ ...input.value, updatedAt: new Date() })
-    .where(contactOf(formData, customer.id));
+    .where(contactOf(formData, customer.id))
+    .returning({ id: schema.organizationContact.id });
+  if (updated.length === 0) {
+    return invalid("This contact no longer exists", formData);
+  }
   revalidateCustomer(customer.id);
   redirect(`/customers/${customer.id}`);
 }

@@ -14,7 +14,7 @@ import { createProjectAction, updateProjectAction } from "./actions";
 type Project = { id: string; name: string; description: string | null; organizationId: string | null };
 type CustomerOption = { id: string; name: string };
 
-/** Create a project, or edit one when `project` is given. Shows validation errors and keeps what was typed. */
+/** Create a project, or edit one when `project` is given. Shows validation errors and keeps what was typed or chosen. */
 export function ProjectForm({ project, customers }: { project?: Project; customers: CustomerOption[] }) {
   const [state, formAction, pending] = useActionState<FormState, FormData>(
     project ? updateProjectAction : createProjectAction,
@@ -52,7 +52,10 @@ export function ProjectForm({ project, customers }: { project?: Project; custome
       </div>
       <div className="space-y-1">
         <label htmlFor="customerId" className="text-sm font-medium">Customer</label>
+        {/* A select only applies defaultValue when it mounts, and React resets the form after every
+            submit; keying on the value just submitted keeps the user's choice after an error. */}
         <NativeSelect
+          key={value("customerId", project?.organizationId ?? "")}
           id="customerId"
           name="customerId"
           defaultValue={value("customerId", project?.organizationId ?? "")}

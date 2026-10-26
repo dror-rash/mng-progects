@@ -50,7 +50,10 @@ export function EditTaskForm({
       </div>
       <div className="space-y-1">
         <label htmlFor="customerId" className="text-sm font-medium">Customer</label>
+        {/* A select only applies defaultValue when it mounts, and React resets the form after every
+            submit; keying on the value just submitted keeps the user's choice after an error. */}
         <NativeSelect
+          key={state.values?.customerId ?? task.organizationId ?? ""}
           id="customerId"
           name="customerId"
           defaultValue={state.values?.customerId ?? task.organizationId ?? ""}
