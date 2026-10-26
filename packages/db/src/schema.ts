@@ -131,11 +131,15 @@ export const task = pgTable("task", {
   completedAt: timestamp("completed_at"),
   /** A calendar day (task 019); `date` so no time zone can shift it. Read as "YYYY-MM-DD". */
   dueDate: date("due_date", { mode: "string" }),
+  /** One member of the task's workspace (task 025); cleared if they leave or are removed. */
+  assigneeId: text("assignee_id").references(() => user.id, { onDelete: "set null" }),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 }, (table) => [
   // A customer's open tasks, and the SET NULL when a customer is deleted.
   index("task_organization_idx").on(table.organizationId),
+  // "My tasks", and clearing assignments when a member leaves.
+  index("task_assignee_idx").on(table.assigneeId),
 ]);
 
 /** Customers and other outside organizations, in one directory with a `kind` (ADR-0004). */
@@ -194,6 +198,8 @@ export const organizationNote = pgTable(
       .notNull()
       .references(() => organization.id, { onDelete: "cascade" }),
     body: text("body").notNull(),
+    /** Who wrote it (task 025); null for notes from before authors were recorded. */
+    authorId: text("author_id").references(() => user.id, { onDelete: "set null" }),
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
   (table) => [index("organization_note_organization_idx").on(table.organizationId, table.createdAt)],
