@@ -1,6 +1,6 @@
 # Task 021: M7 review fixes
 
-- **Status:** in-review
+- **Status:** done
 - **Milestone:** M7
 - **Zone / package:** `apps/dashboard`, `e2e`
 - **Feature file:** `docs/features/task-due-dates.feature`
@@ -29,3 +29,4 @@
 ## Progress log
 - 2026-10-26 – Task created from the review.
 - 2026-10-26 – 14 unit tests red → green; new scenario for Overdue on the task page. Stat step now matches the value element exactly (a regex boundary broke on "33%" followed by the hint). Full suite 75/75 twice on fresh dev servers (an earlier slow run was the dev server at 7 GB again).
+- 2026-10-26 – Merged in PR #6.
