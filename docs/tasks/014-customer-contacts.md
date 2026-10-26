@@ -1,6 +1,6 @@
 # Task 014: Contact people on a customer
 
-- **Status:** in-review
+- **Status:** done
 - **Milestone:** M6
 - **Zone / package:** `apps/dashboard`, `packages/db`
 - **Feature file:** `docs/features/customer-contacts.feature`
@@ -30,6 +30,7 @@ A customer is a company; the work happens with specific people. We need each per
 ## Progress log
 - 2026-10-23 – Task created.
 - 2026-10-23 – 2 scenarios red → green (stable over 3 repeats); `parseContactInput` unit tests. Migration `0006` creates `organization_contact`. Edit/Remove buttons carry the contact's name for screen readers. Full suite (51 e2e) green, lint, typecheck clean.
+- 2026-10-26 – Merged in PR #4.
 
 ## Parking lot
 - Mark a primary contact.

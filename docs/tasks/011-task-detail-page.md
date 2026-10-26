@@ -1,6 +1,6 @@
 # Task 011: Task detail page with description
 
-- **Status:** in-review
+- **Status:** done
 - **Milestone:** M6
 - **Zone / package:** `apps/dashboard`, `packages/db`, `packages/ui`
 - **Feature file:** `docs/features/task-details.feature`
@@ -35,5 +35,6 @@ A task is only a title today. People need somewhere to write what the task actua
 ## Progress log
 - 2026-10-23 – Task created.
 - 2026-10-23 – 4 scenarios red → green (stable over 3 repeats); `parseTaskInput` and `Textarea` tests; migration `0004` adds `task.description`. Step fixes: "I follow the link" now waits for the navigation; "I see the text" ignores form field values. Full suite (40 e2e) green, lint + typecheck + Storybook clean.
+- 2026-10-26 – Merged in PR #4.
 
 ## Parking lot

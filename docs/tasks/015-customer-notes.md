@@ -1,6 +1,6 @@
 # Task 015: Notes log on a customer
 
-- **Status:** in-review
+- **Status:** done
 - **Milestone:** M6
 - **Zone / package:** `apps/dashboard`, `packages/db`
 - **Feature file:** `docs/features/customer-notes.feature`
@@ -30,6 +30,7 @@ Same structure as contacts; body required (pattern from 012).
 ## Progress log
 - 2026-10-23 – Task created.
 - 2026-10-23 – 2 scenarios red → green (stable over 3 repeats); `parseNoteInput` unit tests. Migration `0007` creates `organization_note`. Notes show date and time in UTC (parked time-zone item, task 010). Full suite (53 e2e) green, lint, typecheck clean.
+- 2026-10-26 – Merged in PR #4.
 
 ## Parking lot
 - Show note times in the viewer's time zone (with the `timestamptz` ADR).

@@ -1,6 +1,6 @@
 # Task 020: M6 review fixes
 
-- **Status:** in-review
+- **Status:** done
 - **Milestone:** M6
 - **Zone / package:** `apps/dashboard`, `packages/db`, `packages/ui`, `e2e`
 - **Feature files:** `form-validation.feature`, `customers.feature`, `customer-links.feature`
@@ -39,3 +39,4 @@
 ## Progress log
 - 2026-10-26 – Task created from the review.
 - 2026-10-26 – 11 scenarios added: 8 red → green (3 cross-user/card ones were already correct, now covered); unit tests for input hardening, tag list, search params, cleanText, invalid(), FilterChip. Migration `0010` adds the two indexes. ADR-0004 accepted.
+- 2026-10-26 – Merged in PR #4.
