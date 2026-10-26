@@ -1,6 +1,6 @@
 # Task 018: Task priority
 
-- **Status:** todo
+- **Status:** in-review
 - **Milestone:** M7
 - **Zone / package:** `apps/dashboard`, `packages/ui`
 - **Feature file:** `docs/features/task-priority.feature`
@@ -18,8 +18,8 @@ Not every task is equally urgent. The `task.priority` column already exists (def
 - Custom priority levels. Drag-and-drop ordering.
 
 ## Acceptance criteria
-- [ ] Changing a task's priority shows the new priority on its page and its board card.
-- [ ] Within a column, high-priority tasks are listed first.
+- [x] Changing a task's priority shows the new priority on its page and its board card.
+- [x] Within a column, high-priority tasks are listed first.
 
 ## Approach (brief)
 `parseTaskPriority` + `comparePriority` pure helpers; unknown stored values treated as Medium (like unknown statuses → To do). No migration needed.
@@ -31,5 +31,6 @@ Not every task is equally urgent. The `task.priority` column already exists (def
 
 ## Progress log
 - 2026-10-23 – Task created.
+- 2026-10-26 – 2 scenarios red → green (stable over 3 repeats); priority helpers and parsing unit-tested. Board cards label only High and Low (Medium is the default; labelling every card would be noise) — my call. Priority select keyed like the other selects. Full suite 71/71.
 
 ## Parking lot
