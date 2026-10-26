@@ -67,7 +67,10 @@ export const project = pgTable("project", {
   organizationId: text("organization_id").references(() => organization.id, { onDelete: "set null" }),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
-});
+}, (table) => [
+  // A customer's projects, and the SET NULL when a customer is deleted.
+  index("project_owner_organization_idx").on(table.ownerId, table.organizationId),
+]);
 
 export const task = pgTable("task", {
   id: text("id").primaryKey(),
@@ -84,7 +87,10 @@ export const task = pgTable("task", {
   completedAt: timestamp("completed_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
-});
+}, (table) => [
+  // A customer's open tasks, and the SET NULL when a customer is deleted.
+  index("task_organization_idx").on(table.organizationId),
+]);
 
 /** Customers and other outside organizations, in one directory with a `kind` (ADR-0004). */
 export const organization = pgTable(
