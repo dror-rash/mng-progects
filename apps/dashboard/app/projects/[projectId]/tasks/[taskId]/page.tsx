@@ -10,6 +10,8 @@ import { getOwnedProject } from "@/features/projects/queries";
 import { deleteTaskFromPageAction } from "@/features/tasks/actions";
 import { EditTaskForm } from "@/features/tasks/edit-task-form";
 import { getProjectTask } from "@/features/tasks/queries";
+import { dueState, formatDueDate, todayUtc } from "@/features/tasks/due-dates";
+import { priorityLabel } from "@/features/tasks/task-priority";
 import { parseTaskStatus, TASK_STATUSES } from "@/features/tasks/task-status";
 
 export const dynamic = "force-dynamic";
@@ -46,6 +48,17 @@ export default async function TaskPage({ params }: { params: Promise<{ projectId
             <span className="inline-block rounded-full bg-secondary px-2.5 py-0.5 text-xs font-medium text-secondary-foreground">
               {status.label}
             </span>
+            <span>{priorityLabel(task.priority)} priority</span>
+            {task.dueDate ? (
+              <span>
+                Due <time dateTime={task.dueDate}>{formatDueDate(task.dueDate)}</time>{" "}
+                {dueState(task.dueDate, task.status, todayUtc()) === "overdue" && (
+                  <span className="ml-2 font-medium text-destructive">Overdue</span>
+                )}
+              </span>
+            ) : (
+              <span>No due date</span>
+            )}
             {customer ? (
               <span>
                 Customer:{" "}

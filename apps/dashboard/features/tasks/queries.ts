@@ -18,6 +18,7 @@ export async function listOwnedTaskStatuses(ownerId: string) {
       status: schema.task.status,
       createdAt: schema.task.createdAt,
       completedAt: schema.task.completedAt,
+      dueDate: schema.task.dueDate,
     })
     .from(schema.task)
     .innerJoin(schema.project, eq(schema.task.projectId, schema.project.id))

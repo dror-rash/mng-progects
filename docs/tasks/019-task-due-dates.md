@@ -1,6 +1,6 @@
 # Task 019: Due dates and overdue tasks on the home page
 
-- **Status:** todo
+- **Status:** in-review
 - **Milestone:** M7
 - **Zone / package:** `apps/dashboard`, `packages/db`
 - **Feature file:** `docs/features/task-due-dates.feature`
@@ -18,9 +18,9 @@ Without due dates nobody can tell what's late. The home page should surface what
 - Reminders/notifications, calendar views, recurring tasks, start dates.
 
 ## Acceptance criteria
-- [ ] Setting a due date shows it on the task page and board card; clearing it removes it.
-- [ ] An open task due in the past is marked Overdue; a Done task never is.
-- [ ] Home shows overdue and due-this-week counts.
+- [x] Setting a due date shows it on the task page and board card; clearing it removes it.
+- [x] An open task due in the past is marked Overdue; a Done task never is.
+- [x] Home shows overdue and due-this-week counts.
 
 ## Approach (brief)
 Pure `dueState(dueDate, status, today)` → `"overdue" | "due-soon" | "later" | null`, with `today` passed in. "Today" is the server's UTC date for now, consistent with the time-zone item parked in task 010; revisit with the `timestamptz` ADR.
@@ -31,6 +31,7 @@ Pure `dueState(dueDate, status, today)` → `"overdue" | "due-soon" | "later" | 
 
 ## Progress log
 - 2026-10-23 – Task created.
+- 2026-10-26 – 3 scenarios red → green (stable over 3 repeats); `dueState`/`addDays`/`parseDueDate` unit-tested at the boundaries. Migration `0011` adds `task.due_date` (`date`). Home overview grows to five tiles (Overdue, Due This Week). "Overdue" is text, not colour alone. Full suite 74/74 twice.
 
 ## Parking lot
 - Use the viewer's time zone for "today" once timestamps move to `timestamptz`.

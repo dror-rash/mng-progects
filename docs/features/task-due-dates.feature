@@ -1,4 +1,4 @@
-@wip @zone:dashboard @task:019
+@zone:dashboard @task:019
 Feature: Task due dates
   As a signed-in user
   I want to give tasks due dates
@@ -33,3 +33,9 @@ Feature: Task due dates
     When I open "/dashboard"
     Then the "Overdue" stat shows "1"
     And the "Due This Week" stat shows "1"
+
+  @task:021
+  Scenario: An overdue task's page says so
+    Given the task "Write copy" is due 3 days ago
+    When I am on the "Write copy" task page
+    Then I see the text "Overdue"

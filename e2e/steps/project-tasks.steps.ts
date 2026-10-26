@@ -116,3 +116,83 @@ When("the task {string} is deleted in another tab", async ({ context, page }, ti
   await expect(tab.getByRole("heading", { name: title, level: 1 })).toHaveCount(0);
   await tab.close();
 });
+
+// Opens a task from the project board the browser is on.
+async function openTaskFromBoard(page: Page, title: string) {
+  await page.getByRole("link", { name: title, exact: true }).click();
+  await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/tasks\/[^/]+$/);
+  await expect(page.getByRole("heading", { name: title, level: 1 })).toBeVisible();
+}
+
+// Saves the task form and waits for the server action's response.
+async function saveTask(page: Page) {
+  await Promise.all([
+    page.waitForResponse((r) => r.request().method() === "POST"),
+    page.getByRole("button", { name: "Save changes" }).click(),
+  ]);
+}
+
+async function backToBoard(page: Page) {
+  await page.getByRole("navigation", { name: "Breadcrumb" }).getByRole("link").click();
+  await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+$/);
+}
+
+// Sets a task's priority from its page, starting and ending on the project board.
+// Use a non-default priority: the check below is already true for Medium before saving.
+Given("the task {string} has priority {string}", async ({ page }, title: string, priority: string) => {
+  await openTaskFromBoard(page, title);
+  await page.getByLabel("Priority", { exact: true }).selectOption({ label: priority });
+  await saveTask(page);
+  await expect(page.getByText(`${priority} priority`).first()).toBeVisible();
+  await backToBoard(page);
+});
+
+Then("the {string} column lists {string}", async ({ page }, column: string, titles: string) => {
+  // The column's name includes its task count ("To do 2"), so match it loosely.
+  const links = page.getByRole("region", { name: column }).getByRole("listitem").getByRole("link");
+  await expect(links).toHaveText(titles.split(",").map((t) => t.trim()));
+});
+
+// Calendar days in UTC, like the app ("today" is the server's UTC date). Scenarios keep a margin of
+// several days so the runner and the server can't disagree about which day it is (clock skew, midnight).
+function daysFromToday(days: number): string {
+  const date = new Date();
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
+When("I set the due date to {int} days from today", async ({ page, state }, days: number) => {
+  state.dueDate = daysFromToday(days);
+  await page.getByLabel("Due date", { exact: true }).fill(state.dueDate);
+});
+
+When("I clear the due date", async ({ page }) => {
+  await page.getByLabel("Due date", { exact: true }).fill("");
+});
+
+Then("I see the due date {int} days from today", async ({ page, state }, days: number) => {
+  const due = state.dueDate ?? daysFromToday(days);
+  await expect(page.locator(`time[datetime="${due}"]`).first()).toBeVisible();
+});
+
+// Sets a task's due date from its page, starting and ending on the project board.
+async function taskIsDue(page: Page, title: string, days: number) {
+  const due = daysFromToday(days);
+  await openTaskFromBoard(page, title);
+  await page.getByLabel("Due date", { exact: true }).fill(due);
+  await saveTask(page);
+  await expect(page.locator(`time[datetime="${due}"]`).first()).toBeVisible();
+  await backToBoard(page);
+}
+
+Given("the task {string} is due {int} days ago", async ({ page }, title: string, days: number) => {
+  await taskIsDue(page, title, -days);
+});
+
+Given("the task {string} is due {int} days from today", async ({ page }, title: string, days: number) => {
+  await taskIsDue(page, title, days);
+});
+
+Then("the task {string} does not show {string}", async ({ page }, title: string, text: string) => {
+  await expect(taskCard(page, title)).not.toContainText(text);
+});

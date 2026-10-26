@@ -40,6 +40,12 @@ Next.js (App Router, multi-zone) · Better Auth · Postgres + Drizzle · TypeScr
 
 ## Forms
 - Server actions for forms return `FormState` (`invalid()` in `apps/dashboard/features/forms/form-state.ts`) for invalid input and throw only for auth/not-found; client forms use `useActionState`.
+- Form parsers return `undefined` for a field the form doesn't have (keep the current value), `null` for a cleared field, and `{ ok: false, field, error }` so the error shows on the right input.
+- A native `<select>` in an action form gets `key={its value}`: React resets the form after every submit, and a select only applies `defaultValue` when it mounts.
+
+## Domain conventions
+- Fixed value sets (task status, priority, organization status) are defined once as a `const` list with `parse…`/label helpers and a default for unknown stored values (see `features/tasks/task-status.ts`). Never hard-code the strings elsewhere.
+- Calendar days (due dates) are Postgres `date` read as `"YYYY-MM-DD"` strings and compared as strings. "Today" is `todayUtc()`; format with `timeZone: "UTC"`. E2E date steps compute days relative to today in UTC and keep a margin of several days.
 
 ## Testing conventions
 - Test behavior and outputs, not implementation details. Query by role/label, not test IDs, unless unavoidable.

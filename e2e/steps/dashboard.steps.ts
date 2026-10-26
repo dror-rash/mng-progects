@@ -2,8 +2,9 @@ import { expect } from "@playwright/test";
 
 import { Then } from "./fixtures";
 
+// The tile's value is its own element, so match it exactly: "1" mustn't also pass for "10".
 Then("the {string} stat shows {string}", async ({ page }, label: string, value: string) => {
-  await expect(page.getByRole("group", { name: label })).toContainText(value);
+  await expect(page.getByRole("group", { name: label }).getByText(value, { exact: true })).toBeVisible();
 });
 
 Then("the {string} project card shows {string}", async ({ page }, name: string, text: string) => {
