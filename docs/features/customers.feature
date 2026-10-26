@@ -66,3 +66,30 @@ Feature: Customers
     Given another user has a customer named "Secret Corp"
     When I open the other user's customer page
     Then I see the text "Customer not found"
+
+  @task:020
+  Scenario: Tags that differ only in capitalisation filter together
+    Given I have a customer "Acme Ltd" with status "Active" and tags "Retail"
+    And I have a customer "Globex" with status "Active" and tags "retail"
+    When I open "/dashboard/customers"
+    And I follow the "Retail" link
+    Then I see the "Acme Ltd" link
+    And I see the "Globex" link
+
+  @task:020
+  Scenario: Status and tag filters combine
+    Given I have a customer "Acme Ltd" with status "Active" and tags "retail"
+    And I have a customer "Globex" with status "Lead" and tags "retail"
+    And I have a customer "Initech" with status "Active" and tags "b2b"
+    When I open "/dashboard/customers"
+    And I follow the "Active" link
+    And I follow the "retail" link
+    Then I see the "Acme Ltd" link
+    And I do not see the "Globex" link
+    And I do not see the "Initech" link
+
+  @task:020
+  Scenario: A repeated filter in the address doesn't break the list
+    Given I have a customer "Acme Ltd" with status "Active" and tags "retail"
+    When I open "/dashboard/customers?tag=retail&tag=b2b"
+    Then I see the heading "Customers"

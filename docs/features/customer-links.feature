@@ -53,3 +53,31 @@ Feature: Customer links
     And the project has a task "Write copy"
     When I am on the "Write copy" task page
     Then "Acme Ltd" is selected in "Customer"
+
+  @task:020
+  Scenario: A project card shows its customer
+    Given I have a project named "Website Redesign" for customer "Acme Ltd"
+    When I open "/dashboard/projects"
+    Then the "Website Redesign" project card shows "For Acme Ltd"
+
+  @task:020
+  Scenario: Another user's customer can't be linked to a project
+    Given another user has a customer named "Secret Corp"
+    When I open "/dashboard/projects"
+    And I fill in "Project name" with "Sneaky"
+    And I choose the other user's customer in "Customer"
+    And I press "Create Project"
+    Then I see the error "Choose one of your customers"
+    And I do not see the "Sneaky" link
+
+  @task:020
+  Scenario: Another user's customer can't be linked to a task
+    Given another user has a customer named "Secret Corp"
+    And I have a project named "Internal Ops"
+    And I am on the "Internal Ops" project page
+    And the project has a task "Call about invoice"
+    And I am on the "Call about invoice" task page
+    When I choose the other user's customer in "Customer"
+    And I press "Save changes"
+    Then I see the error "Choose one of your customers"
+    And I see the text "No customer"
