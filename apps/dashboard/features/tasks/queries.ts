@@ -10,8 +10,8 @@ export async function listProjectTasks(projectId: string) {
     .orderBy(asc(schema.task.createdAt));
 }
 
-/** Every task in projects `ownerId` owns, with just the fields the overview needs. */
-export async function listOwnedTaskStatuses(ownerId: string) {
+/** Every task in the workspace's projects, with just the fields the overview needs. */
+export async function listWorkspaceTaskStatuses(workspaceId: string) {
   return getDb()
     .select({
       projectId: schema.task.projectId,
@@ -22,7 +22,7 @@ export async function listOwnedTaskStatuses(ownerId: string) {
     })
     .from(schema.task)
     .innerJoin(schema.project, eq(schema.task.projectId, schema.project.id))
-    .where(eq(schema.project.ownerId, ownerId));
+    .where(eq(schema.project.workspaceId, workspaceId));
 }
 
 /** The task, only if it belongs to `projectId`. Callers check project ownership first. */
@@ -34,8 +34,8 @@ export async function getProjectTask(projectId: string, taskId: string) {
   return task ?? null;
 }
 
-/** Open (not Done) tasks about one customer, across the owner's projects, newest first. */
-export async function listCustomerOpenTasks(ownerId: string, organizationId: string) {
+/** Open (not Done) tasks about one customer, across the workspace's projects, newest first. */
+export async function listCustomerOpenTasks(workspaceId: string, organizationId: string) {
   return getDb()
     .select({
       id: schema.task.id,
@@ -48,7 +48,7 @@ export async function listCustomerOpenTasks(ownerId: string, organizationId: str
     .innerJoin(schema.project, eq(schema.task.projectId, schema.project.id))
     .where(
       and(
-        eq(schema.project.ownerId, ownerId),
+        eq(schema.project.workspaceId, workspaceId),
         eq(schema.task.organizationId, organizationId),
         ne(schema.task.status, "done"),
       ),

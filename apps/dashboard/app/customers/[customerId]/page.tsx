@@ -4,19 +4,19 @@ import { Card, CardContent, CardHeader, CardTitle } from "@repo/ui/card";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { requireSession } from "@/features/auth/require-session";
 import { AppHeader } from "@/features/layout/app-header";
 import { ContactsSection } from "@/features/organizations/contacts/contacts-section";
 import { listContacts } from "@/features/organizations/contacts/queries";
 import { NotesSection } from "@/features/organizations/notes/notes-section";
 import { listNotes } from "@/features/organizations/notes/queries";
 import { organizationStatusLabel } from "@/features/organizations/organization-kinds";
-import { getOwnedOrganization } from "@/features/organizations/queries";
+import { getOrganizationForUser } from "@/features/organizations/queries";
 import { ProjectList } from "@/features/projects/project-list";
 import { listCustomerProjects } from "@/features/projects/queries";
 import { summarizeByProject } from "@/features/tasks/progress";
-import { listCustomerOpenTasks, listOwnedTaskStatuses } from "@/features/tasks/queries";
+import { listCustomerOpenTasks, listWorkspaceTaskStatuses } from "@/features/tasks/queries";
 import { TASK_STATUSES } from "@/features/tasks/task-status";
+import { requireWorkspace } from "@/features/workspaces/require-workspace";
 
 export const dynamic = "force-dynamic";
 
@@ -33,22 +33,22 @@ const missing = <span className="text-muted-foreground">—</span>;
 
 export default async function CustomerPage({ params }: { params: Promise<{ customerId: string }> }) {
   const { customerId } = await params;
-  const session = await requireSession(`/customers/${customerId}`);
-  const customer = await getOwnedOrganization(session.user.id, customerId, "customer");
+  const { session, workspace } = await requireWorkspace(`/customers/${customerId}`);
+  const customer = await getOrganizationForUser(session.user.id, customerId, "customer");
   if (!customer) {
     notFound();
   }
   const [contacts, notes, projects, taskStatuses, openTasks] = await Promise.all([
     listContacts(customer.id),
     listNotes(customer.id),
-    listCustomerProjects(session.user.id, customer.id),
-    listOwnedTaskStatuses(session.user.id),
-    listCustomerOpenTasks(session.user.id, customer.id),
+    listCustomerProjects(customer.workspaceId, customer.id),
+    listWorkspaceTaskStatuses(customer.workspaceId),
+    listCustomerOpenTasks(customer.workspaceId, customer.id),
   ]);
 
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
-      <AppHeader email={session.user.email} />
+      <AppHeader email={session.user.email} workspaceName={workspace.name} />
 
       <main className="mx-auto w-full max-w-4xl space-y-6 p-6">
         <nav aria-label="Breadcrumb" className="text-sm text-muted-foreground">

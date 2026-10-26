@@ -5,9 +5,9 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { type FormState, invalid } from "@/features/forms/form-state";
-import { ownsCustomer } from "@/features/organizations/queries";
+import { customerInWorkspace } from "@/features/organizations/queries";
 import { revalidateOverviews } from "@/features/projects/revalidate";
-import { requireOwnedProject } from "@/features/projects/require-owned-project";
+import { requireProjectAccess } from "@/features/projects/require-project-access";
 
 import { nextCompletedAt } from "./activity";
 import { parseTaskInput } from "./task-input";
@@ -25,14 +25,14 @@ function taskInProject(formData: FormData, projectId: string) {
 }
 
 export async function createTaskAction(_prev: FormState, formData: FormData): Promise<FormState> {
-  const project = await requireOwnedProject(String(formData.get("projectId") ?? ""));
+  const project = await requireProjectAccess(String(formData.get("projectId") ?? ""));
   const input = parseTaskInput(formData);
   if (!input.ok) {
     return invalid(input.error, formData, input.field);
   }
 
   const { organizationId, priority, dueDate, ...fields } = input.value;
-  if (!(await ownsCustomer(project.ownerId, organizationId))) {
+  if (!(await customerInWorkspace(project.workspaceId, organizationId))) {
     return invalid("Choose one of your customers", formData, "customerId");
   }
 
@@ -52,7 +52,7 @@ export async function createTaskAction(_prev: FormState, formData: FormData): Pr
 }
 
 export async function updateTaskStatusAction(formData: FormData) {
-  const project = await requireOwnedProject(String(formData.get("projectId") ?? ""));
+  const project = await requireProjectAccess(String(formData.get("projectId") ?? ""));
   const status = parseTaskStatus(formData.get("status"));
   if (!status) {
     throw new Error("Unknown task status");
@@ -76,21 +76,21 @@ export async function updateTaskStatusAction(formData: FormData) {
 }
 
 export async function deleteTaskAction(formData: FormData) {
-  const project = await requireOwnedProject(String(formData.get("projectId") ?? ""));
+  const project = await requireProjectAccess(String(formData.get("projectId") ?? ""));
 
   await getDb().delete(schema.task).where(taskInProject(formData, project.id));
   revalidateProject(project.id);
 }
 
 export async function updateTaskAction(_prev: FormState, formData: FormData): Promise<FormState> {
-  const project = await requireOwnedProject(String(formData.get("projectId") ?? ""));
+  const project = await requireProjectAccess(String(formData.get("projectId") ?? ""));
   const input = parseTaskInput(formData);
   if (!input.ok) {
     return invalid(input.error, formData, input.field);
   }
 
   const { organizationId, priority, dueDate, ...fields } = input.value;
-  if (!(await ownsCustomer(project.ownerId, organizationId))) {
+  if (!(await customerInWorkspace(project.workspaceId, organizationId))) {
     return invalid("Choose one of your customers", formData, "customerId");
   }
 
@@ -115,7 +115,7 @@ export async function updateTaskAction(_prev: FormState, formData: FormData): Pr
 
 /** Delete from the task's own page, then go back to the board. */
 export async function deleteTaskFromPageAction(formData: FormData) {
-  const project = await requireOwnedProject(String(formData.get("projectId") ?? ""));
+  const project = await requireProjectAccess(String(formData.get("projectId") ?? ""));
 
   await getDb().delete(schema.task).where(taskInProject(formData, project.id));
   revalidateProject(project.id);

@@ -1,14 +1,14 @@
 "use server";
 
-import { getSession } from "@repo/auth/server";
 import { eq, getDb, schema } from "@repo/db";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { type FormState, invalid } from "@/features/forms/form-state";
+import { requireWorkspaceForAction } from "@/features/workspaces/require-workspace";
 
 import { parseOrganizationInput } from "./organization-input";
-import { requireOwnedOrganization } from "./require-owned-organization";
+import { requireOrganizationAccess } from "./require-organization-access";
 
 /** Customer names appear on project lists, project and task pages: refresh the whole zone ("/" is /dashboard). */
 function revalidateCustomerNames() {
@@ -16,23 +16,22 @@ function revalidateCustomerNames() {
 }
 
 export async function createCustomerAction(_prev: FormState, formData: FormData): Promise<FormState> {
-  const session = await getSession();
-  if (!session) {
-    throw new Error("Unauthorized");
-  }
+  const { session, workspace } = await requireWorkspaceForAction();
   const input = parseOrganizationInput(formData);
   if (!input.ok) {
     return invalid(input.error, formData, input.field);
   }
 
   const id = crypto.randomUUID();
-  await getDb().insert(schema.organization).values({ id, kind: "customer", ownerId: session.user.id, ...input.value });
+  await getDb()
+    .insert(schema.organization)
+    .values({ id, kind: "customer", ownerId: session.user.id, workspaceId: workspace.id, ...input.value });
   revalidateCustomerNames();
   redirect(`/customers/${id}`);
 }
 
 export async function updateCustomerAction(_prev: FormState, formData: FormData): Promise<FormState> {
-  const customer = await requireOwnedOrganization(String(formData.get("customerId") ?? ""), "customer");
+  const customer = await requireOrganizationAccess(String(formData.get("customerId") ?? ""), "customer");
   const input = parseOrganizationInput(formData);
   if (!input.ok) {
     return invalid(input.error, formData, input.field);
@@ -47,7 +46,7 @@ export async function updateCustomerAction(_prev: FormState, formData: FormData)
 }
 
 export async function deleteCustomerAction(formData: FormData) {
-  const customer = await requireOwnedOrganization(String(formData.get("customerId") ?? ""), "customer");
+  const customer = await requireOrganizationAccess(String(formData.get("customerId") ?? ""), "customer");
 
   await getDb().delete(schema.organization).where(eq(schema.organization.id, customer.id));
   revalidateCustomerNames();

@@ -6,7 +6,7 @@ import { redirect } from "next/navigation";
 
 import { type FormState, invalid } from "@/features/forms/form-state";
 
-import { requireOwnedOrganization } from "../require-owned-organization";
+import { requireOrganizationAccess } from "../require-organization-access";
 import { parseContactInput } from "./contact-input";
 
 function contactOf(formData: FormData, organizationId: string) {
@@ -22,7 +22,7 @@ function revalidateCustomer(customerId: string) {
 }
 
 export async function addContactAction(_prev: FormState, formData: FormData): Promise<FormState> {
-  const customer = await requireOwnedOrganization(String(formData.get("customerId") ?? ""), "customer");
+  const customer = await requireOrganizationAccess(String(formData.get("customerId") ?? ""), "customer");
   const input = parseContactInput(formData);
   if (!input.ok) {
     return invalid(input.error, formData, input.field);
@@ -36,7 +36,7 @@ export async function addContactAction(_prev: FormState, formData: FormData): Pr
 }
 
 export async function updateContactAction(_prev: FormState, formData: FormData): Promise<FormState> {
-  const customer = await requireOwnedOrganization(String(formData.get("customerId") ?? ""), "customer");
+  const customer = await requireOrganizationAccess(String(formData.get("customerId") ?? ""), "customer");
   const input = parseContactInput(formData);
   if (!input.ok) {
     return invalid(input.error, formData, input.field);
@@ -55,7 +55,7 @@ export async function updateContactAction(_prev: FormState, formData: FormData):
 }
 
 export async function removeContactAction(formData: FormData) {
-  const customer = await requireOwnedOrganization(String(formData.get("customerId") ?? ""), "customer");
+  const customer = await requireOrganizationAccess(String(formData.get("customerId") ?? ""), "customer");
 
   await getDb().delete(schema.organizationContact).where(contactOf(formData, customer.id));
   revalidateCustomer(customer.id);

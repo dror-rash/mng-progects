@@ -4,13 +4,13 @@ import { Card } from "@repo/ui/card";
 import { FilterChip } from "@repo/ui/filter-chip";
 import Link from "next/link";
 
-import { requireSession } from "@/features/auth/require-session";
 import { AppHeader } from "@/features/layout/app-header";
 import { firstParam, withParams } from "@/features/navigation/search-params";
 import { firstContactNames } from "@/features/organizations/contacts/queries";
 import { ORGANIZATION_STATUSES, organizationStatusLabel, parseOrganizationStatus } from "@/features/organizations/organization-kinds";
 import { listOrganizations, listOrganizationTags } from "@/features/organizations/queries";
 import { sameTag } from "@/features/organizations/tag-list";
+import { requireWorkspace } from "@/features/workspaces/require-workspace";
 
 export const dynamic = "force-dynamic";
 
@@ -22,17 +22,17 @@ export default async function CustomersPage({ searchParams }: { searchParams: Se
   const tag = firstParam(params.tag);
   // Each filter link changes its own filter and keeps the other one.
   const link = (next: { status?: string; tag?: string }) => withParams("/customers", { status, tag, ...next });
-  const session = await requireSession(link({}));
+  const { session, workspace } = await requireWorkspace(link({}));
 
   const [customers, tags] = await Promise.all([
-    listOrganizations(session.user.id, "customer", { status, tag }),
-    listOrganizationTags(session.user.id, "customer"),
+    listOrganizations(workspace.id, "customer", { status, tag }),
+    listOrganizationTags(workspace.id, "customer"),
   ]);
   const contactNames = await firstContactNames(customers.map((c) => c.id));
 
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
-      <AppHeader email={session.user.email} />
+      <AppHeader email={session.user.email} workspaceName={workspace.name} />
 
       <main className="mx-auto w-full max-w-6xl space-y-6 p-6">
         <div className="flex items-center justify-between gap-4">

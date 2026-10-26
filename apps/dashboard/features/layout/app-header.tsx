@@ -12,7 +12,7 @@ const NAV = [
  * Zone header. Links inside the zone use next/link; "Home" is the shell, so it's a plain <a>.
  * On narrow screens the nav wraps onto its own row so nothing is pushed off-screen.
  */
-export function AppHeader({ email }: { email: string }) {
+export function AppHeader({ email, workspaceName }: { email: string; workspaceName: string }) {
   return (
     <header className="border-b bg-card">
       <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3 sm:h-16 sm:flex-nowrap sm:px-6 sm:py-0">
@@ -23,6 +23,9 @@ export function AppHeader({ email }: { email: string }) {
           <span className="sr-only">Dashboard home</span>
           <span aria-hidden="true">W</span>
         </Link>
+        <span className="truncate text-sm font-semibold sm:max-w-48" title={workspaceName}>
+          {workspaceName}
+        </span>
         <nav aria-label="Dashboard" className="order-last -ml-3 flex w-full items-center gap-1 sm:order-none sm:ml-0 sm:w-auto">
           {NAV.map((item) => (
             <Button key={item.href} asChild variant="ghost" size="sm">
@@ -32,7 +35,7 @@ export function AppHeader({ email }: { email: string }) {
         </nav>
         <div className="ml-auto flex items-center gap-2 sm:gap-4">
           <span className="hidden text-sm text-muted-foreground md:inline">{email}</span>
-          <Button asChild variant="outline" size="sm">
+          <Button asChild variant="outline" size="sm" className="hidden sm:inline-flex">
             <a href="/">Home</a>
           </Button>
           <SignOutButton />

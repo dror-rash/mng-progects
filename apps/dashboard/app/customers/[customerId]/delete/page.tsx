@@ -3,16 +3,16 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@repo
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { requireSession } from "@/features/auth/require-session";
 import { deleteCustomerAction } from "@/features/organizations/actions";
-import { getOwnedOrganization } from "@/features/organizations/queries";
+import { getOrganizationForUser } from "@/features/organizations/queries";
+import { requireWorkspace } from "@/features/workspaces/require-workspace";
 
 export const dynamic = "force-dynamic";
 
 export default async function DeleteCustomerPage({ params }: { params: Promise<{ customerId: string }> }) {
   const { customerId } = await params;
-  const session = await requireSession(`/customers/${customerId}/delete`);
-  const customer = await getOwnedOrganization(session.user.id, customerId, "customer");
+  const { session } = await requireWorkspace(`/customers/${customerId}/delete`);
+  const customer = await getOrganizationForUser(session.user.id, customerId, "customer");
   if (!customer) {
     notFound();
   }

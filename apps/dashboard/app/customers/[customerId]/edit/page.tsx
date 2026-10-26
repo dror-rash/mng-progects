@@ -1,24 +1,24 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@repo/ui/card";
 import { notFound } from "next/navigation";
 
-import { requireSession } from "@/features/auth/require-session";
 import { AppHeader } from "@/features/layout/app-header";
 import { CustomerForm } from "@/features/organizations/customer-form";
-import { getOwnedOrganization } from "@/features/organizations/queries";
+import { getOrganizationForUser } from "@/features/organizations/queries";
+import { requireWorkspace } from "@/features/workspaces/require-workspace";
 
 export const dynamic = "force-dynamic";
 
 export default async function EditCustomerPage({ params }: { params: Promise<{ customerId: string }> }) {
   const { customerId } = await params;
-  const session = await requireSession(`/customers/${customerId}/edit`);
-  const customer = await getOwnedOrganization(session.user.id, customerId, "customer");
+  const { session, workspace } = await requireWorkspace(`/customers/${customerId}/edit`);
+  const customer = await getOrganizationForUser(session.user.id, customerId, "customer");
   if (!customer) {
     notFound();
   }
 
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
-      <AppHeader email={session.user.email} />
+      <AppHeader email={session.user.email} workspaceName={workspace.name} />
       <main className="mx-auto w-full max-w-3xl p-6">
         <Card>
           <CardHeader>

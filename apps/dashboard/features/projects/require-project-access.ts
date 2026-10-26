@@ -1,14 +1,14 @@
 import { getSession } from "@repo/auth/server";
 
-import { getOwnedProject } from "./queries";
+import { getProjectForUser } from "./queries";
 
-/** For server actions: the signed-in user's project with this id, or throws. */
-export async function requireOwnedProject(projectId: string) {
+/** For server actions: the project with this id if the signed-in user is a member of its workspace, or throws. */
+export async function requireProjectAccess(projectId: string) {
   const session = await getSession();
   if (!session) {
     throw new Error("Unauthorized");
   }
-  const project = await getOwnedProject(session.user.id, projectId);
+  const project = await getProjectForUser(session.user.id, projectId);
   if (!project) {
     throw new Error("Project not found");
   }

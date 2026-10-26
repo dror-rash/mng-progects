@@ -3,26 +3,26 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@repo
 import { StackedBar } from "@repo/ui/stacked-bar";
 import Link from "next/link";
 
-import { requireSession } from "@/features/auth/require-session";
 import { AppHeader } from "@/features/layout/app-header";
 import { ProjectList } from "@/features/projects/project-list";
 import { countProjects, listProjects } from "@/features/projects/queries";
 import { countThisWeek } from "@/features/tasks/activity";
 import { dueState, todayUtc } from "@/features/tasks/due-dates";
 import { summarizeByProject, summarizeTasks } from "@/features/tasks/progress";
-import { listOwnedTaskStatuses } from "@/features/tasks/queries";
+import { listWorkspaceTaskStatuses } from "@/features/tasks/queries";
 import { groupTasksByStatus } from "@/features/tasks/task-status";
+import { requireWorkspace } from "@/features/workspaces/require-workspace";
 
 export const dynamic = "force-dynamic";
 
 const RECENT_PROJECTS = 5;
 
 export default async function DashboardPage() {
-  const session = await requireSession("/");
+  const { session, workspace } = await requireWorkspace("/");
   const [projectCount, recentProjects, taskStatuses] = await Promise.all([
-    countProjects(session.user.id),
-    listProjects(session.user.id, RECENT_PROJECTS),
-    listOwnedTaskStatuses(session.user.id),
+    countProjects(workspace.id),
+    listProjects(workspace.id, RECENT_PROJECTS),
+    listWorkspaceTaskStatuses(workspace.id),
   ]);
   const overall = summarizeTasks(taskStatuses);
   // One clock read for the whole page, so "today" and "this week" can't straddle midnight.
@@ -47,7 +47,7 @@ export default async function DashboardPage() {
 
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
-      <AppHeader email={session.user.email} />
+      <AppHeader email={session.user.email} workspaceName={workspace.name} />
 
       <main className="mx-auto w-full max-w-6xl space-y-8 p-6">
         <h1 className="text-2xl font-bold tracking-tight">Project Dashboard</h1>
