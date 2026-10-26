@@ -31,19 +31,31 @@ export function dueState(
   return "later";
 }
 
-/** Form value → date, `null` when cleared, `undefined` when the form has no such field, or "invalid". */
-export function parseDueDate(value: FormDataEntryValue | null): CalendarDate | null | undefined | "invalid" {
-  if (value === null) return undefined;
+// Postgres refuses year 0, and a year like 0026 is a typo that would stay overdue forever.
+export const MIN_DUE_DATE: CalendarDate = "1900-01-01";
+export const MAX_DUE_DATE: CalendarDate = "2999-12-31";
+
+/**
+ * Form value → `{ ok: true, value }` with a date, `null` when cleared, or `undefined` when the form has
+ * no such field (quick add); `{ ok: false }` for anything that isn't a real date in 1900–2999.
+ */
+export function parseDueDate(
+  value: FormDataEntryValue | null,
+): { ok: true; value: CalendarDate | null | undefined } | { ok: false } {
+  if (value === null) return { ok: true, value: undefined };
   const text = String(value).trim();
-  if (!text) return null;
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(text)) return "invalid";
+  if (!text) return { ok: true, value: null };
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(text) || text < MIN_DUE_DATE || text > MAX_DUE_DATE) return { ok: false };
   const d = new Date(`${text}T00:00:00Z`);
-  return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === text ? text : "invalid";
+  return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === text ? { ok: true, value: text } : { ok: false };
 }
 
+// Formatted in UTC: the date is a calendar day, and the server's own time zone must not shift it.
 const LONG = new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeZone: "UTC" });
 const SHORT = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
 
-export function formatDueDate(date: CalendarDate, style: "long" | "short" = "long"): string {
-  return (style === "long" ? LONG : SHORT).format(new Date(`${date}T00:00:00Z`));
+/** "Nov 2, 2026"; the short form ("Nov 2") keeps the year when it isn't the year of `today`. */
+export function formatDueDate(date: CalendarDate, style: "long" | "short" = "long", today = todayUtc()): string {
+  const useShort = style === "short" && date.slice(0, 4) === today.slice(0, 4);
+  return (useShort ? SHORT : LONG).format(new Date(`${date}T00:00:00Z`));
 }

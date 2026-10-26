@@ -19,22 +19,22 @@ export type TaskInput = {
 
 export function parseTaskInput(
   formData: FormData,
-): { ok: true; value: TaskInput } | { ok: false; error: string; field?: string } {
+): { ok: true; value: TaskInput } | { ok: false; error: string; field: "title" | "priority" | "dueDate" } {
   const title = cleanText(formData.get("title"));
   const description = cleanText(formData.get("description"));
   if (!title) {
-    return { ok: false, error: "Task title is required" };
+    return { ok: false, field: "title", error: "Task title is required" };
   }
   const customerId = formData.get("customerId");
   const organizationId = customerId === null ? undefined : String(customerId).trim() || null;
   const rawPriority = formData.get("priority");
-  const priority = rawPriority === null ? undefined : parseTaskPriority(String(rawPriority));
+  const priority = rawPriority === null ? undefined : parseTaskPriority(String(rawPriority).trim());
   if (priority === null) {
     return { ok: false, field: "priority", error: "Choose a priority" };
   }
   const dueDate = parseDueDate(formData.get("dueDate"));
-  if (dueDate === "invalid") {
+  if (!dueDate.ok) {
     return { ok: false, field: "dueDate", error: "Enter a valid date" };
   }
-  return { ok: true, value: { title, description: description || null, organizationId, priority, dueDate } };
+  return { ok: true, value: { title, description: description || null, organizationId, priority, dueDate: dueDate.value } };
 }

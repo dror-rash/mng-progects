@@ -25,7 +25,9 @@ export default async function DashboardPage() {
     listOwnedTaskStatuses(session.user.id),
   ]);
   const overall = summarizeTasks(taskStatuses);
-  const today = todayUtc();
+  // One clock read for the whole page, so "today" and "this week" can't straddle midnight.
+  const now = new Date();
+  const today = todayUtc(now);
   const dueStates = taskStatuses.map((t) => dueState(t.dueDate, t.status, today));
   const countDue = (state: "overdue" | "due-soon") => dueStates.filter((s) => s === state).length;
 
@@ -34,9 +36,9 @@ export default async function DashboardPage() {
     { id: "open-tasks", label: "Open Tasks", value: String(overall.open), hint: "To do or in progress" },
     { id: "completion-rate", label: "Completion Rate", value: `${overall.completionRate}%`, hint: `${overall.done} of ${overall.total} tasks done` },
     { id: "overdue", label: "Overdue", value: String(countDue("overdue")), hint: "Open tasks past their due date" },
-    { id: "due-this-week", label: "Due This Week", value: String(countDue("due-soon")), hint: "Open tasks due in the next seven days" },
+    { id: "due-this-week", label: "Due This Week", value: String(countDue("due-soon")), hint: "Open tasks due within seven days, including today" },
   ];
-  const thisWeek = countThisWeek(taskStatuses, new Date());
+  const thisWeek = countThisWeek(taskStatuses, now);
   const weekStats = [
     { id: "created-this-week", label: "Created", value: thisWeek.created, hint: "New tasks, last seven days" },
     { id: "completed-this-week", label: "Completed", value: thisWeek.completed, hint: "Moved to Done, last seven days" },
@@ -52,7 +54,8 @@ export default async function DashboardPage() {
 
         <section className="space-y-4">
           <h2 className="text-xl font-semibold tracking-tight">Overview</h2>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+          {/* Five tiles: on two-column screens the last one spans the row instead of sitting alone. */}
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5 sm:[&>*:last-child]:col-span-2 lg:[&>*:last-child]:col-span-1">
             {stats.map((stat) => (
               <Card key={stat.id} role="group" aria-labelledby={`stat-${stat.id}`}>
                 <CardHeader className="pb-2">

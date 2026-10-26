@@ -14,12 +14,18 @@ export function parseTaskPriority(value: unknown): TaskPriority | null {
   return TASK_PRIORITIES.find((p) => p.priority === value)?.priority ?? null;
 }
 
+/** A stored priority, with anything unknown treated as the default. */
+export function normalizeTaskPriority(value: unknown): TaskPriority {
+  return parseTaskPriority(value) ?? DEFAULT_PRIORITY;
+}
+
 function rank(value: string): number {
-  return TASK_PRIORITIES.findIndex((p) => p.priority === (parseTaskPriority(value) ?? DEFAULT_PRIORITY));
+  return TASK_PRIORITIES.findIndex((p) => p.priority === normalizeTaskPriority(value));
 }
 
 export function priorityLabel(value: string): string {
-  return TASK_PRIORITIES[rank(value)]!.label;
+  const priority = normalizeTaskPriority(value);
+  return TASK_PRIORITIES.find((p) => p.priority === priority)?.label ?? priority;
 }
 
 /** Comparator: most urgent first. Array sort is stable, so equal priorities keep their order. */

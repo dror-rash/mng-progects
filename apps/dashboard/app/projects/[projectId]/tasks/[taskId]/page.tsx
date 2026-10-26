@@ -51,7 +51,7 @@ export default async function TaskPage({ params }: { params: Promise<{ projectId
             <span>{priorityLabel(task.priority)} priority</span>
             {task.dueDate ? (
               <span>
-                Due <time dateTime={task.dueDate}>{formatDueDate(task.dueDate)}</time>
+                Due <time dateTime={task.dueDate}>{formatDueDate(task.dueDate)}</time>{" "}
                 {dueState(task.dueDate, task.status, todayUtc()) === "overdue" && (
                   <span className="ml-2 font-medium text-destructive">Overdue</span>
                 )}

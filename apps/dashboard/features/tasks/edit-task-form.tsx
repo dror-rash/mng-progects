@@ -9,7 +9,8 @@ import { useActionState } from "react";
 
 import type { FormState } from "@/features/forms/form-state";
 
-import { DEFAULT_PRIORITY, parseTaskPriority, TASK_PRIORITIES } from "./task-priority";
+import { MAX_DUE_DATE, MIN_DUE_DATE } from "./due-dates";
+import { normalizeTaskPriority, parseTaskPriority, TASK_PRIORITIES } from "./task-priority";
 
 import { updateTaskAction } from "./actions";
 
@@ -27,14 +28,18 @@ export function EditTaskForm({
 }) {
   const [state, formAction, pending] = useActionState<FormState, FormData>(updateTaskAction, {});
   // Errors without a field are about the title, the only other required input.
-  const titleError = state.field ? undefined : state.error;
+  const titleError = state.field === "title" ? state.error : undefined;
+  // Errors that belong to no field (e.g. "This task no longer exists") show above the form.
+  const formError = state.field ? undefined : state.error;
   const customerError = state.field === "customerId" ? state.error : undefined;
   const priorityError = state.field === "priority" ? state.error : undefined;
   const dueDateError = state.field === "dueDate" ? state.error : undefined;
-  const priority = state.values?.priority ?? parseTaskPriority(task.priority) ?? DEFAULT_PRIORITY;
+  // A submitted value is restored only if it is a real option, so the select never shows an unrelated one.
+  const priority = parseTaskPriority(state.values?.priority) ?? normalizeTaskPriority(task.priority);
 
   return (
     <form action={formAction} className="space-y-4">
+      <FieldError message={formError} />
       <input type="hidden" name="projectId" value={projectId} />
       <input type="hidden" name="taskId" value={task.id} />
       <div className="space-y-1">
@@ -76,6 +81,8 @@ export function EditTaskForm({
           id="dueDate"
           name="dueDate"
           type="date"
+          min={MIN_DUE_DATE}
+          max={MAX_DUE_DATE}
           className="w-auto"
           defaultValue={state.values?.dueDate ?? task.dueDate ?? ""}
           aria-invalid={dueDateError ? true : undefined}
