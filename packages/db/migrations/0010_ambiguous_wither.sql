@@ -1,0 +1,2 @@
+CREATE INDEX "project_owner_organization_idx" ON "project" USING btree ("owner_id","organization_id");--> statement-breakpoint
+CREATE INDEX "task_organization_idx" ON "task" USING btree ("organization_id");

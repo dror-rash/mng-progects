@@ -5,6 +5,8 @@ const testDir = defineBddConfig({
   features: "../docs/features/*.feature",
   featuresRoot: "../docs/features",
   steps: "./steps/*.ts",
+  // Specs written ahead of their task carry @wip; the tag comes off when the task starts (WORKFLOW.md).
+  tags: process.env.E2E_TAGS || "not @wip",
 });
 
 // Locally: dev servers. In CI: the workflow builds first, then we run `start`.
@@ -15,6 +17,9 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: 0, // flaky tests are bugs; fix them
+  // Dev servers compile each route on its first visit, which can take several seconds under parallel load.
+  // CI runs production builds, so it keeps Playwright's default 5s.
+  expect: { timeout: process.env.CI ? 5_000 : 15_000 },
   reporter: process.env.CI ? [["html", { open: "never" }], ["github"]] : "list",
   use: {
     baseURL: process.env.BASE_URL ?? "http://localhost:3000",

@@ -6,6 +6,7 @@
 Build a modern, full-stack Project Management application on a Next.js multi-zone architecture with authentication, polished landing and login pages, and an authenticated project management dashboard with database persistence.
 
 ## Non-goals
+- Multiple users per project or customer (sharing, assignees) until M8, which needs an authorization ADR first
 - Third-party OAuth integrations (keep email/password for initial milestone)
 - Real-time WebSockets/collaborative editing (keep standard server queries & actions for now)
 
@@ -14,6 +15,7 @@ Build a modern, full-stack Project Management application on a Next.js multi-zon
 2. Authenticated user navigates to the project management dashboard.
 3. Project manager views and manages projects and tasks.
 4. User opens a project, adds tasks, and moves them from To do → In progress → Done.
+5. User keeps a list of customers (details, contact people, notes) and sees every project and open task for a customer.
 
 ## Milestones
 | # | Milestone | Outcome | Status |
@@ -24,9 +26,12 @@ Build a modern, full-stack Project Management application on a Next.js multi-zon
 | M3 | Template Scaffolding Script | Interactive bash script to scaffold a new project from the template | done |
 | M4 | Core Project Management | Open a project, manage its tasks on a To do / In progress / Done board, real overview stats, edit/delete projects (tasks 005–008) | done |
 | M5 | Home Metrics | `/dashboard` becomes a metrics home (totals, tasks by status, recently started projects with progress, activity this week); full list + create form move to `/dashboard/projects` (tasks 009–010) | done |
+| M6 | Customers | Task page (011) and inline form errors (012); a customers directory with details, contact people, dated notes, and tags (013–015); projects and tasks link to a customer, and each customer shows its projects and open tasks (016–017). ADR-0004 | in-review |
+| M7 | Task Details | Task priority (018) and due dates with overdue / due-this-week on the home page (019) | planned |
+| M8 | Sharing (proposed) | Share projects and customers with teammates, assign tasks; needs an authorization ADR | proposed |
 
 ## Current milestone
-**M5** – Completed (PRs #1, #2 merged). Next milestone not yet planned; follow-ups are in the parking lots of tasks 006–010.
+**M6** – Customers. Tasks 011–017 implemented on `feat/m6-customers`, awaiting review (ADR-0004 still proposed). Next: M7 Task Details (018–019).
 
 ## Risks & open questions
 - CI `deploy` fails until GCP is set up (`infra/README.md`): no Workload Identity provider or project vars configured.
@@ -38,3 +43,4 @@ Build a modern, full-stack Project Management application on a Next.js multi-zon
 - 2026-10-22 – Added M4 Core Project Management: project page with task board (005), real stats (006), edit/delete projects (007). Keep it simple; new capabilities go in `features/<name>/` folders in the dashboard zone.
 - 2026-10-22 – Added M5 Home Metrics at the user's request: home page dedicated to metrics and recently started projects (5), with an All projects page.
 - 2026-10-22 – M4 and M5 merged. CI `verify` no longer runs the e2e package via `pnpm test` (it needs a build first); acceptance tests run in the `e2e` job.
+- 2026-10-23 – Planned M6 Customers at the user's request (011–017, ADR-0004: one typed organizations directory, customers first; projects and tasks link to it). Task priority and due dates move to M7 (018–019). Sharing proposed as M8. Unimplemented specs are tagged `@wip`.

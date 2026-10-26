@@ -57,6 +57,7 @@ See `docs/adr/`. Index:
 - ADR-0001 – Monorepo with multi-zone Next.js
 - ADR-0002 – Cloud Run, Workload Identity Federation, per-PR previews
 - ADR-0003 – Better Auth with Postgres (Drizzle) as the user store
+- ADR-0004 – One typed directory for customers and other external organizations
 
 ## Adding a zone
 1. Copy `apps/example-zone` to `apps/<name>`; rename the package to `@repo/<name>`, pick a free port, set `basePath: "/<name>"`.

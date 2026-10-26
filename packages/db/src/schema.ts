@@ -3,7 +3,8 @@
  * then run `pnpm db:generate` and commit the new migration.
  * If you enable Better Auth plugins that need tables, regenerate with `npx @better-auth/cli generate`.
  */
-import { boolean, pgTable, text, timestamp } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
+import { boolean, index, pgTable, text, timestamp } from "drizzle-orm/pg-core";
 
 export const user = pgTable("user", {
   id: text("id").primaryKey(),
@@ -62,9 +63,14 @@ export const project = pgTable("project", {
   ownerId: text("owner_id")
     .notNull()
     .references(() => user.id, { onDelete: "cascade" }),
+  /** The customer this project is for (task 016). Cleared if the customer is deleted. */
+  organizationId: text("organization_id").references(() => organization.id, { onDelete: "set null" }),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
-});
+}, (table) => [
+  // A customer's projects, and the SET NULL when a customer is deleted.
+  index("project_owner_organization_idx").on(table.ownerId, table.organizationId),
+]);
 
 export const task = pgTable("task", {
   id: text("id").primaryKey(),
@@ -72,11 +78,73 @@ export const task = pgTable("task", {
     .notNull()
     .references(() => project.id, { onDelete: "cascade" }),
   title: text("title").notNull(),
+  description: text("description"),
+  /** The customer this task is about (task 017); may differ from the project's. Cleared if it is deleted. */
+  organizationId: text("organization_id").references(() => organization.id, { onDelete: "set null" }),
   status: text("status").notNull().default("todo"),
   priority: text("priority").notNull().default("medium"),
   /** Set when the task moves to Done, cleared when it moves out. Null for tasks completed before this column existed. */
   completedAt: timestamp("completed_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
-});
+}, (table) => [
+  // A customer's open tasks, and the SET NULL when a customer is deleted.
+  index("task_organization_idx").on(table.organizationId),
+]);
 
+/** Customers and other outside organizations, in one directory with a `kind` (ADR-0004). */
+export const organization = pgTable(
+  "organization",
+  {
+    id: text("id").primaryKey(),
+    ownerId: text("owner_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    kind: text("kind").notNull().default("customer"),
+    name: text("name").notNull(),
+    status: text("status").notNull().default("active"),
+    email: text("email"),
+    phone: text("phone"),
+    address: text("address"),
+    website: text("website"),
+    companyId: text("company_id"),
+    /** "General information": one editable text. Dated notes live in their own table (task 015). */
+    about: text("about"),
+    tags: text("tags").array().notNull().default(sql`'{}'::text[]`),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (table) => [index("organization_owner_kind_idx").on(table.ownerId, table.kind)],
+);
+
+/** People at an organization (task 014). Deleted with the organization. */
+export const organizationContact = pgTable(
+  "organization_contact",
+  {
+    id: text("id").primaryKey(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    role: text("role"),
+    phone: text("phone"),
+    email: text("email"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (table) => [index("organization_contact_organization_idx").on(table.organizationId)],
+);
+
+/** Dated notes about an organization, newest first in the UI (task 015). Deleted with the organization. */
+export const organizationNote = pgTable(
+  "organization_note",
+  {
+    id: text("id").primaryKey(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    body: text("body").notNull(),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (table) => [index("organization_note_organization_idx").on(table.organizationId, table.createdAt)],
+);
