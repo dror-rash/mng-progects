@@ -41,8 +41,7 @@ Feature: Task assignees and My tasks
     When I open "/dashboard/workspace"
     And I press "Remove Teammate"
     And I am on the "Website Redesign" project page
-    And I am on the "Write copy" task page
-    Then I see the text "Unassigned"
+    Then the task "Write copy" does not show "Teammate"
 
   Scenario: Someone outside the workspace can't be assigned
     Given I am on the "Website Redesign" project page

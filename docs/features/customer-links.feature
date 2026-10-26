@@ -81,3 +81,14 @@ Feature: Customer links
     And I press "Save changes"
     Then I see the error "Choose one of your customers"
     And I see the text "No customer"
+
+  @task:026
+  Scenario: A customer from my other workspace can't be linked to a project
+    Given I have a customer "Globex" in a new workspace named "Acme Team"
+    And I switch to "Test User's workspace"
+    When I open "/dashboard/projects"
+    And I fill in "Project name" with "Sneaky"
+    And I choose the customer from my other workspace in "Customer"
+    And I press "Create Project"
+    Then I see the error "Choose one of your customers"
+    And I do not see the "Sneaky" link

@@ -36,6 +36,19 @@ Feature: Task details
     When I open the other user's project "tasks/some-task" page
     Then I see the text "Task not found"
 
+  @task:026
+  Scenario: Another user's real task is not shown and can't be changed from my form
+    Given another user has a project "Secret Plans" with a task "Launch"
+    When I open the other user's task page
+    Then I see the text "Task not found"
+    When I am on the "Website Redesign" project page
+    And I am on the "Write copy" task page
+    And I point the form at the other user's task
+    And I fill in "Title" with "Hijacked"
+    And I press "Save changes"
+    Then I see the error "This task no longer exists"
+    And the other user's task is still named "Launch"
+
   @task:020
   Scenario: Saving a task that was deleted elsewhere says so
     Given I am on the "Write copy" task page
