@@ -18,14 +18,34 @@ export async function listMemberships(userId: string) {
 }
 
 /**
- * Creates the user's personal workspace (as admin) if they belong to none. The id is derived from the
- * user id, as in migration 0012, so two concurrent first requests create it only once.
+ * Creates a personal workspace (as admin) for a user who belongs to none. The first one's id is derived
+ * from the user id, as in migration 0012, so two concurrent first requests create it only once. If that
+ * workspace already exists without them (they left or were removed), they get a new one: never rejoin it.
  */
 export async function ensurePersonalWorkspace(user: { id: string; name: string }) {
-  const id = `personal-${user.id}`;
-  const db = getDb();
-  await db.insert(schema.workspace).values({ id, name: personalWorkspaceName(user.name) }).onConflictDoNothing();
-  await db.insert(schema.workspaceMember).values({ workspaceId: id, userId: user.id, role: "admin" }).onConflictDoNothing();
+  const personalId = `personal-${user.id}`;
+  const name = personalWorkspaceName(user.name);
+  await getDb().transaction(async (tx) => {
+    const created = await tx
+      .insert(schema.workspace)
+      .values({ id: personalId, name })
+      .onConflictDoNothing()
+      .returning({ id: schema.workspace.id });
+    let workspaceId = personalId;
+    if (created.length === 0) {
+      // The insert waited for any concurrent first request, so its membership is visible by now.
+      const [member] = await tx
+        .select({ userId: schema.workspaceMember.userId })
+        .from(schema.workspaceMember)
+        .where(and(eq(schema.workspaceMember.workspaceId, personalId), eq(schema.workspaceMember.userId, user.id)));
+      if (member) {
+        return;
+      }
+      workspaceId = crypto.randomUUID();
+      await tx.insert(schema.workspace).values({ id: workspaceId, name });
+    }
+    await tx.insert(schema.workspaceMember).values({ workspaceId, userId: user.id, role: "admin" }).onConflictDoNothing();
+  });
 }
 
 export async function isMember(userId: string, workspaceId: string) {
