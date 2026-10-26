@@ -6,7 +6,6 @@
 Build a modern, full-stack Project Management application on a Next.js multi-zone architecture with authentication, polished landing and login pages, and an authenticated project management dashboard with database persistence.
 
 ## Non-goals
-- Multiple users per project or customer (sharing, assignees) until M8, which needs an authorization ADR first
 - Third-party OAuth integrations (keep email/password for initial milestone)
 - Real-time WebSockets/collaborative editing (keep standard server queries & actions for now)
 
@@ -28,10 +27,10 @@ Build a modern, full-stack Project Management application on a Next.js multi-zon
 | M5 | Home Metrics | `/dashboard` becomes a metrics home (totals, tasks by status, recently started projects with progress, activity this week); full list + create form move to `/dashboard/projects` (tasks 009–010) | done |
 | M6 | Customers | Task page (011) and inline form errors (012); a customers directory with details, contact people, dated notes, and tags (013–015); projects and tasks link to a customer, and each customer shows its projects and open tasks (016–017). ADR-0004 | done |
 | M7 | Task Details | Task priority (018) and due dates with overdue / due-this-week on the home page (019) | done |
-| M8 | Sharing (proposed) | Share projects and customers with teammates, assign tasks; needs an authorization ADR | proposed |
+| M8 | Workspaces & Sharing | Workspaces own projects, tasks and customers; Admin/Member roles; invite links; workspace switcher; task assignees and "My tasks" (ADR-0005) | proposed |
 
 ## Current milestone
-**M8** – Sharing (proposed). First step: an authorization ADR (who can see and change projects, tasks and customers).
+**M8** – Workspaces & Sharing. ADR-0005 proposed, awaiting review; task files follow once it is accepted.
 
 ## Risks & open questions
 - CI `deploy` fails until GCP is set up (`infra/README.md`): no Workload Identity provider or project vars configured.
@@ -46,3 +45,4 @@ Build a modern, full-stack Project Management application on a Next.js multi-zon
 - 2026-10-23 – Planned M6 Customers at the user's request (011–017, ADR-0004: one typed organizations directory, customers first; projects and tasks link to it). Task priority and due dates move to M7 (018–019). Sharing proposed as M8. Unimplemented specs are tagged `@wip`.
 - 2026-10-26 – M6 Customers merged (PR #4, incl. review fixes in task 020). Starting M7.
 - 2026-10-26 – M7 Task Details merged (PR #6, incl. review fixes in task 021). Next: M8 authorization ADR.
+- 2026-10-26 – ADR-0005 proposed: workspaces own all data, Admin/Member roles, invite links, one assignee per task (user decisions).
