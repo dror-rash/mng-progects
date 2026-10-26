@@ -1,6 +1,6 @@
 # ADR-0004: One typed directory for customers and other external organizations
 
-- **Status:** proposed
+- **Status:** accepted
 - **Date:** 2026-10-23
 
 ## Context
@@ -22,4 +22,5 @@ Tasks and projects need to relate to outside parties. Customers come first; exte
 ## Consequences
 - **Good:** adding a kind is a code change plus UI labels; task and project links work for every kind with no schema change; one list, one detail page, one set of tests.
 - **Bad / trade-offs:** fields that only make sense for one kind go in shared columns or need a later per-kind extension table. Status values are shared across kinds.
+- **For now:** only customers have pages, so project/task pickers and links resolve kind `customer` only; a link to another kind would show as "No customer" until that kind gets UI.
 - **Follow-ups:** revisit ownership with the sharing/authorization ADR (M8). Add per-kind fields only when a real kind needs them.

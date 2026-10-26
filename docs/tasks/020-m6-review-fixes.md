@@ -1,6 +1,6 @@
 # Task 020: M6 review fixes
 
-- **Status:** in-progress
+- **Status:** in-review
 - **Milestone:** M6
 - **Zone / package:** `apps/dashboard`, `packages/db`, `packages/ui`, `e2e`
 - **Feature files:** `form-validation.feature`, `customers.feature`, `customer-links.feature`
@@ -24,12 +24,13 @@
 - Cross-user note delete scenario; customer page heading levels and labelled sections; error.tsx logging/digest; unscoped customer-name joins (owner/kind in the ON clause); customer page loading all tasks for progress; `invalid()` echoing hidden/internal fields; consistent field-less error handling across forms; not-found card / form helper / duplicate type cleanups; "I follow the link" exact URL resolution and "I see the text" visible-only filter.
 
 ## Acceptance criteria
-- [ ] After a blank project name, the chosen customer is still selected.
-- [ ] After an invalid customer email, the chosen status is still selected.
-- [ ] After a blank task title, the chosen customer is still selected.
-- [ ] Tags that differ only in case filter together; status and tag filters combine; a repeated param doesn't crash the list.
-- [ ] Another user's customer can't be linked to a project or a task.
-- [ ] A project card shows its customer.
+- [x] After a blank project name, the chosen customer is still selected.
+- [x] After an invalid customer email, the chosen status is still selected.
+- [x] After a blank task title, the chosen customer is still selected.
+- [x] Tags that differ only in case filter together; status and tag filters combine; a repeated param doesn't crash the list.
+- [x] Another user's customer can't be linked to a project or a task.
+- [x] A project card shows its customer.
+- [x] Saving a contact or task that was removed elsewhere says so.
 
 ## Test plan
 - Acceptance: new scenarios above.
@@ -37,3 +38,4 @@
 
 ## Progress log
 - 2026-10-26 – Task created from the review.
+- 2026-10-26 – 11 scenarios added: 8 red → green (3 cross-user/card ones were already correct, now covered); unit tests for input hardening, tag list, search params, cleanText, invalid(), FilterChip. Migration `0010` adds the two indexes. ADR-0004 accepted.

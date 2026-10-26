@@ -15,7 +15,7 @@ Next.js (App Router, multi-zone) · Better Auth · Postgres + Drizzle · TypeScr
 
 ## Commands
 - `pnpm db:up` – local Postgres (Docker); `pnpm db:generate` / `pnpm db:migrate` / `pnpm db:studio`
-- `pnpm dev` – run all zones (shell :3000, example-zone :3001); needs `.env` (copy `.env.example`) and the database up
+- `pnpm dev` – run all zones (shell :3000, example-zone :3001, dashboard :3002); needs `.env` (copy `.env.example`) and the database up. Restart it if e2e gets slow after a long session (dev memory growth); never run `pnpm build` while it runs (both write `.next`)
 - `pnpm test` – unit/component tests (Vitest)
 - `pnpm test:e2e` – acceptance tests (Gherkin via Playwright; generates specs with `bddgen`, then runs)
 - `pnpm storybook` – UI workbench on :6006
@@ -25,7 +25,7 @@ Next.js (App Router, multi-zone) · Better Auth · Postgres + Drizzle · TypeScr
 
 ## Non-negotiable rules
 1. **No production code without a failing test first.** Acceptance test (ATDD) for behavior, unit test (TDD) for logic. Show the red run before writing the implementation.
-2. **Feature files are the source of truth.** Behavior lives in `docs/features/*.feature`. Never edit a scenario to make a test pass; if behavior must change, update the feature file in its own commit and say why.
+2. **Feature files are the source of truth.** Behavior lives in `docs/features/*.feature`. Never edit a scenario to make a test pass; if behavior must change, update the feature file in its own commit and say why. Scenarios written ahead of their task carry `@wip` (skipped by `pnpm test:e2e`); remove the tag in the task's `test:` commit.
 3. **Plan before code.** Work happens against a task file in `docs/tasks/`. One task = one small, reviewable change.
 4. **Respect boundaries.** Zones never import from each other; share code only through `packages/*`. Cross-zone navigation uses plain links/rewrites, not imports.
 5. **UI goes through `packages/ui`.** Use shadcn primitives. Every new component ships with a Storybook story covering its states.
@@ -35,8 +35,11 @@ Next.js (App Router, multi-zone) · Better Auth · Postgres + Drizzle · TypeScr
 9. **Record decisions.** Any choice that is hard to reverse gets an ADR in `docs/adr/`.
 10. **Infra is code, deploys go through CI.** Change GCP only via `infra/` Terraform (show `terraform plan` output in the PR). Never commit state, `*.tfvars`, or credentials; never deploy by hand to production.
 11. **Auth goes through `@repo/auth`.** Never read or parse session cookies yourself. Middleware is only an optimistic check; every protected page/route handler must call `getSession()`. Post-login redirects must use `safeNext`.
-12. **Data goes through `@repo/db`.** Schema changes = edit `packages/db/src/schema.ts`, run `pnpm db:generate`, commit the SQL migration. Never edit applied migrations; never change the database by hand.
-13. **No secrets or real user data in tests, fixtures, logs, or commits.** E2E creates unique throwaway accounts per scenario.
+12. **Data goes through `@repo/db`.** Schema changes = edit `packages/db/src/schema.ts`, run `pnpm db:generate`, commit the SQL migration. Never edit applied migrations; never change the database by hand. Import query operators (`eq`, `and`, `sql`, …) from `@repo/db`, not `drizzle-orm`.
+13. **No secrets or real user data in tests, fixtures, logs, or commits.** E2E creates unique throwaway accounts per scenario. `AUTH_DISABLE_RATE_LIMIT=true` is set only on the Playwright test servers; never in `.env` or a deployment.
+
+## Forms
+- Server actions for forms return `FormState` (`invalid()` in `apps/dashboard/features/forms/form-state.ts`) for invalid input and throw only for auth/not-found; client forms use `useActionState`.
 
 ## Testing conventions
 - Test behavior and outputs, not implementation details. Query by role/label, not test IDs, unless unavoidable.
