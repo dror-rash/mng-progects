@@ -79,6 +79,23 @@ export const workspaceMember = pgTable(
   (table) => [primaryKey({ columns: [table.workspaceId, table.userId] }), index("workspace_member_user_idx").on(table.userId)],
 );
 
+/** Invite links (task 023). Only a SHA-256 hash of the token is stored; links expire and can be revoked. */
+export const workspaceInvite = pgTable(
+  "workspace_invite",
+  {
+    id: text("id").primaryKey(),
+    workspaceId: text("workspace_id")
+      .notNull()
+      .references(() => workspace.id, { onDelete: "cascade" }),
+    tokenHash: text("token_hash").notNull().unique(),
+    createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    expiresAt: timestamp("expires_at").notNull(),
+    revokedAt: timestamp("revoked_at"),
+  },
+  (table) => [index("workspace_invite_workspace_idx").on(table.workspaceId)],
+);
+
 export const project = pgTable("project", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),
