@@ -1,6 +1,6 @@
 # Task 024: Workspace switcher and new workspaces (M8 step 3)
 
-- **Status:** in-progress
+- **Status:** in-review
 - **Milestone:** M8
 - **Zone / package:** `apps/dashboard`
 - **Feature file:** `docs/features/workspace-switching.feature`
@@ -19,10 +19,10 @@ After joining a workspace (task 023) there is no way back to your own, and nobod
 - Renaming or deleting a workspace (parking lot); assignees (025).
 
 ## Acceptance criteria
-- [ ] I can create a second workspace, and its lists don't show my other workspace's projects.
-- [ ] I can switch back and see my projects again.
-- [ ] A blank workspace name shows an error.
-- [ ] A teammate who joined my workspace can switch back to their own.
+- [x] I can create a second workspace, and its lists don't show my other workspace's projects.
+- [x] I can switch back and see my projects again.
+- [x] A blank workspace name shows an error.
+- [x] A teammate who joined my workspace can switch back to their own.
 
 ## Approach (brief)
 `parseWorkspaceName` (pure, unit-tested); `switchWorkspaceAction` and `createWorkspaceAction` set the cookie; current-workspace validation (task 022) already ignores a cookie for a workspace you're not in.
@@ -33,6 +33,7 @@ After joining a workspace (task 023) there is no way back to your own, and nobod
 
 ## Progress log
 - 2026-10-26 – Task created.
+- 2026-10-26 – 4 scenarios red → green (stable over 2 repeats); `parseWorkspaceName` unit tests. Joining via invite now creates the joiner's personal workspace first (found while specifying the switch-back scenario). Header workspace name now links to the workspaces page. Full suite 87/87 twice.
 
 ## Parking lot
 - Rename and delete a workspace (admins).
