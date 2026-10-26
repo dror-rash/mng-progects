@@ -1,6 +1,6 @@
 # Task 018: Task priority
 
-- **Status:** in-review
+- **Status:** done
 - **Milestone:** M7
 - **Zone / package:** `apps/dashboard`
 - **Feature file:** `docs/features/task-priority.feature`
@@ -32,5 +32,6 @@ Not every task is equally urgent. The `task.priority` column already exists (def
 ## Progress log
 - 2026-10-23 – Task created.
 - 2026-10-26 – 2 scenarios red → green (stable over 3 repeats); priority helpers and parsing unit-tested. Board cards label only High and Low (Medium is the default; labelling every card would be noise) — my call. Priority select keyed like the other selects. Full suite 71/71.
+- 2026-10-26 – Merged in PR #6.
 
 ## Parking lot

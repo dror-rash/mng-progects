@@ -27,11 +27,11 @@ Build a modern, full-stack Project Management application on a Next.js multi-zon
 | M4 | Core Project Management | Open a project, manage its tasks on a To do / In progress / Done board, real overview stats, edit/delete projects (tasks 005–008) | done |
 | M5 | Home Metrics | `/dashboard` becomes a metrics home (totals, tasks by status, recently started projects with progress, activity this week); full list + create form move to `/dashboard/projects` (tasks 009–010) | done |
 | M6 | Customers | Task page (011) and inline form errors (012); a customers directory with details, contact people, dated notes, and tags (013–015); projects and tasks link to a customer, and each customer shows its projects and open tasks (016–017). ADR-0004 | done |
-| M7 | Task Details | Task priority (018) and due dates with overdue / due-this-week on the home page (019) | in-review |
+| M7 | Task Details | Task priority (018) and due dates with overdue / due-this-week on the home page (019) | done |
 | M8 | Sharing (proposed) | Share projects and customers with teammates, assign tasks; needs an authorization ADR | proposed |
 
 ## Current milestone
-**M7** – Task Details. Tasks 018–019 implemented on `feat/m7-task-details`, awaiting review. Next: M8 Sharing (needs an authorization ADR).
+**M8** – Sharing (proposed). First step: an authorization ADR (who can see and change projects, tasks and customers).
 
 ## Risks & open questions
 - CI `deploy` fails until GCP is set up (`infra/README.md`): no Workload Identity provider or project vars configured.
@@ -45,3 +45,4 @@ Build a modern, full-stack Project Management application on a Next.js multi-zon
 - 2026-10-22 – M4 and M5 merged. CI `verify` no longer runs the e2e package via `pnpm test` (it needs a build first); acceptance tests run in the `e2e` job.
 - 2026-10-23 – Planned M6 Customers at the user's request (011–017, ADR-0004: one typed organizations directory, customers first; projects and tasks link to it). Task priority and due dates move to M7 (018–019). Sharing proposed as M8. Unimplemented specs are tagged `@wip`.
 - 2026-10-26 – M6 Customers merged (PR #4, incl. review fixes in task 020). Starting M7.
+- 2026-10-26 – M7 Task Details merged (PR #6, incl. review fixes in task 021). Next: M8 authorization ADR.

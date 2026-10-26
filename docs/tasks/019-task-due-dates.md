@@ -1,6 +1,6 @@
 # Task 019: Due dates and overdue tasks on the home page
 
-- **Status:** in-review
+- **Status:** done
 - **Milestone:** M7
 - **Zone / package:** `apps/dashboard`, `packages/db`
 - **Feature file:** `docs/features/task-due-dates.feature`
@@ -32,6 +32,7 @@ Pure `dueState(dueDate, status, today)` → `"overdue" | "due-soon" | "later" | 
 ## Progress log
 - 2026-10-23 – Task created.
 - 2026-10-26 – 3 scenarios red → green (stable over 3 repeats); `dueState`/`addDays`/`parseDueDate` unit-tested at the boundaries. Migration `0011` adds `task.due_date` (`date`). Home overview grows to five tiles (Overdue, Due This Week). "Overdue" is text, not colour alone. Full suite 74/74 twice.
+- 2026-10-26 – Merged in PR #6.
 
 ## Parking lot
 - Use the viewer's time zone for "today" once timestamps move to `timestamptz`.
