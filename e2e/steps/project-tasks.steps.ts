@@ -196,3 +196,23 @@ Given("the task {string} is due {int} days from today", async ({ page }, title: 
 Then("the task {string} does not show {string}", async ({ page }, title: string, text: string) => {
   await expect(taskCard(page, title)).not.toContainText(text);
 });
+
+// Assigns a task from its page, starting and ending on the project board.
+Given("the task {string} is assigned to {string}", async ({ page }, title: string, person: string) => {
+  await openTaskFromBoard(page, title);
+  await page.getByLabel("Assignee", { exact: true }).selectOption({ label: person });
+  await saveTask(page);
+  await expect(page.getByText(`Assigned to ${person}`)).toBeVisible();
+  await backToBoard(page);
+});
+
+// Simulates a tampered form: an assignee id that isn't a member of this workspace.
+When("I choose someone outside the workspace in {string}", async ({ page }, label: string) => {
+  await page.getByLabel(label, { exact: true }).evaluate((select) => {
+    const option = document.createElement("option");
+    option.value = "someone-outside";
+    option.text = "Someone outside";
+    select.appendChild(option);
+    (select as HTMLSelectElement).value = "someone-outside";
+  });
+});
