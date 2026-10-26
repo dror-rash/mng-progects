@@ -35,3 +35,11 @@ Feature: Task details
     Given another user has a project named "Secret Plans"
     When I open the other user's project "tasks/some-task" page
     Then I see the text "Task not found"
+
+  @task:020
+  Scenario: Saving a task that was deleted elsewhere says so
+    Given I am on the "Write copy" task page
+    When the task "Write copy" is deleted in another tab
+    And I fill in "Description" with "Too late"
+    And I press "Save changes"
+    Then I see the error "This task no longer exists"

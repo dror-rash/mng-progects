@@ -25,3 +25,12 @@ Feature: Customer contacts
     Then the "Contacts" section shows "CMO"
     When I press "Remove Dana Levi"
     Then the "Contacts" section does not show "Dana Levi"
+
+  @task:020
+  Scenario: Saving a contact that was removed elsewhere says so
+    Given the customer has a contact "Dana Levi"
+    When I follow the "Edit Dana Levi" link
+    And the contact "Dana Levi" is removed in another tab
+    And I fill in "Role" with "CMO"
+    And I press "Save contact"
+    Then I see the error "This contact no longer exists"
