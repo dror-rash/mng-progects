@@ -4,7 +4,7 @@
  * If you enable Better Auth plugins that need tables, regenerate with `npx @better-auth/cli generate`.
  */
 import { sql } from "drizzle-orm";
-import { boolean, date, index, pgTable, text, timestamp } from "drizzle-orm/pg-core";
+import { boolean, date, index, pgTable, primaryKey, text, timestamp } from "drizzle-orm/pg-core";
 
 export const user = pgTable("user", {
   id: text("id").primaryKey(),
@@ -56,20 +56,47 @@ export const verification = pgTable("verification", {
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
+/** Workspaces own projects, tasks and customers (ADR-0005). */
+export const workspace = pgTable("workspace", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const workspaceMember = pgTable(
+  "workspace_member",
+  {
+    workspaceId: text("workspace_id")
+      .notNull()
+      .references(() => workspace.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    /** `admin` or `member` (features/workspaces/roles.ts). */
+    role: text("role").notNull().default("member"),
+    joinedAt: timestamp("joined_at").notNull().defaultNow(),
+  },
+  (table) => [primaryKey({ columns: [table.workspaceId, table.userId] }), index("workspace_member_user_idx").on(table.userId)],
+);
+
 export const project = pgTable("project", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),
   description: text("description"),
+  /** Who created it. Access is by workspace membership, not by this column (ADR-0005). */
   ownerId: text("owner_id")
     .notNull()
     .references(() => user.id, { onDelete: "cascade" }),
+  workspaceId: text("workspace_id")
+    .notNull()
+    .references(() => workspace.id, { onDelete: "cascade" }),
   /** The customer this project is for (task 016). Cleared if the customer is deleted. */
   organizationId: text("organization_id").references(() => organization.id, { onDelete: "set null" }),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 }, (table) => [
-  // A customer's projects, and the SET NULL when a customer is deleted.
-  index("project_owner_organization_idx").on(table.ownerId, table.organizationId),
+  // A workspace's projects, a customer's projects, and the SET NULL when a customer is deleted.
+  index("project_workspace_organization_idx").on(table.workspaceId, table.organizationId),
 ]);
 
 export const task = pgTable("task", {
@@ -99,9 +126,13 @@ export const organization = pgTable(
   "organization",
   {
     id: text("id").primaryKey(),
+    /** Who created it. Access is by workspace membership (ADR-0005). */
     ownerId: text("owner_id")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
+    workspaceId: text("workspace_id")
+      .notNull()
+      .references(() => workspace.id, { onDelete: "cascade" }),
     kind: text("kind").notNull().default("customer"),
     name: text("name").notNull(),
     status: text("status").notNull().default("active"),
@@ -116,7 +147,7 @@ export const organization = pgTable(
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },
-  (table) => [index("organization_owner_kind_idx").on(table.ownerId, table.kind)],
+  (table) => [index("organization_workspace_kind_idx").on(table.workspaceId, table.kind)],
 );
 
 /** People at an organization (task 014). Deleted with the organization. */
