@@ -44,6 +44,7 @@ Next.js (App Router, multi-zone) · Better Auth · Postgres + Drizzle · TypeScr
 - A native `<select>` in an action form gets `key={its value}`: React resets the form after every submit, and a select only applies `defaultValue` when it mounts.
 
 ## Domain conventions
+- Access is by workspace membership (ADR-0005): pages call `requireWorkspace(path)`; record lookups filter with `visibleTo(userId, <table>.workspaceId)`; lists use the current workspace; admin-only actions check the role on the server. Never scope by `owner_id` (it means "created by").
 - Fixed value sets (task status, priority, organization status) are defined once as a `const` list with `parse…`/label helpers and a default for unknown stored values (see `features/tasks/task-status.ts`). Never hard-code the strings elsewhere.
 - Calendar days (due dates) are Postgres `date` read as `"YYYY-MM-DD"` strings and compared as strings. "Today" is `todayUtc()`; format with `timeZone: "UTC"`. E2E date steps compute days relative to today in UTC and keep a margin of several days.
 

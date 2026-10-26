@@ -27,10 +27,10 @@ Build a modern, full-stack Project Management application on a Next.js multi-zon
 | M5 | Home Metrics | `/dashboard` becomes a metrics home (totals, tasks by status, recently started projects with progress, activity this week); full list + create form move to `/dashboard/projects` (tasks 009–010) | done |
 | M6 | Customers | Task page (011) and inline form errors (012); a customers directory with details, contact people, dated notes, and tags (013–015); projects and tasks link to a customer, and each customer shows its projects and open tasks (016–017). ADR-0004 | done |
 | M7 | Task Details | Task priority (018) and due dates with overdue / due-this-week on the home page (019) | done |
-| M8 | Workspaces & Sharing | Workspaces own projects, tasks and customers; Admin/Member roles; invite links; workspace switcher; task assignees and "My tasks" (ADR-0005) | proposed |
+| M8 | Workspaces & Sharing | Workspaces own projects, tasks and customers; Admin/Member roles; invite links; workspace switcher; task assignees and "My tasks" (ADR-0005) | in-review |
 
 ## Current milestone
-**M8** – Workspaces & Sharing. ADR-0005 proposed, awaiting review; task files follow once it is accepted.
+**M8** – Workspaces & Sharing. Tasks 022–025 implemented on `feat/m8-workspaces`, awaiting review.
 
 ## Risks & open questions
 - CI `deploy` fails until GCP is set up (`infra/README.md`): no Workload Identity provider or project vars configured.

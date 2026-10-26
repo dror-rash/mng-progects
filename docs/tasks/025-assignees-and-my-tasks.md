@@ -1,6 +1,6 @@
 # Task 025: Task assignees, "My tasks" and note authors (M8 step 4)
 
-- **Status:** in-progress
+- **Status:** in-review
 - **Milestone:** M8
 - **Zone / package:** `packages/db`, `apps/dashboard`, `e2e`
 - **Feature files:** `docs/features/task-assignees.feature`, `docs/features/customer-notes.feature`
@@ -20,11 +20,11 @@ Teams share workspaces now (023, 024), but nobody can tell who is doing what. On
 - Several assignees, notifications, filtering "My tasks".
 
 ## Acceptance criteria
-- [ ] A task can be assigned to a teammate; the task page and board show it.
-- [ ] "My tasks" lists my open tasks and drops them when done.
-- [ ] Removing a member clears their assignments.
-- [ ] Someone outside the workspace can't be assigned.
-- [ ] A new note shows its author.
+- [x] A task can be assigned to a teammate; the task page and board show it.
+- [x] "My tasks" lists my open tasks and drops them when done.
+- [x] Removing a member clears their assignments.
+- [x] Someone outside the workspace can't be assigned.
+- [x] A new note shows its author.
 
 ## Approach (brief)
 `assigneeId` follows the same three-state contract as `customerId` in `parseTaskInput`; `isMember` guards it; `byDueThenPriority` (pure, unit-tested) orders "My tasks".
@@ -35,5 +35,6 @@ Teams share workspaces now (023, 024), but nobody can tell who is doing what. On
 
 ## Progress log
 - 2026-10-26 – Task created.
+- 2026-10-26 – Migration `0014` adds `task.assignee_id` (indexed) and `organization_note.author_id`. 5 scenarios red → green (stable over 2 repeats) + note-author scenario; assignee parsing and "My tasks" ordering unit-tested. Removing or leaving clears assignments in that workspace. Full suite 92/92 twice (after a dev-server restart at 5.8 GB).
 
 ## Parking lot
