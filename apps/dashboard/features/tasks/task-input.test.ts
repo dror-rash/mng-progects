@@ -49,4 +49,17 @@ describe("parseTaskInput", () => {
       error: "Choose a priority",
     });
   });
+
+  it("reads the due date, clears it when empty, and rejects an invalid date", () => {
+    const set = parseTaskInput(form({ title: "Call", dueDate: "2026-11-02" }));
+    const cleared = parseTaskInput(form({ title: "Call", dueDate: "" }));
+
+    expect(set.ok && set.value.dueDate).toBe("2026-11-02");
+    expect(cleared.ok && cleared.value.dueDate).toBeNull();
+    expect(parseTaskInput(form({ title: "Call", dueDate: "2026-02-30" }))).toEqual({
+      ok: false,
+      field: "dueDate",
+      error: "Enter a valid date",
+    });
+  });
 });

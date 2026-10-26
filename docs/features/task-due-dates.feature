@@ -1,4 +1,4 @@
-@wip @zone:dashboard @task:019
+@zone:dashboard @task:019
 Feature: Task due dates
   As a signed-in user
   I want to give tasks due dates

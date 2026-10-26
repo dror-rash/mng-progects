@@ -134,3 +134,53 @@ Then("the {string} column lists {string}", async ({ page }, column: string, titl
   const links = page.getByRole("region", { name: column }).getByRole("listitem").getByRole("link");
   await expect(links).toHaveText(titles.split(",").map((t) => t.trim()));
 });
+
+// Calendar days in UTC, like the app ("today" is the server's UTC date). Scenarios keep a margin
+// of several days, so the viewer's own time zone can't flip a result.
+function daysFromToday(days: number): string {
+  const date = new Date();
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
+async function setDueDate(page: Page, value: string) {
+  await page.getByLabel("Due date", { exact: true }).fill(value);
+}
+
+When("I set the due date to {int} days from today", async ({ page }, days: number) => {
+  await setDueDate(page, daysFromToday(days));
+});
+
+When("I clear the due date", async ({ page }) => {
+  await setDueDate(page, "");
+});
+
+Then("I see the due date {int} days from today", async ({ page }, days: number) => {
+  await expect(page.locator(`time[datetime="${daysFromToday(days)}"]`).first()).toBeVisible();
+});
+
+// Opens the task from the board, sets its due date, saves, and returns to the board.
+async function taskIsDue(page: Page, title: string, days: number) {
+  await page.getByRole("link", { name: title, exact: true }).click();
+  await expect(page.getByRole("heading", { name: title, level: 1 })).toBeVisible();
+  await setDueDate(page, daysFromToday(days));
+  await Promise.all([
+    page.waitForResponse((r) => r.request().method() === "POST"),
+    page.getByRole("button", { name: "Save changes" }).click(),
+  ]);
+  await expect(page.locator(`time[datetime="${daysFromToday(days)}"]`).first()).toBeVisible();
+  await page.getByRole("navigation", { name: "Breadcrumb" }).getByRole("link").click();
+  await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+$/);
+}
+
+Given("the task {string} is due {int} days ago", async ({ page }, title: string, days: number) => {
+  await taskIsDue(page, title, -days);
+});
+
+Given("the task {string} is due {int} days from today", async ({ page }, title: string, days: number) => {
+  await taskIsDue(page, title, days);
+});
+
+Then("the task {string} does not show {string}", async ({ page }, title: string, text: string) => {
+  await expect(taskCard(page, title)).not.toContainText(text);
+});
