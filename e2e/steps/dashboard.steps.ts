@@ -2,10 +2,9 @@ import { expect } from "@playwright/test";
 
 import { Then } from "./fixtures";
 
-// Matches the whole number, so "1" doesn't also pass for "10".
+// The tile's value is its own element, so match it exactly: "1" mustn't also pass for "10".
 Then("the {string} stat shows {string}", async ({ page }, label: string, value: string) => {
-  const escaped = value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  await expect(page.getByRole("group", { name: label })).toHaveText(new RegExp(`(^|\\D)${escaped}(\\D|$)`));
+  await expect(page.getByRole("group", { name: label }).getByText(value, { exact: true })).toBeVisible();
 });
 
 Then("the {string} project card shows {string}", async ({ page }, name: string, text: string) => {
