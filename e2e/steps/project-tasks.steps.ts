@@ -117,16 +117,34 @@ When("the task {string} is deleted in another tab", async ({ context, page }, ti
   await tab.close();
 });
 
-// Sets a task's priority from its page, starting on the project board.
-Given("the task {string} has priority {string}", async ({ page }, title: string, priority: string) => {
+// Opens a task from the project board the browser is on.
+async function openTaskFromBoard(page: Page, title: string) {
   await page.getByRole("link", { name: title, exact: true }).click();
+  await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/tasks\/[^/]+$/);
   await expect(page.getByRole("heading", { name: title, level: 1 })).toBeVisible();
-  await page.getByLabel("Priority", { exact: true }).selectOption({ label: priority });
+}
+
+// Saves the task form and waits for the server action's response.
+async function saveTask(page: Page) {
   await Promise.all([
     page.waitForResponse((r) => r.request().method() === "POST"),
     page.getByRole("button", { name: "Save changes" }).click(),
   ]);
+}
+
+async function backToBoard(page: Page) {
+  await page.getByRole("navigation", { name: "Breadcrumb" }).getByRole("link").click();
+  await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+$/);
+}
+
+// Sets a task's priority from its page, starting and ending on the project board.
+// Use a non-default priority: the check below is already true for Medium before saving.
+Given("the task {string} has priority {string}", async ({ page }, title: string, priority: string) => {
+  await openTaskFromBoard(page, title);
+  await page.getByLabel("Priority", { exact: true }).selectOption({ label: priority });
+  await saveTask(page);
   await expect(page.getByText(`${priority} priority`).first()).toBeVisible();
+  await backToBoard(page);
 });
 
 Then("the {string} column lists {string}", async ({ page }, column: string, titles: string) => {
@@ -135,42 +153,36 @@ Then("the {string} column lists {string}", async ({ page }, column: string, titl
   await expect(links).toHaveText(titles.split(",").map((t) => t.trim()));
 });
 
-// Calendar days in UTC, like the app ("today" is the server's UTC date). Scenarios keep a margin
-// of several days, so the viewer's own time zone can't flip a result.
+// Calendar days in UTC, like the app ("today" is the server's UTC date). Scenarios keep a margin of
+// several days so the runner and the server can't disagree about which day it is (clock skew, midnight).
 function daysFromToday(days: number): string {
   const date = new Date();
   date.setUTCDate(date.getUTCDate() + days);
   return date.toISOString().slice(0, 10);
 }
 
-async function setDueDate(page: Page, value: string) {
-  await page.getByLabel("Due date", { exact: true }).fill(value);
-}
-
-When("I set the due date to {int} days from today", async ({ page }, days: number) => {
-  await setDueDate(page, daysFromToday(days));
+When("I set the due date to {int} days from today", async ({ page, state }, days: number) => {
+  state.dueDate = daysFromToday(days);
+  await page.getByLabel("Due date", { exact: true }).fill(state.dueDate);
 });
 
 When("I clear the due date", async ({ page }) => {
-  await setDueDate(page, "");
+  await page.getByLabel("Due date", { exact: true }).fill("");
 });
 
-Then("I see the due date {int} days from today", async ({ page }, days: number) => {
-  await expect(page.locator(`time[datetime="${daysFromToday(days)}"]`).first()).toBeVisible();
+Then("I see the due date {int} days from today", async ({ page, state }, days: number) => {
+  const due = state.dueDate ?? daysFromToday(days);
+  await expect(page.locator(`time[datetime="${due}"]`).first()).toBeVisible();
 });
 
-// Opens the task from the board, sets its due date, saves, and returns to the board.
+// Sets a task's due date from its page, starting and ending on the project board.
 async function taskIsDue(page: Page, title: string, days: number) {
-  await page.getByRole("link", { name: title, exact: true }).click();
-  await expect(page.getByRole("heading", { name: title, level: 1 })).toBeVisible();
-  await setDueDate(page, daysFromToday(days));
-  await Promise.all([
-    page.waitForResponse((r) => r.request().method() === "POST"),
-    page.getByRole("button", { name: "Save changes" }).click(),
-  ]);
-  await expect(page.locator(`time[datetime="${daysFromToday(days)}"]`).first()).toBeVisible();
-  await page.getByRole("navigation", { name: "Breadcrumb" }).getByRole("link").click();
-  await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+$/);
+  const due = daysFromToday(days);
+  await openTaskFromBoard(page, title);
+  await page.getByLabel("Due date", { exact: true }).fill(due);
+  await saveTask(page);
+  await expect(page.locator(`time[datetime="${due}"]`).first()).toBeVisible();
+  await backToBoard(page);
 }
 
 Given("the task {string} is due {int} days ago", async ({ page }, title: string, days: number) => {

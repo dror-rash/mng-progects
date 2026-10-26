@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { byPriority, parseTaskPriority, priorityLabel, TASK_PRIORITIES } from "./task-priority";
+import { byPriority, normalizeTaskPriority, parseTaskPriority, priorityLabel, TASK_PRIORITIES } from "./task-priority";
 
 describe("TASK_PRIORITIES", () => {
   it("lists priorities from most to least urgent", () => {
@@ -13,6 +13,8 @@ describe("parseTaskPriority", () => {
     expect(parseTaskPriority("high")).toBe("high");
     expect(parseTaskPriority("urgent")).toBeNull();
     expect(parseTaskPriority(null)).toBeNull();
+    expect(parseTaskPriority("High")).toBeNull();
+    expect(parseTaskPriority(1)).toBeNull();
   });
 });
 
@@ -34,5 +36,12 @@ describe("byPriority", () => {
     ];
 
     expect([...tasks].sort(byPriority).map((t) => t.id)).toEqual(["3", "2", "4", "5", "1"]);
+  });
+});
+
+describe("normalizeTaskPriority", () => {
+  it("keeps a known priority and treats anything else as Medium", () => {
+    expect(normalizeTaskPriority("low")).toBe("low");
+    expect(normalizeTaskPriority("legacy")).toBe("medium");
   });
 });

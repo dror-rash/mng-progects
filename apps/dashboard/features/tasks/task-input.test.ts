@@ -17,7 +17,17 @@ describe("parseTaskInput", () => {
   });
 
   it("rejects an empty title", () => {
-    expect(parseTaskInput(form({ title: "   " }))).toEqual({ ok: false, error: "Task title is required" });
+    expect(parseTaskInput(form({ title: "   " }))).toEqual({ ok: false, field: "title", error: "Task title is required" });
+  });
+
+  it("reports the title first when several fields are invalid", () => {
+    expect(parseTaskInput(form({ title: " ", priority: "urgent", dueDate: "nope" }))).toMatchObject({ field: "title" });
+  });
+
+  it("trims the priority and treats a blank one as unchosen", () => {
+    const padded = parseTaskInput(form({ title: "Call", priority: " high " }));
+    expect(padded.ok && padded.value.priority).toBe("high");
+    expect(parseTaskInput(form({ title: "Call", priority: "  " }))).toMatchObject({ ok: false, field: "priority" });
   });
 
   it("stores a missing or empty description as null", () => {
