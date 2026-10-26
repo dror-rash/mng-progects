@@ -30,7 +30,7 @@ Build a modern, full-stack Project Management application on a Next.js multi-zon
 | M8 | Workspaces & Sharing | Workspaces own projects, tasks and customers; Admin/Member roles; invite links; workspace switcher; task assignees and "My tasks" (ADR-0005) | in-review |
 
 ## Current milestone
-**M8** – Workspaces & Sharing. Tasks 022–025 implemented on `feat/m8-workspaces`, awaiting review.
+**M8** – Workspaces & Sharing. Tasks 022–025 implemented on `feat/m8-workspaces`; review fixes in task 026. In PR review.
 
 ## Risks & open questions
 - CI `deploy` fails until GCP is set up (`infra/README.md`): no Workload Identity provider or project vars configured.
@@ -45,4 +45,5 @@ Build a modern, full-stack Project Management application on a Next.js multi-zon
 - 2026-10-23 – Planned M6 Customers at the user's request (011–017, ADR-0004: one typed organizations directory, customers first; projects and tasks link to it). Task priority and due dates move to M7 (018–019). Sharing proposed as M8. Unimplemented specs are tagged `@wip`.
 - 2026-10-26 – M6 Customers merged (PR #4, incl. review fixes in task 020). Starting M7.
 - 2026-10-26 – M7 Task Details merged (PR #6, incl. review fixes in task 021). Next: M8 authorization ADR.
+- 2026-10-26 – M8 reviewed: a removed member could be re-added as admin, two admins could remove each other at once, and actions trusted the cookie's workspace. Fixed in task 026 with migration 0015 (creator column cleared, not cascaded, on user delete).
 - 2026-10-26 – ADR-0005 proposed: workspaces own all data, Admin/Member roles, invite links, one assignee per task (user decisions).

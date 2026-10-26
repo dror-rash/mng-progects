@@ -1,6 +1,6 @@
 # Task 026: M8 review fixes
 
-- **Status:** in-progress
+- **Status:** in-review
 - **Milestone:** M8
 - **Zone / package:** `packages/db`, `apps/dashboard`, `e2e`
 - **Feature files:** `docs/features/workspace-members.feature`, `docs/features/workspace-switching.feature`, `docs/features/task-assignees.feature`, `docs/features/customer-links.feature`, `docs/features/task-details.feature`
@@ -23,15 +23,15 @@ The `/venice-review` of M8 (tasks 022–025) found one critical access bug, two 
 See the parking lot: everything the review rated minor and not listed above.
 
 ## Acceptance criteria
-- [ ] Someone removed from their first workspace stays removed after reloading.
-- [ ] Two admins removing each other at the same time leave one admin.
-- [ ] A members page left open acts on the workspace it shows, even after switching in another tab.
-- [ ] A member can't create invite links by changing the form.
-- [ ] An admin can make a teammate an admin.
-- [ ] I can't switch to a workspace I'm not in; a forged workspace cookie shows only my own work.
-- [ ] Another user's task id in my task form changes nothing; a customer from my other workspace can't be linked to a project.
-- [ ] A project link works from any of my workspaces.
-- [ ] Deleting a user keeps the projects and customers they created.
+- [x] Someone removed from their first workspace stays removed after reloading.
+- [x] Two admins removing each other at the same time leave one admin.
+- [x] A members page left open acts on the workspace it shows, even after switching in another tab.
+- [x] A member can't create invite links by changing the form.
+- [x] An admin can make a teammate an admin.
+- [x] I can't switch to a workspace I'm not in; a forged workspace cookie shows only my own work.
+- [x] Another user's task id in my task form changes nothing; a customer from my other workspace can't be linked to a project.
+- [x] A project link works from any of my workspaces.
+- [x] Deleting a user keeps the projects and customers they created.
 
 ## Approach (brief)
 - `requireWorkspaceForAction(formData)` reads the posted `workspaceId` and returns that membership (or throws). `requireAdmin` builds on it.
@@ -48,6 +48,7 @@ Migration 0012 makes `workspace_id` required before the M8 code is live. During 
 
 ## Progress log
 - 2026-10-26 – Task created from the M8 review.
+- 2026-10-26 – 10 scenarios added or strengthened. Red: removed member let back in, open members page acting on the cookie's workspace, member creating invite links. After the re-add fix the concurrent-removal scenario went red (1 of 3, both admins removed); green 8/8 after locking. Migration `0015` makes `owner_id` nullable / SET NULL; deleting a user in a rolled-back transaction kept their project (2958 before and after) with the creator cleared.
 
 ## Parking lot
 - Admin actions other than "Create invite link" (change role, remove, revoke) still throw to the error page; return form errors instead.

@@ -14,7 +14,7 @@ Rules:
 - Non-root zones set `basePath` (e.g. `/example`). Pages and assets then live under one prefix, so assets never collide and the shell needs only one rewrite pair per zone.
 - Zones never import each other. Shared code lives in `packages/*`.
 - Navigating between zones is a hard navigation (`<a>`), not `next/link`.
-- Shared auth/session via cookie on the root domain; the contract is documented in ADR-0002 (create when needed).
+- Shared auth/session via cookie on the root domain; the contract is documented in ADR-0003.
 
 ## Packages
 | Package | Purpose |
@@ -39,6 +39,12 @@ Rules:
 - Cookie settings (`useSecureCookies`) must match in all zones.
 - Better Auth rate-limits sign-up/sign-in in production builds. Only the Playwright test servers set `AUTH_DISABLE_RATE_LIMIT=true` (in `e2e/playwright.config.ts`); never set it in a deployed environment.
 - Schema changes: edit `packages/db/src/schema.ts` → `pnpm db:generate` → commit the migration. CI/CD applies migrations before deploy.
+
+## Authorization (ADR-0005)
+- Workspaces own projects and customers; tasks, contacts and notes inherit through their parent. Membership (`workspace_member`, role `admin` or `member`) is the only access rule.
+- Pages: `requireWorkspace(path)` gives the session and the current workspace (cookie, checked against membership; first use creates a personal workspace). Record pages check the record's own workspace with `visibleTo`, so links work from any of the user's workspaces.
+- Actions: `requireWorkspaceForAction(formData)` uses the form's posted `workspaceId`, never the cookie. Admin actions also check the role; membership changes lock the workspace row so a workspace always keeps an admin.
+- Invite links store only a SHA-256 hash of the token, expire after 7 days and can be revoked.
 
 ## Environments
 `local` → `preview` (per PR) → `staging` → `production`. Playwright runs against `preview`.

@@ -44,7 +44,8 @@ Next.js (App Router, multi-zone) · Better Auth · Postgres + Drizzle · TypeScr
 - A native `<select>` in an action form gets `key={its value}`: React resets the form after every submit, and a select only applies `defaultValue` when it mounts.
 
 ## Domain conventions
-- Access is by workspace membership (ADR-0005): pages call `requireWorkspace(path)`; record lookups filter with `visibleTo(userId, <table>.workspaceId)`; lists use the current workspace; admin-only actions check the role on the server. Never scope by `owner_id` (it means "created by").
+- Access is by workspace membership (ADR-0005): pages call `requireWorkspace(path)`; record lookups filter with `visibleTo(userId, <table>.workspaceId)`; lists use the current workspace (the `workspace` cookie, checked against membership); admin-only actions check the role on the server. Never scope by `owner_id` (it means "created by", and is null once that user is deleted).
+- Actions that work on "the current workspace" (create, members page, leave) post a hidden `workspaceId` and call `requireWorkspaceForAction(formData)`, never trust the cookie: another tab may have switched it. Membership changes go through `changeMembership` (locks the workspace row, keeps an admin).
 - Fixed value sets (task status, priority, organization status) are defined once as a `const` list with `parse…`/label helpers and a default for unknown stored values (see `features/tasks/task-status.ts`). Never hard-code the strings elsewhere.
 - Calendar days (due dates) are Postgres `date` read as `"YYYY-MM-DD"` strings and compared as strings. "Today" is `todayUtc()`; format with `timeZone: "UTC"`. E2E date steps compute days relative to today in UTC and keep a margin of several days.
 
@@ -53,6 +54,7 @@ Next.js (App Router, multi-zone) · Better Auth · Postgres + Drizzle · TypeScr
 - Do not mock our own modules in acceptance tests. Mock only external boundaries (third-party APIs, time, network).
 - Test names read as sentences: `it("shows an error when the email is invalid")`.
 - Flaky tests are bugs: fix or delete, never retry-and-ignore.
+- Other people in a scenario come from the `people` fixture (`people.newPerson()` + `signUp` in `e2e/steps/fixtures.ts`); their contexts close when the scenario ends. Cross-user tests use real ids from those people, never made-up ones.
 
 ## Commits & PRs
 - Conventional Commits (`feat:`, `fix:`, `test:`, `docs:`, `chore:`), scope = zone or package (`feat(shell): ...`).
