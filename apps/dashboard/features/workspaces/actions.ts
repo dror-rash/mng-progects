@@ -7,15 +7,26 @@ import { revalidatePath } from "next/cache";
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 
-import type { FormState } from "@/features/forms/form-state";
+import { type FormState, invalid } from "@/features/forms/form-state";
 
 import { WORKSPACE_COOKIE } from "./current-workspace";
 import { hashInviteToken, inviteExpiresAt, inviteState, newInviteToken } from "./invite-token";
 import { findInvite, listMembers } from "./members";
+import { ensurePersonalWorkspace, isMember, listMemberships } from "./queries";
 import { requireWorkspaceForAction } from "./require-workspace";
 import { keepsAnAdmin, parseWorkspaceRole } from "./roles";
+import { parseWorkspaceName } from "./workspace-name";
 
 const LAST_ADMIN = "A workspace needs at least one admin";
+
+async function useWorkspace(workspaceId: string) {
+  (await cookies()).set(WORKSPACE_COOKIE, workspaceId, {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+  });
+}
 
 /** The current workspace, only for its admins. Every admin action starts here (ADR-0005). */
 async function requireAdmin() {
@@ -117,15 +128,46 @@ export async function joinWorkspaceAction(formData: FormData) {
   if (!invite || inviteState(invite, new Date()) !== "valid") {
     throw new Error("This invite link is invalid or has expired");
   }
+  // Someone joining before ever opening the dashboard gets their own workspace too, to switch back to.
+  if ((await listMemberships(session.user.id)).length === 0) {
+    await ensurePersonalWorkspace(session.user);
+  }
   await getDb()
     .insert(schema.workspaceMember)
     .values({ workspaceId: invite.workspaceId, userId: session.user.id, role: "member" })
     .onConflictDoNothing();
-  (await cookies()).set(WORKSPACE_COOKIE, invite.workspaceId, {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-    path: "/",
-  });
+  await useWorkspace(invite.workspaceId);
+  redirect("/");
+}
+
+/** Makes another of my workspaces the current one. Membership is checked here, not trusted from the form. */
+export async function switchWorkspaceAction(formData: FormData) {
+  const session = await getSession();
+  if (!session) {
+    throw new Error("Unauthorized");
+  }
+  const workspaceId = String(formData.get("workspaceId") ?? "");
+  if (!(await isMember(session.user.id, workspaceId))) {
+    throw new Error("Not a member of that workspace");
+  }
+  await useWorkspace(workspaceId);
+  redirect("/");
+}
+
+/** Creates a workspace with me as its admin and switches to it. */
+export async function createWorkspaceAction(_prev: FormState, formData: FormData): Promise<FormState> {
+  const session = await getSession();
+  if (!session) {
+    throw new Error("Unauthorized");
+  }
+  const name = parseWorkspaceName(formData.get("name"));
+  if (!name.ok) {
+    return invalid(name.error, formData, "name");
+  }
+  const id = crypto.randomUUID();
+  const db = getDb();
+  await db.insert(schema.workspace).values({ id, name: name.value });
+  await db.insert(schema.workspaceMember).values({ workspaceId: id, userId: session.user.id, role: "admin" });
+  await useWorkspace(id);
   redirect("/");
 }

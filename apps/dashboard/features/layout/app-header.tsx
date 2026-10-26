@@ -23,7 +23,7 @@ export function AppHeader({ email, workspaceName }: { email: string; workspaceNa
           <span className="sr-only">Dashboard home</span>
           <span aria-hidden="true">W</span>
         </Link>
-        <Link href="/workspace" className="truncate text-sm font-semibold hover:underline sm:max-w-48" title={`${workspaceName}: members and invites`}>
+        <Link href="/workspaces" className="truncate text-sm font-semibold hover:underline sm:max-w-48" title={`${workspaceName}: switch or manage workspaces`}>
           {workspaceName}
         </Link>
         <nav aria-label="Dashboard" className="order-last -ml-3 flex w-full items-center gap-1 sm:order-none sm:ml-0 sm:w-auto">
