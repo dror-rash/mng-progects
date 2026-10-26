@@ -78,6 +78,13 @@
       "when": 1793038422294,
       "tag": "0010_ambiguous_wither",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1793039384949,
+      "tag": "0011_broken_beyonder",
+      "breakpoints": true
     }
   ]
 }

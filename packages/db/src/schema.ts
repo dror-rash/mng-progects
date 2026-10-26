@@ -4,7 +4,7 @@
  * If you enable Better Auth plugins that need tables, regenerate with `npx @better-auth/cli generate`.
  */
 import { sql } from "drizzle-orm";
-import { boolean, index, pgTable, text, timestamp } from "drizzle-orm/pg-core";
+import { boolean, date, index, pgTable, text, timestamp } from "drizzle-orm/pg-core";
 
 export const user = pgTable("user", {
   id: text("id").primaryKey(),
@@ -85,6 +85,8 @@ export const task = pgTable("task", {
   priority: text("priority").notNull().default("medium"),
   /** Set when the task moves to Done, cleared when it moves out. Null for tasks completed before this column existed. */
   completedAt: timestamp("completed_at"),
+  /** A calendar day (task 019); `date` so no time zone can shift it. Read as "YYYY-MM-DD". */
+  dueDate: date("due_date", { mode: "string" }),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 }, (table) => [
