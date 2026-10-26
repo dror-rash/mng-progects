@@ -41,10 +41,13 @@ When("I fill in {string} with {string}", async ({ page }, label: string, value: 
   await page.getByLabel(label).fill(value);
 });
 
+// Every button these scenarios press submits a form. Wait for that request's response, so a
+// following navigation can't cancel the submission (networkidle doesn't wait for fetch-based actions).
 When("I press {string}", async ({ page }, name: string) => {
-  await page.getByRole("button", { name }).click();
-  // Let the form submission finish, so a following navigation can't cancel it.
-  await page.waitForLoadState("networkidle");
+  await Promise.all([
+    page.waitForResponse((response) => response.request().method() === "POST"),
+    page.getByRole("button", { name }).click(),
+  ]);
 });
 
 // Text the page shows, not values sitting in form fields.

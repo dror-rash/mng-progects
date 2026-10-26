@@ -6,7 +6,7 @@ const testDir = defineBddConfig({
   featuresRoot: "../docs/features",
   steps: "./steps/*.ts",
   // Specs written ahead of their task carry @wip; the tag comes off when the task starts (WORKFLOW.md).
-  tags: process.env.E2E_TAGS ?? "not @wip",
+  tags: process.env.E2E_TAGS || "not @wip",
 });
 
 // Locally: dev servers. In CI: the workflow builds first, then we run `start`.

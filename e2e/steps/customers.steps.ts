@@ -113,3 +113,16 @@ Given(
 Then("{string} is selected in {string}", async ({ page }, option: string, label: string) => {
   await expect(page.getByLabel(label, { exact: true }).locator("option:checked")).toHaveText(option);
 });
+
+// Simulates a tampered form: puts another user's customer id into the select and chooses it.
+When("I choose the other user's customer in {string}", async ({ page, state }, label: string) => {
+  expect(state.otherUsersCustomerUrl).toBeDefined();
+  const foreignId = new URL(state.otherUsersCustomerUrl!).pathname.split("/").pop()!;
+  await page.getByLabel(label, { exact: true }).evaluate((select, id) => {
+    const option = document.createElement("option");
+    option.value = id;
+    option.text = "Someone else's customer";
+    select.appendChild(option);
+    (select as HTMLSelectElement).value = id;
+  }, foreignId);
+});
