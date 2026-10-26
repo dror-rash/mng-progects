@@ -1,4 +1,4 @@
-@wip @zone:dashboard @task:018
+@zone:dashboard @task:018
 Feature: Task priority
   As a signed-in user
   I want to mark how urgent each task is

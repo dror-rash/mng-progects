@@ -36,4 +36,17 @@ describe("parseTaskInput", () => {
     expect(none.ok && none.value.organizationId).toBeNull();
     expect(absent.ok && absent.value.organizationId).toBeUndefined();
   });
+
+  it("reads the priority, leaves it unchanged when the form has no priority field, and rejects unknown values", () => {
+    const high = parseTaskInput(form({ title: "Call", priority: "high" }));
+    const absent = parseTaskInput(form({ title: "Call" }));
+
+    expect(high.ok && high.value.priority).toBe("high");
+    expect(absent.ok && absent.value.priority).toBeUndefined();
+    expect(parseTaskInput(form({ title: "Call", priority: "urgent" }))).toEqual({
+      ok: false,
+      field: "priority",
+      error: "Choose a priority",
+    });
+  });
 });

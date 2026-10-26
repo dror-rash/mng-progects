@@ -116,3 +116,21 @@ When("the task {string} is deleted in another tab", async ({ context, page }, ti
   await expect(tab.getByRole("heading", { name: title, level: 1 })).toHaveCount(0);
   await tab.close();
 });
+
+// Sets a task's priority from its page, starting on the project board.
+Given("the task {string} has priority {string}", async ({ page }, title: string, priority: string) => {
+  await page.getByRole("link", { name: title, exact: true }).click();
+  await expect(page.getByRole("heading", { name: title, level: 1 })).toBeVisible();
+  await page.getByLabel("Priority", { exact: true }).selectOption({ label: priority });
+  await Promise.all([
+    page.waitForResponse((r) => r.request().method() === "POST"),
+    page.getByRole("button", { name: "Save changes" }).click(),
+  ]);
+  await expect(page.getByText(`${priority} priority`).first()).toBeVisible();
+});
+
+Then("the {string} column lists {string}", async ({ page }, column: string, titles: string) => {
+  // The column's name includes its task count ("To do 2"), so match it loosely.
+  const links = page.getByRole("region", { name: column }).getByRole("listitem").getByRole("link");
+  await expect(links).toHaveText(titles.split(",").map((t) => t.trim()));
+});
