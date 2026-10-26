@@ -1,6 +1,6 @@
 # ADR-0005: Workspaces, roles, and invite links
 
-- **Status:** proposed
+- **Status:** accepted
 - **Date:** 2026-10-26
 
 ## Context

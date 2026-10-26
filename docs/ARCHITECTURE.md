@@ -58,7 +58,7 @@ See `docs/adr/`. Index:
 - ADR-0002 – Cloud Run, Workload Identity Federation, per-PR previews
 - ADR-0003 – Better Auth with Postgres (Drizzle) as the user store
 - ADR-0004 – One typed directory for customers and other external organizations
-- ADR-0005 – Workspaces, roles, and invite links (proposed)
+- ADR-0005 – Workspaces, roles, and invite links
 
 ## Adding a zone
 1. Copy `apps/example-zone` to `apps/<name>`; rename the package to `@repo/<name>`, pick a free port, set `basePath: "/<name>"`.
