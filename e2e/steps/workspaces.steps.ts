@@ -1,6 +1,6 @@
 import { expect, type Page } from "@playwright/test";
 
-import { Given, Then } from "./fixtures";
+import { Given, Then, When } from "./fixtures";
 
 const origin = process.env.BASE_URL ?? "http://localhost:3000";
 
@@ -68,4 +68,29 @@ Then("a signed-out visitor opening the invite link is sent to the login page", a
   const visitor = await people.newPerson();
   await visitor.goto(state.inviteLink!);
   await expect(visitor).toHaveURL((url) => url.pathname === "/login" && (url.searchParams.get("next") ?? "").startsWith("/dashboard/invite/"));
+});
+
+Given("I create a workspace named {string}", async ({ page }, name: string) => {
+  await page.goto("/dashboard/workspaces");
+  await page.getByLabel("Workspace name", { exact: true }).fill(name);
+  await pressAndWait(page, "Create workspace");
+  await expect(page).toHaveURL(/\/dashboard$/);
+});
+
+async function switchTo(page: Page, name: string) {
+  await page.goto("/dashboard/workspaces");
+  await pressAndWait(page, `Switch to ${name}`);
+  await expect(page).toHaveURL(/\/dashboard$/);
+}
+
+When("I switch to {string}", async ({ page }, name: string) => {
+  await switchTo(page, name);
+});
+
+When("the teammate switches to {string}", async ({ state }, name: string) => {
+  await switchTo(state.teammate!, name);
+});
+
+Then("the teammate sees the text {string}", async ({ state }, text: string) => {
+  await expect(state.teammate!.getByText(text).first()).toBeVisible();
 });
