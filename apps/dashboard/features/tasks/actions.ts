@@ -28,10 +28,10 @@ export async function createTaskAction(_prev: FormState, formData: FormData): Pr
   const project = await requireOwnedProject(String(formData.get("projectId") ?? ""));
   const input = parseTaskInput(formData);
   if (!input.ok) {
-    return invalid(input.error, formData);
+    return invalid(input.error, formData, input.field);
   }
 
-  const { organizationId, ...fields } = input.value;
+  const { organizationId, priority, ...fields } = input.value;
   if (!(await ownsCustomer(project.ownerId, organizationId))) {
     return invalid("Choose one of your customers", formData, "customerId");
   }
@@ -44,6 +44,7 @@ export async function createTaskAction(_prev: FormState, formData: FormData): Pr
       projectId: project.id,
       ...fields,
       organizationId: organizationId === undefined ? project.organizationId : organizationId,
+      ...(priority && { priority }),
     });
   revalidateProject(project.id);
   return {};
@@ -84,17 +85,22 @@ export async function updateTaskAction(_prev: FormState, formData: FormData): Pr
   const project = await requireOwnedProject(String(formData.get("projectId") ?? ""));
   const input = parseTaskInput(formData);
   if (!input.ok) {
-    return invalid(input.error, formData);
+    return invalid(input.error, formData, input.field);
   }
 
-  const { organizationId, ...fields } = input.value;
+  const { organizationId, priority, ...fields } = input.value;
   if (!(await ownsCustomer(project.ownerId, organizationId))) {
     return invalid("Choose one of your customers", formData, "customerId");
   }
 
   const updated = await getDb()
     .update(schema.task)
-    .set({ ...fields, ...(organizationId !== undefined && { organizationId }), updatedAt: new Date() })
+    .set({
+      ...fields,
+      ...(organizationId !== undefined && { organizationId }),
+      ...(priority && { priority }),
+      updatedAt: new Date(),
+    })
     .where(taskInProject(formData, project.id))
     .returning({ id: schema.task.id });
   if (updated.length === 0) {

@@ -9,9 +9,11 @@ import { useActionState } from "react";
 
 import type { FormState } from "@/features/forms/form-state";
 
+import { DEFAULT_PRIORITY, parseTaskPriority, TASK_PRIORITIES } from "./task-priority";
+
 import { updateTaskAction } from "./actions";
 
-type Task = { id: string; title: string; description: string | null; organizationId: string | null };
+type Task = { id: string; title: string; description: string | null; organizationId: string | null; priority: string };
 type CustomerOption = { id: string; name: string };
 
 export function EditTaskForm({
@@ -27,6 +29,8 @@ export function EditTaskForm({
   // Errors without a field are about the title, the only other required input.
   const titleError = state.field ? undefined : state.error;
   const customerError = state.field === "customerId" ? state.error : undefined;
+  const priorityError = state.field === "priority" ? state.error : undefined;
+  const priority = state.values?.priority ?? parseTaskPriority(task.priority) ?? DEFAULT_PRIORITY;
 
   return (
     <form action={formAction} className="space-y-4">
@@ -47,6 +51,23 @@ export function EditTaskForm({
       <div className="space-y-1">
         <label htmlFor="description" className="text-sm font-medium">Description</label>
         <Textarea id="description" name="description" defaultValue={state.values?.description ?? task.description ?? ""} rows={5} />
+      </div>
+      <div className="space-y-1">
+        <label htmlFor="priority" className="text-sm font-medium">Priority</label>
+        {/* Keyed on the value: a select only applies defaultValue when it mounts. */}
+        <NativeSelect
+          key={priority}
+          id="priority"
+          name="priority"
+          defaultValue={priority}
+          aria-invalid={priorityError ? true : undefined}
+          aria-describedby={priorityError ? "priority-error" : undefined}
+        >
+          {TASK_PRIORITIES.map((p) => (
+            <option key={p.priority} value={p.priority}>{p.label}</option>
+          ))}
+        </NativeSelect>
+        <FieldError id="priority-error" message={priorityError} />
       </div>
       <div className="space-y-1">
         <label htmlFor="customerId" className="text-sm font-medium">Customer</label>

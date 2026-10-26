@@ -10,6 +10,7 @@ import { getOwnedProject } from "@/features/projects/queries";
 import { deleteTaskFromPageAction } from "@/features/tasks/actions";
 import { EditTaskForm } from "@/features/tasks/edit-task-form";
 import { getProjectTask } from "@/features/tasks/queries";
+import { priorityLabel } from "@/features/tasks/task-priority";
 import { parseTaskStatus, TASK_STATUSES } from "@/features/tasks/task-status";
 
 export const dynamic = "force-dynamic";
@@ -46,6 +47,7 @@ export default async function TaskPage({ params }: { params: Promise<{ projectId
             <span className="inline-block rounded-full bg-secondary px-2.5 py-0.5 text-xs font-medium text-secondary-foreground">
               {status.label}
             </span>
+            <span>{priorityLabel(task.priority)} priority</span>
             {customer ? (
               <span>
                 Customer:{" "}
