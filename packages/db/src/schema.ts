@@ -100,10 +100,8 @@ export const project = pgTable("project", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),
   description: text("description"),
-  /** Who created it. Access is by workspace membership, not by this column (ADR-0005). */
-  ownerId: text("owner_id")
-    .notNull()
-    .references(() => user.id, { onDelete: "cascade" }),
+  /** Who created it; cleared if they're deleted, so shared work stays. Access is by workspace membership (ADR-0005). */
+  ownerId: text("owner_id").references(() => user.id, { onDelete: "set null" }),
   workspaceId: text("workspace_id")
     .notNull()
     .references(() => workspace.id, { onDelete: "cascade" }),
@@ -147,10 +145,8 @@ export const organization = pgTable(
   "organization",
   {
     id: text("id").primaryKey(),
-    /** Who created it. Access is by workspace membership (ADR-0005). */
-    ownerId: text("owner_id")
-      .notNull()
-      .references(() => user.id, { onDelete: "cascade" }),
+    /** Who created it; cleared if they're deleted, so shared work stays. Access is by workspace membership (ADR-0005). */
+    ownerId: text("owner_id").references(() => user.id, { onDelete: "set null" }),
     workspaceId: text("workspace_id")
       .notNull()
       .references(() => workspace.id, { onDelete: "cascade" }),
