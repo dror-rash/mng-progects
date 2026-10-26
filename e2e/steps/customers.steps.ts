@@ -114,10 +114,10 @@ Then("{string} is selected in {string}", async ({ page }, option: string, label:
   await expect(page.getByLabel(label, { exact: true }).locator("option:checked")).toHaveText(option);
 });
 
-// Simulates a tampered form: puts another user's customer id into the select and chooses it.
-When("I choose the other user's customer in {string}", async ({ page, state }, label: string) => {
-  expect(state.otherUsersCustomerUrl).toBeDefined();
-  const foreignId = new URL(state.otherUsersCustomerUrl!).pathname.split("/").pop()!;
+// Simulates a tampered form: puts a customer id the select doesn't offer into it and chooses it.
+async function chooseForeignCustomer(page: Page, customerUrl: string | undefined, label: string) {
+  expect(customerUrl).toBeDefined();
+  const foreignId = new URL(customerUrl!, origin).pathname.split("/").pop()!;
   await page.getByLabel(label, { exact: true }).evaluate((select, id) => {
     const option = document.createElement("option");
     option.value = id;
@@ -125,6 +125,26 @@ When("I choose the other user's customer in {string}", async ({ page, state }, l
     select.appendChild(option);
     (select as HTMLSelectElement).value = id;
   }, foreignId);
+}
+
+When("I choose the other user's customer in {string}", async ({ page, state }, label: string) => {
+  await chooseForeignCustomer(page, state.otherUsersCustomerUrl, label);
+});
+
+Given("I have a customer {string} in a new workspace named {string}", async ({ page, state }, name: string, workspace: string) => {
+  await page.goto("/dashboard/workspaces");
+  await page.getByLabel("Workspace name", { exact: true }).fill(workspace);
+  await Promise.all([
+    page.waitForResponse((r) => r.request().method() === "POST"),
+    page.getByRole("button", { name: "Create workspace" }).click(),
+  ]);
+  await expect(page).toHaveURL(/\/dashboard$/);
+  await createCustomer(page, name);
+  state.foreignCustomerUrl = page.url();
+});
+
+When("I choose the customer from my other workspace in {string}", async ({ page, state }, label: string) => {
+  await chooseForeignCustomer(page, state.foreignCustomerUrl, label);
 });
 
 // Same browser context = same signed-in user, like a second tab.

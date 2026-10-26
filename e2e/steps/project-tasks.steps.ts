@@ -1,6 +1,6 @@
 import { expect, type Page } from "@playwright/test";
 
-import { Given, Then, When } from "./fixtures";
+import { Given, signUp, Then, userId, When } from "./fixtures";
 
 const origin = process.env.BASE_URL ?? "http://localhost:3000";
 
@@ -206,13 +206,53 @@ Given("the task {string} is assigned to {string}", async ({ page }, title: strin
   await backToBoard(page);
 });
 
-// Simulates a tampered form: an assignee id that isn't a member of this workspace.
-When("I choose someone outside the workspace in {string}", async ({ page }, label: string) => {
-  await page.getByLabel(label, { exact: true }).evaluate((select) => {
+// Simulates a tampered form: the id of a real user who isn't a member of this workspace.
+When("I choose someone outside the workspace in {string}", async ({ page, people }, label: string) => {
+  const outsider = await people.newPerson();
+  await signUp(outsider, "Outsider");
+  const outsiderId = await userId(outsider);
+  await page.getByLabel(label, { exact: true }).evaluate((select, id) => {
     const option = document.createElement("option");
-    option.value = "someone-outside";
+    option.value = id;
     option.text = "Someone outside";
     select.appendChild(option);
-    (select as HTMLSelectElement).value = "someone-outside";
-  });
+    (select as HTMLSelectElement).value = id;
+  }, outsiderId);
+});
+
+Given(
+  "another user has a project {string} with a task {string}",
+  async ({ people, state }, project: string, title: string) => {
+    const other = await people.newPerson();
+    await signUp(other, "Other User");
+    await createProject(other, project);
+    await openProjectFromDashboard(other, project);
+    await other.getByLabel("Task title").fill(title);
+    await other.getByRole("button", { name: "Add task" }).click();
+    await expect(taskCard(other, title)).toBeVisible();
+    await openTaskFromBoard(other, title);
+    state.otherTaskUrl = other.url();
+    state.otherPerson = other;
+  },
+);
+
+When("I open the other user's task page", async ({ page, state }) => {
+  await page.goto(state.otherTaskUrl!);
+});
+
+// Simulates a tampered form: my own project, but the other user's task id.
+When("I point the form at the other user's task", async ({ page, state }) => {
+  const foreignId = new URL(state.otherTaskUrl!).pathname.split("/").pop()!;
+  await page
+    .locator("form", { has: page.getByRole("button", { name: "Save changes" }) })
+    .locator('input[name="taskId"]')
+    .evaluate((input, id) => {
+      (input as HTMLInputElement).value = id;
+    }, foreignId);
+});
+
+Then("the other user's task is still named {string}", async ({ state }, title: string) => {
+  const other = state.otherPerson!;
+  await other.reload();
+  await expect(other.getByRole("heading", { name: title, level: 1 })).toBeVisible();
 });
