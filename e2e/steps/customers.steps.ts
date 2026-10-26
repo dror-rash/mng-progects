@@ -126,3 +126,15 @@ When("I choose the other user's customer in {string}", async ({ page, state }, l
     (select as HTMLSelectElement).value = id;
   }, foreignId);
 });
+
+// Same browser context = same signed-in user, like a second tab.
+When("the contact {string} is removed in another tab", async ({ context, page }, name: string) => {
+  const tab = await context.newPage();
+  await tab.goto(new URL(page.url()).pathname.replace(/\/contacts\/[^/]+\/edit$/, ""));
+  await Promise.all([
+    tab.waitForResponse((r) => r.request().method() === "POST"),
+    tab.getByRole("button", { name: `Remove ${name}` }).click(),
+  ]);
+  await expect(tab.getByRole("region", { name: "Contacts" })).not.toContainText(name);
+  await tab.close();
+});

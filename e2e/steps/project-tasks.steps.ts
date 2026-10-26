@@ -104,3 +104,15 @@ Given("I am on the {string} task page", async ({ page }, title: string) => {
 Then("the task {string} shows {string}", async ({ page }, title: string, text: string) => {
   await expect(taskCard(page, title)).toContainText(text);
 });
+
+// Same browser context = same signed-in user, like a second tab.
+When("the task {string} is deleted in another tab", async ({ context, page }, title: string) => {
+  const tab = await context.newPage();
+  await tab.goto(page.url());
+  await Promise.all([
+    tab.waitForResponse((r) => r.request().method() === "POST"),
+    tab.getByRole("button", { name: "Delete task" }).click(),
+  ]);
+  await expect(tab.getByRole("heading", { name: title, level: 1 })).toHaveCount(0);
+  await tab.close();
+});

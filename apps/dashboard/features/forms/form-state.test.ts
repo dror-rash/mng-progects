@@ -32,4 +32,13 @@ describe("invalid", () => {
       values: { email: "nope" },
     });
   });
+
+  it("leaves out Next's internal action fields", () => {
+    const data = new FormData();
+    data.set("name", "x");
+    data.set("$ACTION_KEY", "k");
+    data.set("$ACTION_REF_1", "r");
+
+    expect(invalid("Bad", data).values).toEqual({ name: "x" });
+  });
 });
