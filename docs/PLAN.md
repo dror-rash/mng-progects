@@ -31,7 +31,7 @@ Build a modern, full-stack Project Management application on a Next.js multi-zon
 | M8 | Sharing (proposed) | Share projects and customers with teammates, assign tasks; needs an authorization ADR | proposed |
 
 ## Current milestone
-**M7** – Task Details. Active task: `docs/tasks/018-task-priority.md`. (M6 merged in PR #4.)
+**M7** – Task Details. Tasks 018–019 implemented on `feat/m7-task-details`, awaiting review. Next: M8 Sharing (needs an authorization ADR).
 
 ## Risks & open questions
 - CI `deploy` fails until GCP is set up (`infra/README.md`): no Workload Identity provider or project vars configured.
