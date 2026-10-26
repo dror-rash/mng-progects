@@ -31,7 +31,7 @@ export async function createTaskAction(_prev: FormState, formData: FormData): Pr
     return invalid(input.error, formData, input.field);
   }
 
-  const { organizationId, priority, ...fields } = input.value;
+  const { organizationId, priority, dueDate, ...fields } = input.value;
   if (!(await ownsCustomer(project.ownerId, organizationId))) {
     return invalid("Choose one of your customers", formData, "customerId");
   }
@@ -45,6 +45,7 @@ export async function createTaskAction(_prev: FormState, formData: FormData): Pr
       ...fields,
       organizationId: organizationId === undefined ? project.organizationId : organizationId,
       ...(priority && { priority }),
+      ...(dueDate !== undefined && { dueDate }),
     });
   revalidateProject(project.id);
   return {};
@@ -88,7 +89,7 @@ export async function updateTaskAction(_prev: FormState, formData: FormData): Pr
     return invalid(input.error, formData, input.field);
   }
 
-  const { organizationId, priority, ...fields } = input.value;
+  const { organizationId, priority, dueDate, ...fields } = input.value;
   if (!(await ownsCustomer(project.ownerId, organizationId))) {
     return invalid("Choose one of your customers", formData, "customerId");
   }
@@ -99,6 +100,7 @@ export async function updateTaskAction(_prev: FormState, formData: FormData): Pr
       ...fields,
       ...(organizationId !== undefined && { organizationId }),
       ...(priority && { priority }),
+      ...(dueDate !== undefined && { dueDate }),
       updatedAt: new Date(),
     })
     .where(taskInProject(formData, project.id))

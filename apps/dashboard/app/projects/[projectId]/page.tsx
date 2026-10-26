@@ -10,6 +10,7 @@ import { getOwnedProject } from "@/features/projects/queries";
 import { deleteTaskAction, updateTaskStatusAction } from "@/features/tasks/actions";
 import { AddTaskForm } from "@/features/tasks/add-task-form";
 import { listProjectTasks } from "@/features/tasks/queries";
+import { dueState, formatDueDate, todayUtc } from "@/features/tasks/due-dates";
 import { byPriority, DEFAULT_PRIORITY, parseTaskPriority, priorityLabel } from "@/features/tasks/task-priority";
 import { groupTasksByStatus, TASK_STATUSES } from "@/features/tasks/task-status";
 
@@ -30,6 +31,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ projec
   ]);
   // Most urgent first in each column; tasks arrive oldest first, and the sort keeps that within a priority.
   const columns = groupTasksByStatus([...tasks].sort(byPriority));
+  const today = todayUtc();
 
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
@@ -91,6 +93,14 @@ export default async function ProjectPage({ params }: { params: Promise<{ projec
                           </CardTitle>
                           {(parseTaskPriority(task.priority) ?? DEFAULT_PRIORITY) !== DEFAULT_PRIORITY && (
                             <p className="text-xs font-medium">{priorityLabel(task.priority)} priority</p>
+                          )}
+                          {task.dueDate && (
+                            <p className="text-xs text-muted-foreground">
+                              Due <time dateTime={task.dueDate}>{formatDueDate(task.dueDate, "short")}</time>
+                              {dueState(task.dueDate, task.status, today) === "overdue" && (
+                                <span className="ml-2 font-medium text-destructive">Overdue</span>
+                              )}
+                            </p>
                           )}
                           {task.customerName && (
                             <p className="text-xs text-muted-foreground">For {task.customerName}</p>

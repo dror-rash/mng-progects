@@ -1,5 +1,6 @@
 import { cleanText } from "@/features/forms/clean-text";
 
+import { type CalendarDate, parseDueDate } from "./due-dates";
 import { parseTaskPriority, type TaskPriority } from "./task-priority";
 
 /**
@@ -12,6 +13,8 @@ export type TaskInput = {
   organizationId: string | null | undefined;
   /** `undefined` when the form has no priority field (quick add): keep the current one / the default. */
   priority: TaskPriority | undefined;
+  /** `null` clears it; `undefined` when the form has no due-date field (quick add). */
+  dueDate: CalendarDate | null | undefined;
 };
 
 export function parseTaskInput(
@@ -29,5 +32,9 @@ export function parseTaskInput(
   if (priority === null) {
     return { ok: false, field: "priority", error: "Choose a priority" };
   }
-  return { ok: true, value: { title, description: description || null, organizationId, priority } };
+  const dueDate = parseDueDate(formData.get("dueDate"));
+  if (dueDate === "invalid") {
+    return { ok: false, field: "dueDate", error: "Enter a valid date" };
+  }
+  return { ok: true, value: { title, description: description || null, organizationId, priority, dueDate } };
 }

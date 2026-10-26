@@ -8,6 +8,7 @@ import { AppHeader } from "@/features/layout/app-header";
 import { ProjectList } from "@/features/projects/project-list";
 import { countProjects, listProjects } from "@/features/projects/queries";
 import { countThisWeek } from "@/features/tasks/activity";
+import { dueState, todayUtc } from "@/features/tasks/due-dates";
 import { summarizeByProject, summarizeTasks } from "@/features/tasks/progress";
 import { listOwnedTaskStatuses } from "@/features/tasks/queries";
 import { groupTasksByStatus } from "@/features/tasks/task-status";
@@ -24,11 +25,16 @@ export default async function DashboardPage() {
     listOwnedTaskStatuses(session.user.id),
   ]);
   const overall = summarizeTasks(taskStatuses);
+  const today = todayUtc();
+  const dueStates = taskStatuses.map((t) => dueState(t.dueDate, t.status, today));
+  const countDue = (state: "overdue" | "due-soon") => dueStates.filter((s) => s === state).length;
 
   const stats = [
     { id: "total-projects", label: "Total Projects", value: String(projectCount), hint: "Active in your workspace" },
     { id: "open-tasks", label: "Open Tasks", value: String(overall.open), hint: "To do or in progress" },
     { id: "completion-rate", label: "Completion Rate", value: `${overall.completionRate}%`, hint: `${overall.done} of ${overall.total} tasks done` },
+    { id: "overdue", label: "Overdue", value: String(countDue("overdue")), hint: "Open tasks past their due date" },
+    { id: "due-this-week", label: "Due This Week", value: String(countDue("due-soon")), hint: "Open tasks due in the next seven days" },
   ];
   const thisWeek = countThisWeek(taskStatuses, new Date());
   const weekStats = [
@@ -46,7 +52,7 @@ export default async function DashboardPage() {
 
         <section className="space-y-4">
           <h2 className="text-xl font-semibold tracking-tight">Overview</h2>
-          <div className="grid gap-4 sm:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
             {stats.map((stat) => (
               <Card key={stat.id} role="group" aria-labelledby={`stat-${stat.id}`}>
                 <CardHeader className="pb-2">

@@ -13,7 +13,7 @@ import { DEFAULT_PRIORITY, parseTaskPriority, TASK_PRIORITIES } from "./task-pri
 
 import { updateTaskAction } from "./actions";
 
-type Task = { id: string; title: string; description: string | null; organizationId: string | null; priority: string };
+type Task = { id: string; title: string; description: string | null; organizationId: string | null; priority: string; dueDate: string | null };
 type CustomerOption = { id: string; name: string };
 
 export function EditTaskForm({
@@ -30,6 +30,7 @@ export function EditTaskForm({
   const titleError = state.field ? undefined : state.error;
   const customerError = state.field === "customerId" ? state.error : undefined;
   const priorityError = state.field === "priority" ? state.error : undefined;
+  const dueDateError = state.field === "dueDate" ? state.error : undefined;
   const priority = state.values?.priority ?? parseTaskPriority(task.priority) ?? DEFAULT_PRIORITY;
 
   return (
@@ -68,6 +69,19 @@ export function EditTaskForm({
           ))}
         </NativeSelect>
         <FieldError id="priority-error" message={priorityError} />
+      </div>
+      <div className="space-y-1">
+        <label htmlFor="dueDate" className="text-sm font-medium">Due date</label>
+        <Input
+          id="dueDate"
+          name="dueDate"
+          type="date"
+          className="w-auto"
+          defaultValue={state.values?.dueDate ?? task.dueDate ?? ""}
+          aria-invalid={dueDateError ? true : undefined}
+          aria-describedby={dueDateError ? "dueDate-error" : undefined}
+        />
+        <FieldError id="dueDate-error" message={dueDateError} />
       </div>
       <div className="space-y-1">
         <label htmlFor="customerId" className="text-sm font-medium">Customer</label>
