@@ -1,6 +1,6 @@
 # Task 025: Task assignees, "My tasks" and note authors (M8 step 4)
 
-- **Status:** in-review
+- **Status:** done
 - **Milestone:** M8
 - **Zone / package:** `packages/db`, `apps/dashboard`, `e2e`
 - **Feature files:** `docs/features/task-assignees.feature`, `docs/features/customer-notes.feature`
@@ -36,5 +36,6 @@ Teams share workspaces now (023, 024), but nobody can tell who is doing what. On
 ## Progress log
 - 2026-10-26 – Task created.
 - 2026-10-26 – Migration `0014` adds `task.assignee_id` (indexed) and `organization_note.author_id`. 5 scenarios red → green (stable over 2 repeats) + note-author scenario; assignee parsing and "My tasks" ordering unit-tested. Removing or leaving clears assignments in that workspace. Full suite 92/92 twice (after a dev-server restart at 5.8 GB).
+- 2026-10-27 – Merged to `main` in PR #9 (M8). Full suite on `main`: 102/102 e2e, 159 unit tests, build green.
 
 ## Parking lot

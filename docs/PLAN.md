@@ -27,10 +27,10 @@ Build a modern, full-stack Project Management application on a Next.js multi-zon
 | M5 | Home Metrics | `/dashboard` becomes a metrics home (totals, tasks by status, recently started projects with progress, activity this week); full list + create form move to `/dashboard/projects` (tasks 009–010) | done |
 | M6 | Customers | Task page (011) and inline form errors (012); a customers directory with details, contact people, dated notes, and tags (013–015); projects and tasks link to a customer, and each customer shows its projects and open tasks (016–017). ADR-0004 | done |
 | M7 | Task Details | Task priority (018) and due dates with overdue / due-this-week on the home page (019) | done |
-| M8 | Workspaces & Sharing | Workspaces own projects, tasks and customers; Admin/Member roles; invite links; workspace switcher; task assignees and "My tasks" (ADR-0005) | in-review |
+| M8 | Workspaces & Sharing | Workspaces own projects, tasks and customers; Admin/Member roles; invite links; workspace switcher; task assignees and "My tasks" (ADR-0005) | done |
 
 ## Current milestone
-**M8** – Workspaces & Sharing. Tasks 022–025 implemented on `feat/m8-workspaces`; review fixes in task 026. In PR review.
+None. M8 is done; the next milestone isn't chosen yet. Candidates (from the parking lots and ADR follow-ups): M9 sharing polish and hardening, M10 accounts and email, M11 deploy to GCP, M12 time zones and scale.
 
 ## Risks & open questions
 - CI `deploy` fails until GCP is set up (`infra/README.md`): no Workload Identity provider or project vars configured.
@@ -46,4 +46,5 @@ Build a modern, full-stack Project Management application on a Next.js multi-zon
 - 2026-10-26 – M6 Customers merged (PR #4, incl. review fixes in task 020). Starting M7.
 - 2026-10-26 – M7 Task Details merged (PR #6, incl. review fixes in task 021). Next: M8 authorization ADR.
 - 2026-10-26 – M8 reviewed: a removed member could be re-added as admin, two admins could remove each other at once, and actions trusted the cookie's workspace. Fixed in task 026 with migration 0015 (creator column cleared, not cascaded, on user delete).
+- 2026-10-27 – M8 Workspaces & Sharing merged (PR #9, tasks 022–026; ADR-0005 in PR #8). Validated on `main`: 102/102 e2e, 159 unit, build; screenshots of every page and form via `pnpm --filter @repo/e2e screenshots`.
 - 2026-10-26 – ADR-0005 proposed: workspaces own all data, Admin/Member roles, invite links, one assignee per task (user decisions).
