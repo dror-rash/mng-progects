@@ -3,31 +3,31 @@ import { Card, CardContent, CardHeader, CardTitle } from "@repo/ui/card";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { requireSession } from "@/features/auth/require-session";
 import { AppHeader } from "@/features/layout/app-header";
-import { getOwnedOrganization } from "@/features/organizations/queries";
-import { getOwnedProject } from "@/features/projects/queries";
+import { getOrganizationForUser } from "@/features/organizations/queries";
+import { getProjectForUser } from "@/features/projects/queries";
 import { deleteTaskAction, updateTaskStatusAction } from "@/features/tasks/actions";
 import { AddTaskForm } from "@/features/tasks/add-task-form";
 import { listProjectTasks } from "@/features/tasks/queries";
 import { dueState, formatDueDate, todayUtc } from "@/features/tasks/due-dates";
 import { byPriority, DEFAULT_PRIORITY, normalizeTaskPriority, priorityLabel } from "@/features/tasks/task-priority";
 import { groupTasksByStatus, TASK_STATUSES } from "@/features/tasks/task-status";
+import { requireWorkspace } from "@/features/workspaces/require-workspace";
 
 export const dynamic = "force-dynamic";
 
 export default async function ProjectPage({ params }: { params: Promise<{ projectId: string }> }) {
 
   const { projectId } = await params;
-  const session = await requireSession(`/projects/${projectId}`);
-  const project = await getOwnedProject(session.user.id, projectId);
+  const { session, workspace } = await requireWorkspace(`/projects/${projectId}`);
+  const project = await getProjectForUser(session.user.id, projectId);
   if (!project) {
     notFound();
   }
 
   const [tasks, customer] = await Promise.all([
     listProjectTasks(project.id),
-    project.organizationId ? getOwnedOrganization(session.user.id, project.organizationId, "customer") : null,
+    project.organizationId ? getOrganizationForUser(session.user.id, project.organizationId, "customer") : null,
   ]);
   // Most urgent first in each column; tasks arrive oldest first, and the sort keeps that within a priority.
   const columns = groupTasksByStatus([...tasks].sort(byPriority));
@@ -35,7 +35,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ projec
 
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
-      <AppHeader email={session.user.email} />
+      <AppHeader email={session.user.email} workspaceName={workspace.name} />
 
       <main className="mx-auto w-full max-w-6xl space-y-8 p-6">
         <section className="flex flex-wrap items-start justify-between gap-4">
@@ -101,6 +101,9 @@ export default async function ProjectPage({ params }: { params: Promise<{ projec
                                 <span className="ml-2 font-medium text-destructive">Overdue</span>
                               )}
                             </p>
+                          )}
+                          {task.assigneeName && (
+                            <p className="text-xs text-muted-foreground">Assigned to {task.assigneeName}</p>
                           )}
                           {task.customerName && (
                             <p className="text-xs text-muted-foreground">For {task.customerName}</p>

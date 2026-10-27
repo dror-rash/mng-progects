@@ -72,4 +72,14 @@ describe("parseTaskInput", () => {
       error: "Enter a valid date",
     });
   });
+
+  it("reads the assignee: chosen, cleared, or not on the form", () => {
+    const chosen = parseTaskInput(form({ title: "Call", assigneeId: "user-1" }));
+    const cleared = parseTaskInput(form({ title: "Call", assigneeId: "" }));
+    const absent = parseTaskInput(form({ title: "Call" }));
+
+    expect(chosen.ok && chosen.value.assigneeId).toBe("user-1");
+    expect(cleared.ok && cleared.value.assigneeId).toBeNull();
+    expect(absent.ok && absent.value.assigneeId).toBeUndefined();
+  });
 });

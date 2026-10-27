@@ -3,17 +3,17 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@repo
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { requireSession } from "@/features/auth/require-session";
 import { deleteProjectAction } from "@/features/projects/actions";
-import { getOwnedProject } from "@/features/projects/queries";
+import { getProjectForUser } from "@/features/projects/queries";
+import { requireWorkspace } from "@/features/workspaces/require-workspace";
 
 export const dynamic = "force-dynamic";
 
 export default async function DeleteProjectPage({ params }: { params: Promise<{ projectId: string }> }) {
 
   const { projectId } = await params;
-  const session = await requireSession(`/projects/${projectId}/delete`);
-  const project = await getOwnedProject(session.user.id, projectId);
+  const { session } = await requireWorkspace(`/projects/${projectId}/delete`);
+  const project = await getProjectForUser(session.user.id, projectId);
   if (!project) {
     notFound();
   }

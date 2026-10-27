@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@repo/ui/card";
 import { deleteNoteAction } from "./actions";
 import { NoteForm } from "./note-form";
 
-type Note = { id: string; body: string; createdAt: Date };
+type Note = { id: string; body: string; createdAt: Date; authorName: string | null };
 
 // UTC for now, like other dates in the app (time-zone item parked in task 010).
 const STAMP = new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeStyle: "short", timeZone: "UTC" });
@@ -28,6 +28,7 @@ export function NotesSection({ customerId, notes }: { customerId: string; notes:
                     <time dateTime={note.createdAt.toISOString()} className="text-xs text-muted-foreground">
                       {STAMP.format(note.createdAt)} UTC
                     </time>
+                    {note.authorName && <span className="text-xs text-muted-foreground"> · by {note.authorName}</span>}
                     <p className="whitespace-pre-wrap text-sm">{note.body}</p>
                   </div>
                   <form action={deleteNoteAction}>

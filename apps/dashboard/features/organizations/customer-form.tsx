@@ -27,7 +27,14 @@ type Customer = {
 };
 
 /** Create a customer, or edit one when `customer` is given. */
-export function CustomerForm({ customer }: { customer?: Customer }) {
+export function CustomerForm({
+  customer,
+  workspaceId,
+}: {
+  customer?: Customer;
+  /** For a new customer: the workspace it goes in (the one this page shows). */
+  workspaceId?: string;
+}) {
   const [state, formAction, pending] = useActionState<FormState, FormData>(
     customer ? updateCustomerAction : createCustomerAction,
     {},
@@ -40,6 +47,7 @@ export function CustomerForm({ customer }: { customer?: Customer }) {
   return (
     <form action={formAction} className="space-y-4">
       {customer && <input type="hidden" name="customerId" value={customer.id} />}
+      {workspaceId && <input type="hidden" name="workspaceId" value={workspaceId} />}
       <FieldError message={state.field ? undefined : state.error} />
 
       <div className="grid gap-4 sm:grid-cols-2">

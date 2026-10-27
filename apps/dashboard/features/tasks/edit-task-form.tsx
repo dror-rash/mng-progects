@@ -14,17 +14,20 @@ import { normalizeTaskPriority, parseTaskPriority, TASK_PRIORITIES } from "./tas
 
 import { updateTaskAction } from "./actions";
 
-type Task = { id: string; title: string; description: string | null; organizationId: string | null; priority: string; dueDate: string | null };
+type Task = { id: string; title: string; description: string | null; organizationId: string | null; priority: string; dueDate: string | null; assigneeId: string | null };
+type MemberOption = { userId: string; name: string };
 type CustomerOption = { id: string; name: string };
 
 export function EditTaskForm({
   projectId,
   task,
   customers,
+  members,
 }: {
   projectId: string;
   task: Task;
   customers: CustomerOption[];
+  members: MemberOption[];
 }) {
   const [state, formAction, pending] = useActionState<FormState, FormData>(updateTaskAction, {});
   // Errors without a field are about the title, the only other required input.
@@ -34,6 +37,8 @@ export function EditTaskForm({
   const customerError = state.field === "customerId" ? state.error : undefined;
   const priorityError = state.field === "priority" ? state.error : undefined;
   const dueDateError = state.field === "dueDate" ? state.error : undefined;
+  const assigneeError = state.field === "assigneeId" ? state.error : undefined;
+  const assigneeValue = state.values?.assigneeId ?? task.assigneeId ?? "";
   // A submitted value is restored only if it is a real option, so the select never shows an unrelated one.
   const priority = parseTaskPriority(state.values?.priority) ?? normalizeTaskPriority(task.priority);
 
@@ -89,6 +94,24 @@ export function EditTaskForm({
           aria-describedby={dueDateError ? "dueDate-error" : undefined}
         />
         <FieldError id="dueDate-error" message={dueDateError} />
+      </div>
+      <div className="space-y-1">
+        <label htmlFor="assigneeId" className="text-sm font-medium">Assignee</label>
+        {/* Keyed on the value: a select only applies defaultValue when it mounts. */}
+        <NativeSelect
+          key={assigneeValue}
+          id="assigneeId"
+          name="assigneeId"
+          defaultValue={assigneeValue}
+          aria-invalid={assigneeError ? true : undefined}
+          aria-describedby={assigneeError ? "assigneeId-error" : undefined}
+        >
+          <option value="">Unassigned</option>
+          {members.map((m) => (
+            <option key={m.userId} value={m.userId}>{m.name}</option>
+          ))}
+        </NativeSelect>
+        <FieldError id="assigneeId-error" message={assigneeError} />
       </div>
       <div className="space-y-1">
         <label htmlFor="customerId" className="text-sm font-medium">Customer</label>

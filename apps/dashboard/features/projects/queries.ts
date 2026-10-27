@@ -1,11 +1,13 @@
 import { and, desc, eq, getDb, getTableColumns, schema } from "@repo/db";
 
-/** Returns the project only if `ownerId` owns it, so callers can't leak another user's data. */
-export async function getOwnedProject(ownerId: string, projectId: string) {
+import { visibleTo } from "@/features/workspaces/access";
+
+/** The project, only if `userId` is a member of its workspace (ADR-0005). */
+export async function getProjectForUser(userId: string, projectId: string) {
   const [project] = await getDb()
     .select()
     .from(schema.project)
-    .where(and(eq(schema.project.id, projectId), eq(schema.project.ownerId, ownerId)));
+    .where(and(eq(schema.project.id, projectId), visibleTo(userId, schema.project.workspaceId)));
   return project ?? null;
 }
 
@@ -17,19 +19,21 @@ function selectWithCustomer() {
     .leftJoin(schema.organization, eq(schema.project.organizationId, schema.organization.id));
 }
 
-/** The owner's projects, newest first; pass `limit` for just the most recent. */
-export async function listProjects(ownerId: string, limit?: number) {
-  const query = selectWithCustomer().where(eq(schema.project.ownerId, ownerId)).orderBy(desc(schema.project.createdAt));
+/** The workspace's projects, newest first; pass `limit` for just the most recent. */
+export async function listProjects(workspaceId: string, limit?: number) {
+  const query = selectWithCustomer()
+    .where(eq(schema.project.workspaceId, workspaceId))
+    .orderBy(desc(schema.project.createdAt));
   return limit === undefined ? query : query.limit(limit);
 }
 
-/** The owner's projects for one customer, newest first ("previous projects"). */
-export async function listCustomerProjects(ownerId: string, organizationId: string) {
+/** The workspace's projects for one customer, newest first ("previous projects"). */
+export async function listCustomerProjects(workspaceId: string, organizationId: string) {
   return selectWithCustomer()
-    .where(and(eq(schema.project.ownerId, ownerId), eq(schema.project.organizationId, organizationId)))
+    .where(and(eq(schema.project.workspaceId, workspaceId), eq(schema.project.organizationId, organizationId)))
     .orderBy(desc(schema.project.createdAt));
 }
 
-export async function countProjects(ownerId: string) {
-  return getDb().$count(schema.project, eq(schema.project.ownerId, ownerId));
+export async function countProjects(workspaceId: string) {
+  return getDb().$count(schema.project, eq(schema.project.workspaceId, workspaceId));
 }

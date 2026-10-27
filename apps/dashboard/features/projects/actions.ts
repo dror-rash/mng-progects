@@ -1,41 +1,40 @@
 "use server";
 
-import { getSession } from "@repo/auth/server";
 import { eq, getDb, schema } from "@repo/db";
 import { redirect } from "next/navigation";
 
 import { type FormState, invalid } from "@/features/forms/form-state";
-import { ownsCustomer } from "@/features/organizations/queries";
+import { customerInWorkspace } from "@/features/organizations/queries";
+import { requireWorkspaceForAction } from "@/features/workspaces/require-workspace";
 
 import { parseProjectInput } from "./project-input";
-import { requireOwnedProject } from "./require-owned-project";
+import { requireProjectAccess } from "./require-project-access";
 import { revalidateOverviews } from "./revalidate";
 
 export async function createProjectAction(_prev: FormState, formData: FormData): Promise<FormState> {
-  const session = await getSession();
-  if (!session) {
-    throw new Error("Unauthorized");
-  }
+  const { session, workspace } = await requireWorkspaceForAction(formData);
   const input = parseProjectInput(formData);
   if (!input.ok) {
     return invalid(input.error, formData);
   }
-  if (!(await ownsCustomer(session.user.id, input.value.organizationId))) {
+  if (!(await customerInWorkspace(workspace.id, input.value.organizationId))) {
     return invalid("Choose one of your customers", formData, "customerId");
   }
 
-  await getDb().insert(schema.project).values({ id: crypto.randomUUID(), ...input.value, ownerId: session.user.id });
+  await getDb()
+    .insert(schema.project)
+    .values({ id: crypto.randomUUID(), ...input.value, ownerId: session.user.id, workspaceId: workspace.id });
   revalidateOverviews();
   return {};
 }
 
 export async function updateProjectAction(_prev: FormState, formData: FormData): Promise<FormState> {
-  const project = await requireOwnedProject(String(formData.get("projectId") ?? ""));
+  const project = await requireProjectAccess(String(formData.get("projectId") ?? ""));
   const input = parseProjectInput(formData);
   if (!input.ok) {
     return invalid(input.error, formData);
   }
-  if (!(await ownsCustomer(project.ownerId, input.value.organizationId))) {
+  if (!(await customerInWorkspace(project.workspaceId, input.value.organizationId))) {
     return invalid("Choose one of your customers", formData, "customerId");
   }
 
@@ -49,7 +48,7 @@ export async function updateProjectAction(_prev: FormState, formData: FormData):
 
 /** Tasks go with the project (`onDelete: "cascade"`). */
 export async function deleteProjectAction(formData: FormData) {
-  const project = await requireOwnedProject(String(formData.get("projectId") ?? ""));
+  const project = await requireProjectAccess(String(formData.get("projectId") ?? ""));
 
   await getDb().delete(schema.project).where(eq(schema.project.id, project.id));
   revalidateOverviews();

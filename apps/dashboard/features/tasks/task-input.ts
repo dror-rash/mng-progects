@@ -15,6 +15,8 @@ export type TaskInput = {
   priority: TaskPriority | undefined;
   /** `null` clears it; `undefined` when the form has no due-date field (quick add). */
   dueDate: CalendarDate | null | undefined;
+  /** Same three states as `organizationId`; callers check the assignee is a member of the workspace. */
+  assigneeId: string | null | undefined;
 };
 
 export function parseTaskInput(
@@ -36,5 +38,10 @@ export function parseTaskInput(
   if (!dueDate.ok) {
     return { ok: false, field: "dueDate", error: "Enter a valid date" };
   }
-  return { ok: true, value: { title, description: description || null, organizationId, priority, dueDate: dueDate.value } };
+  const rawAssignee = formData.get("assigneeId");
+  const assigneeId = rawAssignee === null ? undefined : String(rawAssignee).trim() || null;
+  return {
+    ok: true,
+    value: { title, description: description || null, organizationId, priority, dueDate: dueDate.value, assigneeId },
+  };
 }
