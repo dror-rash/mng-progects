@@ -10,10 +10,6 @@ When("I choose the {string} theme", async ({ page }, name: string) => {
   await page.getByRole("group", { name: "Theme" }).getByRole("button", { name, exact: true }).click();
 });
 
-When("I reload the page", async ({ page }) => {
-  await page.reload();
-});
-
 // The theme is the `dark` class on <html>; the tokens in @repo/ui/theme.css hang off it.
 Then("the page is dark", async ({ page }) => {
   await expect(page.locator("html")).toHaveClass(/(^|\s)dark(\s|$)/);
