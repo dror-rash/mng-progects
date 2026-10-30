@@ -15,6 +15,7 @@ Next.js (App Router, multi-zone) · Better Auth · Postgres + Drizzle · TypeScr
 
 ## Commands
 - `pnpm db:up` – local Postgres (Docker); `pnpm db:generate` / `pnpm db:migrate` / `pnpm db:studio`
+- `pnpm --filter @repo/dashboard seed:demo --email you@example.com` – demo data for local dev: 5 customers × 15 projects with tasks in every state, in that user's workspace (needs `pnpm db:migrate` first). Reruns replace the previous demo data (customers tagged `demo`)
 - `pnpm dev` – run all zones (shell :3000, example-zone :3001, dashboard :3002); needs `.env` (copy `.env.example`) and the database up. Restart it if e2e gets slow after a long session (dev memory growth); never run `pnpm build` while it runs (both write `.next`)
 - `pnpm test` – unit/component tests (Vitest)
 - `pnpm test:e2e` – acceptance tests (Gherkin via Playwright; generates specs with `bddgen`, then runs)
