@@ -4,12 +4,13 @@ import { byDueThenPriority } from "./my-tasks";
 
 describe("byDueThenPriority", () => {
   it("puts the soonest due date first, undated tasks last, then the most urgent", () => {
+    const createdAt = new Date("2026-10-30T09:00:00Z");
     const tasks = [
-      { id: "undated-high", dueDate: null, priority: "high" },
-      { id: "nov-low", dueDate: "2026-11-02", priority: "low" },
-      { id: "oct", dueDate: "2026-10-30", priority: "medium" },
-      { id: "nov-high", dueDate: "2026-11-02", priority: "high" },
-      { id: "undated-low", dueDate: null, priority: "low" },
+      { id: "undated-high", dueDate: null, priority: "high", createdAt },
+      { id: "nov-low", dueDate: "2026-11-02", priority: "low", createdAt },
+      { id: "oct", dueDate: "2026-10-30", priority: "medium", createdAt },
+      { id: "nov-high", dueDate: "2026-11-02", priority: "high", createdAt },
+      { id: "undated-low", dueDate: null, priority: "low", createdAt },
     ];
 
     expect([...tasks].sort(byDueThenPriority).map((t) => t.id)).toEqual([

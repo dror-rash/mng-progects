@@ -4,7 +4,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { AppHeader } from "@/features/layout/app-header";
-import { getOrganizationForUser, listOrganizations } from "@/features/organizations/queries";
+import { listOrganizations } from "@/features/organizations/queries";
 import { getProjectForUser } from "@/features/projects/queries";
 import { deleteTaskFromPageAction } from "@/features/tasks/actions";
 import { EditTaskForm } from "@/features/tasks/edit-task-form";
@@ -26,11 +26,12 @@ export default async function TaskPage({ params }: { params: Promise<{ projectId
     notFound();
   }
 
-  const [customer, customers, members] = await Promise.all([
-    task.organizationId ? getOrganizationForUser(session.user.id, task.organizationId, "customer") : null,
+  const [customers, members] = await Promise.all([
     listOrganizations(project.workspaceId, "customer"),
     listMembers(project.workspaceId),
   ]);
+  // Only the project's own customers count, the same ones its dropdown offers.
+  const customer = customers.find((c) => c.id === task.organizationId);
   const assigneeName = members.find((m) => m.userId === task.assigneeId)?.name;
   const status = TASK_STATUSES.find((s) => s.status === (parseTaskStatus(task.status) ?? "todo"))!;
 
