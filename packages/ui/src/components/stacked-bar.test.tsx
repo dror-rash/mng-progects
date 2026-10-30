@@ -1,4 +1,5 @@
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 
 import { StackedBar } from "./stacked-bar";
@@ -42,5 +43,52 @@ describe("StackedBar", () => {
       [...el.classList].find((c) => c.startsWith("bg-chart-")),
     );
     expect(colors).toEqual(["bg-chart-1", "bg-chart-2", "bg-chart-3", "bg-chart-4", "bg-chart-5"]);
+  });
+
+  it("shows the label, count and share of a segment when it is focused", async () => {
+    const user = userEvent.setup();
+    const tasks = [
+      { label: "To do", value: 5 },
+      { label: "In progress", value: 4 },
+      { label: "Done", value: 1 },
+    ];
+    render(<StackedBar label="Tasks by status" segments={tasks} />);
+
+    await user.tab();
+    await user.tab();
+
+    expect(screen.getByRole("img", { name: "In progress: 4 (40%)" })).toHaveFocus();
+    expect(await screen.findByRole("tooltip")).toHaveTextContent("In progress: 4 (40%)");
+  });
+
+  it("lets the keyboard reach the segments in order, skipping empty ones", async () => {
+    const user = userEvent.setup();
+    render(<StackedBar label="Tasks by status" segments={[...segments, { label: "Blocked", value: 0 }]} />);
+
+    const focused: string[] = [];
+    for (let i = 0; i < 4; i++) {
+      await user.tab();
+      focused.push(document.activeElement?.getAttribute("aria-label") ?? "(none)");
+    }
+    expect(focused).toEqual(["To do: 2 (50%)", "In progress: 1 (25%)", "Done: 1 (25%)", "(none)"]);
+  });
+
+  it("shows the tooltip on hover", async () => {
+    const user = userEvent.setup();
+    render(<StackedBar label="Tasks by status" segments={segments} />);
+
+    await user.hover(screen.getByRole("img", { name: "Done: 1 (25%)" }));
+
+    expect(await screen.findByRole("tooltip")).toHaveTextContent("Done: 1 (25%)");
+  });
+
+  it("shows the tooltip on tap", async () => {
+    render(<StackedBar label="Tasks by status" segments={segments} />);
+    const segment = screen.getByRole("img", { name: "To do: 2 (50%)" });
+
+    fireEvent.pointerDown(segment, { pointerType: "touch" });
+    fireEvent.click(segment);
+
+    expect(await screen.findByRole("tooltip")).toHaveTextContent("To do: 2 (50%)");
   });
 });
