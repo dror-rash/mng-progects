@@ -20,7 +20,8 @@
     "./copy-button": "./src/components/copy-button.tsx",
     "./theme": "./src/lib/theme.ts",
     "./theme-toggle": "./src/components/theme-toggle.tsx",
-    "./confirm-by-name": "./src/components/confirm-by-name.tsx"
+    "./confirm-by-name": "./src/components/confirm-by-name.tsx",
+    "./contact-row": "./src/components/contact-row.tsx"
   },
   "scripts": {
     "lint": "eslint .",

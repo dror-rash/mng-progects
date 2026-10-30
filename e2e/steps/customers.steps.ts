@@ -150,3 +150,67 @@ When("the contact {string} is removed in another tab", async ({ context, page },
   await expect(tab.getByRole("region", { name: "Contacts" })).not.toContainText(name);
   await tab.close();
 });
+
+function contactsSection(page: Page) {
+  return page.getByRole("region", { name: "Contacts", exact: true });
+}
+
+function contactRow(page: Page, name: string) {
+  return contactsSection(page).getByRole("listitem").filter({ hasText: name });
+}
+
+Given("{string} is the customer's primary contact", async ({ page }, name: string) => {
+  await Promise.all([
+    page.waitForResponse((r) => r.request().method() === "POST"),
+    page.getByRole("button", { name: `Make ${name} primary` }).click(),
+  ]);
+  await expect(contactRow(page, name).getByText("Primary", { exact: true })).toBeVisible();
+});
+
+Then("{string} is the only primary contact", async ({ page }, name: string) => {
+  await expect(contactRow(page, name).getByText("Primary", { exact: true })).toBeVisible();
+  await expect(contactsSection(page).getByText("Primary", { exact: true })).toHaveCount(1);
+});
+
+Then("the customer has no primary contact", async ({ page }) => {
+  await expect(contactsSection(page).getByText("Primary", { exact: true })).toHaveCount(0);
+});
+
+Then("the contacts are listed as {string}", async ({ page }, names: string) => {
+  const expected = names.split(",").map((n) => n.trim());
+  const rows = contactsSection(page).getByRole("listitem");
+  await expect(rows).toHaveCount(expected.length);
+  for (const [i, name] of expected.entries()) await expect(rows.nth(i)).toContainText(name);
+});
+
+function customerRow(page: Page, customer: string) {
+  return page.getByRole("listitem").filter({ has: page.getByRole("link", { name: customer, exact: true }) });
+}
+
+Then("the customer {string} is listed with the contact {string}", async ({ page }, customer: string, contact: string) => {
+  await expect(customerRow(page, customer)).toContainText(contact);
+});
+
+Then("the customer {string} is not listed with the contact {string}", async ({ page }, customer: string, contact: string) => {
+  await expect(customerRow(page, customer)).toBeVisible();
+  await expect(customerRow(page, customer)).not.toContainText(contact);
+});
+
+// Simulates a tampered form: the button's hidden contact id is swapped for another customer's contact.
+When(
+  "the {string} button is changed to point at {string} of {string}",
+  async ({ context, page }, button: string, contact: string, customer: string) => {
+    const tab = await context.newPage();
+    await tab.goto("/dashboard/customers");
+    await tab.getByRole("link", { name: customer, exact: true }).click();
+    const href = await tab.getByRole("link", { name: `Edit ${contact}`, exact: true }).getAttribute("href");
+    await tab.close();
+    const contactId = href?.match(/\/contacts\/([^/]+)\/edit$/)?.[1];
+    expect(contactId).toBeDefined();
+    await page
+      .getByRole("button", { name: button })
+      .locator("xpath=ancestor::form")
+      .locator('input[name="contactId"]')
+      .evaluate((input, id) => ((input as HTMLInputElement).value = id), contactId!);
+  },
+);
