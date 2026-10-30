@@ -4,7 +4,7 @@
  * If you enable Better Auth plugins that need tables, regenerate with `npx @better-auth/cli generate`.
  */
 import { sql } from "drizzle-orm";
-import { boolean, date, index, pgTable, primaryKey, text, timestamp } from "drizzle-orm/pg-core";
+import { type AnyPgColumn, boolean, date, index, pgTable, primaryKey, text, timestamp } from "drizzle-orm/pg-core";
 
 export const user = pgTable("user", {
   id: text("id").primaryKey(),
@@ -161,6 +161,10 @@ export const organization = pgTable(
     /** "General information": one editable text. Dated notes live in their own table (task 015). */
     about: text("about"),
     tags: text("tags").array().notNull().default(sql`'{}'::text[]`),
+    /** Who to reach first (task 038). A pointer keeps "only one primary" true; cleared when that contact is removed. */
+    primaryContactId: text("primary_contact_id").references((): AnyPgColumn => organizationContact.id, {
+      onDelete: "set null",
+    }),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },
