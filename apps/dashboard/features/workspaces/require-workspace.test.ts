@@ -1,4 +1,6 @@
+import type * as Db from "@repo/db";
 import { schema } from "@repo/db";
+import type * as React from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 /**
@@ -7,7 +9,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
  */
 const requestCaches = vi.hoisted(() => [] as Map<string, unknown>[]);
 vi.mock("react", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("react")>()),
+  ...(await importOriginal<typeof React>()),
   cache: <A extends unknown[], R>(fn: (...args: A) => R) => {
     const memo = new Map<string, R>();
     requestCaches.push(memo as Map<string, unknown>);
@@ -36,7 +38,7 @@ const db = vi.hoisted(() => ({
   orderBy: [] as unknown[],
 }));
 vi.mock("@repo/db", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@repo/db")>();
+  const actual = await importOriginal<typeof Db>();
   function chain(result: () => unknown): unknown {
     return new Proxy(() => {}, {
       get: (_target, prop) => {
@@ -93,7 +95,7 @@ describe("request-scoped lookups", () => {
     expect(db.membershipQueries).toBe(1);
   });
 
-  it("shares the session and memberships between a page and an action check in the same request", async () => {
+  it("checks a form's workspace with the same request's session and memberships", async () => {
     db.membershipRows = [[membership("ws-1", "Dana's workspace")]];
     const form = new FormData();
     form.set("workspaceId", "ws-1");
