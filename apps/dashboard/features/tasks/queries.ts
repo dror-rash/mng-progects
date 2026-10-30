@@ -30,7 +30,7 @@ export async function listWorkspaceTaskStatuses(workspaceId: string) {
     .where(eq(schema.project.workspaceId, workspaceId));
 }
 
-/** The task, only if it belongs to `projectId`. Callers check project ownership first. */
+/** The task, only if it belongs to `projectId`. Callers check the project is visible to the user (workspace access) first. */
 export async function getProjectTask(projectId: string, taskId: string) {
   const [task] = await getDb()
     .select()

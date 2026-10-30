@@ -1,8 +1,6 @@
 import { expect, type Page } from "@playwright/test";
 
-import { Given, Then, When } from "./fixtures";
-
-const origin = process.env.BASE_URL ?? "http://localhost:3000";
+import { Given, origin, signUp, Then, When } from "./fixtures";
 
 async function createCustomer(page: Page, name: string, status = "Active", tags = "") {
   await page.goto("/dashboard/customers/new");
@@ -28,17 +26,11 @@ Given("I am on the {string} customer page", async ({ page }, name: string) => {
   await expect(page.getByRole("heading", { name, level: 1 })).toBeVisible();
 });
 
-// A separate browser context is a separate user with its own cookies.
-Given("another user has a customer named {string}", async ({ browser, state }, name: string) => {
-  const context = await browser.newContext({ baseURL: origin });
-  const other = await context.newPage();
-  const credentials = { email: `other-${crypto.randomUUID()}@example.com`, password: "correct-horse-battery" };
-  expect((await other.request.post("/api/auth/sign-up/email", { data: { name: "Other User", ...credentials }, headers: { origin } })).ok()).toBeTruthy();
-  expect((await other.request.post("/api/auth/sign-in/email", { data: credentials, headers: { origin } })).ok()).toBeTruthy();
-
+Given("another user has a customer named {string}", async ({ people, state }, name: string) => {
+  const other = await people.newPerson();
+  await signUp(other, "Other User");
   await createCustomer(other, name);
   state.otherUsersCustomerUrl = other.url();
-  await context.close();
 });
 
 When("I open the other user's customer page", async ({ page, state }) => {

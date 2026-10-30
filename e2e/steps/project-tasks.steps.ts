@@ -2,8 +2,6 @@ import { expect, type Page } from "@playwright/test";
 
 import { Given, signUp, Then, userId, When } from "./fixtures";
 
-const origin = process.env.BASE_URL ?? "http://localhost:3000";
-
 async function createProject(page: Page, name: string) {
   await page.goto("/dashboard/projects");
   await page.getByLabel("Project name").fill(name);
@@ -47,18 +45,12 @@ Given("the project has a task {string}", async ({ page }, title: string) => {
   await expect(taskCard(page, title)).toBeVisible();
 });
 
-// A separate browser context is a separate user with its own cookies.
-Given("another user has a project named {string}", async ({ browser, state }, name: string) => {
-  const context = await browser.newContext({ baseURL: origin });
-  const other = await context.newPage();
-  const credentials = { email: `other-${crypto.randomUUID()}@example.com`, password: "correct-horse-battery" };
-  expect((await other.request.post("/api/auth/sign-up/email", { data: { name: "Other User", ...credentials }, headers: { origin } })).ok()).toBeTruthy();
-  expect((await other.request.post("/api/auth/sign-in/email", { data: credentials, headers: { origin } })).ok()).toBeTruthy();
-
+Given("another user has a project named {string}", async ({ people, state }, name: string) => {
+  const other = await people.newPerson();
+  await signUp(other, "Other User");
   await createProject(other, name);
   await openProjectFromDashboard(other, name);
   state.otherUsersProjectUrl = other.url();
-  await context.close();
 });
 
 When("I open the other user's project", async ({ page, state }) => {

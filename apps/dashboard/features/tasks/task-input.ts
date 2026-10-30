@@ -5,7 +5,7 @@ import { parseTaskPriority, type TaskPriority } from "./task-priority";
 
 /**
  * `organizationId`: the chosen customer, `null` for none, or `undefined` when the form has no customer
- * field (the board's quick add), meaning "leave it / use the project's". Callers check ownership.
+ * field (the board's quick add), meaning "leave it / use the project's". Callers check the customer is in the project's workspace.
  */
 export type TaskInput = {
   title: string;
