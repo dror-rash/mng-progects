@@ -19,7 +19,8 @@
     "./tooltip": "./src/components/tooltip.tsx",
     "./copy-button": "./src/components/copy-button.tsx",
     "./theme": "./src/lib/theme.ts",
-    "./theme-toggle": "./src/components/theme-toggle.tsx"
+    "./theme-toggle": "./src/components/theme-toggle.tsx",
+    "./confirm-by-name": "./src/components/confirm-by-name.tsx"
   },
   "scripts": {
     "lint": "eslint .",

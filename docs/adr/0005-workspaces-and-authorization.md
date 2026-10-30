@@ -36,3 +36,8 @@ Every project, task and customer belongs to the user who created it (`project.ow
 
 ## Amendment 2026-10-30: revoking invite links when removing a member (task 027)
 Invite links are reusable, so a removed member could rejoin with a link they still have. When removing a member, the admin can also revoke all of the workspace's open invite links ("Also revoke open invite links", off by default). The revocation happens in the same transaction as the removal. It is opt-in because links may be in use by others the admin still wants to let in; the admin can create a new link afterwards.
+
+## Amendment 2026-10-30: renaming and deleting a workspace (task 029)
+- Only admins rename or delete a workspace, from `/workspace/settings`. Both actions lock the workspace row and check the role again under the lock, as membership changes do.
+- Deleting needs the workspace's exact name typed, and removes everything in it through `ON DELETE CASCADE` from `workspace`: projects (and their tasks), customers (and their contacts and notes), invite links and memberships. Nothing is moved to another workspace.
+- An admin may delete their only workspace. Like anyone who belongs to no workspace, they get a new personal one on their next page load. Former members land in their next workspace.

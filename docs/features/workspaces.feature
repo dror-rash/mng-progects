@@ -15,3 +15,88 @@ Feature: Workspaces
     When I open "/dashboard/projects"
     Then I see the text "Test User's workspace"
     And I see the "Website Redesign" link
+
+  @task:029
+  Scenario: An admin renames the workspace
+    Given I am signed in with an existing account
+    When I open "/dashboard/workspace/settings"
+    And I fill in "Workspace name" with "Acme Team"
+    And I press "Rename workspace"
+    And I open "/dashboard"
+    Then I see the text "Acme Team"
+    When I open "/dashboard/workspaces"
+    Then the "Your workspaces" section shows "Acme Team"
+    And the "Your workspaces" section does not show "Test User's workspace"
+
+  @task:029
+  Scenario: A member can't open the workspace settings
+    Given I am signed in with an existing account
+    And I create an invite link
+    And a teammate joins with the invite link
+    Then the teammate opening "/dashboard/workspace/settings" sees "Only admins can manage this workspace"
+
+  @task:029
+  Scenario: A member can't rename the workspace by changing the form
+    Given I am signed in with an existing account
+    And I create an invite link
+    And a teammate joins with the invite link
+    When the teammate posts "Rename workspace" for my workspace from their own settings page
+    Then the teammate sees the error "Only admins can manage this workspace"
+
+  @task:029
+  Scenario: A member can't delete the workspace by changing the form
+    Given I am signed in with an existing account
+    And I create an invite link
+    And a teammate joins with the invite link
+    When the teammate posts "Delete workspace" for my workspace from their own settings page
+    Then the teammate sees the error "Only admins can manage this workspace"
+    When I open "/dashboard"
+    Then I see the text "Test User's workspace"
+
+  @task:029
+  Scenario: Deleting a workspace needs its exact name
+    Given I am signed in with an existing account
+    And I create a workspace named "Acme Team"
+    When I open "/dashboard/workspace/settings"
+    And I fill in "Type the name to confirm" with "Acme"
+    And I press "Delete workspace"
+    Then I see the error "Type the workspace name exactly to delete it"
+
+  @task:029
+  Scenario: Deleting a workspace removes its projects for every member
+    Given I am signed in with an existing account
+    And I create a workspace named "Acme Team"
+    And I have a project named "Website Redesign"
+    And I keep the link to the "Website Redesign" project
+    And I create an invite link
+    And a teammate joins with the invite link
+    When I delete the workspace "Acme Team"
+    Then I see the text "Test User's workspace"
+    And I do not see the text "Acme Team"
+    And neither the teammate nor I can open the kept project link
+
+  @task:029
+  Scenario: Deleting my only workspace gives me a fresh one
+    Given I am signed in with an existing account
+    And I have a project named "Personal plan"
+    When I delete the workspace "Test User's workspace"
+    Then I see the text "Test User's workspace"
+    When I open "/dashboard/projects"
+    Then I do not see the "Personal plan" link
+
+  @task:029
+  Scenario: Two workspaces with the same name can be told apart
+    Given I am signed in with an existing account
+    And I create a workspace named "Acme"
+    And I create an invite link
+    And a teammate joins with the invite link
+    When the teammate creates a workspace named "Acme"
+    Then the teammate's workspaces show "Acme" as "Member · 2 members" and as "Admin · 1 member"
+
+  @task:029
+  Scenario: A workspace name can't be longer than 100 characters
+    Given I am signed in with an existing account
+    When I open "/dashboard/workspaces"
+    Then the "Workspace name" field accepts at most 100 characters
+    When I post a workspace name of 101 characters
+    Then I see the error "Workspace name must be 100 characters or fewer"
