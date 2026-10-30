@@ -278,11 +278,12 @@ When("I revoke the invite link in another tab", async ({ context }) => {
 });
 
 // Gives the teammate's own workspace a member (me) and an open link, so their members page has
-// every admin form. My current workspace is switched back to mine afterwards.
+// every admin form. Both current workspaces are switched back to mine afterwards.
 Given("I join the teammate's workspace with an invite link they created", async ({ page, state }) => {
   const teammate = state.teammate!;
   await switchTo(teammate, "Teammate's workspace");
   const link = await createInviteLink(teammate);
+  await switchTo(teammate, "Test User's workspace");
   await page.goto(link);
   await pressAndWait(page, "Join workspace");
   await expect(page).toHaveURL(/\/dashboard$/);

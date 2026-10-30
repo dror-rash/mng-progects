@@ -128,7 +128,7 @@ Feature: Workspace members and invite links
     And I press "Revoke invite link"
     Then the invite link row shows the error "This invite link was already revoked"
 
-  @task:027
+  @task:027 @slow
   Scenario Outline: A member can't use admin actions by changing the form
     Given I create an invite link
     And a teammate joins with the invite link
