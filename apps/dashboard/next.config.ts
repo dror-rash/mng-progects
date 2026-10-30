@@ -12,6 +12,16 @@ const config: NextConfig = {
   // basePath puts pages AND assets (/dashboard/_next/...) under one prefix, so the shell
   // only needs a single rewrite pair and assets never collide with other zones.
   basePath: "/dashboard",
+  // Invite links carry a secret token (task 028): don't send it on in a Referer, and keep it out of
+  // the dev server's request log. The join page (/invite, no token in its URL) uses "same-origin":
+  // with "no-referrer" the browser sends `Origin: null` and Next rejects the server action.
+  async headers() {
+    return [
+      { source: "/invite/:token", headers: [{ key: "Referrer-Policy", value: "no-referrer" }] },
+      { source: "/invite", headers: [{ key: "Referrer-Policy", value: "same-origin" }] },
+    ];
+  },
+  logging: { incomingRequests: { ignore: [/\/invite\//] } },
 };
 
 export default config;
