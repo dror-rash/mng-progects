@@ -1,19 +1,21 @@
 import { Button } from "@repo/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@repo/ui/card";
+import { cookies } from "next/headers";
 import Link from "next/link";
 
 import { requireSession } from "@/features/auth/require-session";
-import { joinWorkspaceAction } from "@/features/workspaces/actions";
-import { inviteState } from "@/features/workspaces/invite-token";
+import { inviteState, readInviteToken } from "@/features/workspaces/invite-token";
+import { JoinForm } from "@/features/workspaces/join-form";
 import { findInvite } from "@/features/workspaces/members";
 
 export const dynamic = "force-dynamic";
 
-export default async function InvitePage({ params }: { params: Promise<{ token: string }> }) {
-  const { token } = await params;
-  // Signed-out visitors log in (or sign up) first and come back here.
-  await requireSession(`/invite/${token}`);
-  const invite = await findInvite(token);
+/** An invite link (/invite/<token>) stashes its token in a cookie and comes here, so no URL carries it. */
+export default async function InvitePage() {
+  // Signed-out visitors log in (or sign up) first and come back here; the cookie waits for them.
+  await requireSession("/invite");
+  const token = readInviteToken(await cookies());
+  const invite = token ? await findInvite(token) : null;
   const valid = invite !== null && inviteState(invite, new Date()) === "valid";
 
   return (
@@ -26,10 +28,7 @@ export default async function InvitePage({ params }: { params: Promise<{ token: 
               <CardDescription>You&apos;ll see its projects, tasks and customers, and can work on them.</CardDescription>
             </CardHeader>
             <CardContent>
-              <form action={joinWorkspaceAction}>
-                <input type="hidden" name="token" value={token} />
-                <Button type="submit">Join workspace</Button>
-              </form>
+              <JoinForm />
             </CardContent>
           </>
         ) : (

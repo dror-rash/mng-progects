@@ -10,7 +10,14 @@ import { redirect } from "next/navigation";
 import { type FormState, invalid } from "@/features/forms/form-state";
 
 import { WORKSPACE_COOKIE } from "./current-workspace";
-import { hashInviteToken, inviteExpiresAt, inviteState, newInviteToken } from "./invite-token";
+import {
+  clearInviteToken,
+  hashInviteToken,
+  inviteExpiresAt,
+  inviteState,
+  newInviteToken,
+  readInviteToken,
+} from "./invite-token";
 import { findInvite } from "./members";
 import { ADMINS_ONLY, membershipError, type MembershipResult } from "./membership-errors";
 import { ensurePersonalWorkspace, isMember, listMemberships } from "./queries";
@@ -196,16 +203,23 @@ export async function leaveWorkspaceAction(_prev: FormState, formData: FormData)
   redirect("/");
 }
 
-/** Joins the invite's workspace and switches to it. The link is checked again here, not just on the page. */
-export async function joinWorkspaceAction(formData: FormData) {
+/**
+ * Joins the invite's workspace and switches to it. The token comes from the invite cookie (not the form),
+ * and the link is checked again here, not just on the page: it may have been revoked since.
+ */
+export async function joinWorkspaceAction(_prev: FormState, _formData: FormData): Promise<FormState> {
   const session = await getSession();
   if (!session) {
     throw new Error("Unauthorized");
   }
-  const invite = await findInvite(String(formData.get("token") ?? ""));
+  const jar = await cookies();
+  const token = readInviteToken(jar);
+  const invite = token ? await findInvite(token) : null;
   if (!invite || inviteState(invite, new Date()) !== "valid") {
-    throw new Error("This invite link is invalid or has expired");
+    // The cookie is left to expire: changing it here would re-render the page and drop this message.
+    return { error: "This invite link is invalid or has expired" };
   }
+  clearInviteToken(jar);
   // Someone joining before ever opening the dashboard gets their own workspace too, to switch back to.
   if ((await listMemberships(session.user.id)).length === 0) {
     await ensurePersonalWorkspace(session.user);

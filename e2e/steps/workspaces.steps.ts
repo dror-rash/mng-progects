@@ -1,4 +1,4 @@
-import { expect, type Page } from "@playwright/test";
+import { expect, type Page, type Request } from "@playwright/test";
 
 import { Given, origin, signUp, Then, userId, When } from "./fixtures";
 
@@ -60,10 +60,53 @@ Then("a teammate opening the invite link sees {string}", async ({ people, state 
   await expect(teammate.getByText(text)).toBeVisible();
 });
 
-Then("a signed-out visitor opening the invite link is sent to the login page", async ({ people, state }) => {
-  const visitor = await people.newPerson();
-  await visitor.goto(state.inviteLink!);
-  await expect(visitor).toHaveURL((url) => url.pathname === "/login" && (url.searchParams.get("next") ?? "").startsWith("/dashboard/invite/"));
+Given("a teammate opens the invite link", async ({ people, state }) => {
+  const teammate = await people.newPerson();
+  await signUp(teammate, "Teammate");
+  await teammate.goto(state.inviteLink!);
+  await expect(teammate.getByRole("button", { name: "Join workspace" })).toBeVisible();
+  state.teammate = teammate;
+});
+
+When("a signed-out teammate opens the invite link", async ({ people, state }) => {
+  const teammate = await people.newPerson();
+  await teammate.goto(state.inviteLink!);
+  await expect(teammate).toHaveURL((url) => url.pathname === "/login");
+  state.teammate = teammate;
+});
+
+Then("the login page's address doesn't contain the invite token", async ({ state }) => {
+  const token = new URL(state.inviteLink!).pathname.split("/").pop()!;
+  expect(token.length).toBeGreaterThan(20);
+  expect(decodeURIComponent(state.teammate!.url())).not.toContain(token);
+});
+
+// The account is registered through `request` (its own cookie jar), so the teammate's browser stays signed out.
+When("the teammate logs in", async ({ request, state }) => {
+  const teammate = state.teammate!;
+  const credentials = { email: `teammate-${crypto.randomUUID()}@example.com`, password: "correct-horse-battery" };
+  expect((await request.post("/api/auth/sign-up/email", { data: { name: "Teammate", ...credentials }, headers: { origin } })).ok()).toBeTruthy();
+  await teammate.getByLabel("Email").fill(credentials.email);
+  await teammate.getByLabel("Password").fill(credentials.password);
+  await teammate.getByRole("button", { name: "Log in" }).click();
+  // Wait for "load" like `goto` does: a form submitted before hydration fails on the dev server.
+  await teammate.waitForURL((url) => url.pathname === "/dashboard/invite", { waitUntil: "load" });
+  await expect(teammate.getByRole("button", { name: "Join workspace" })).toBeVisible();
+});
+
+When("the teammate presses {string}", async ({ state }, name: string) => {
+  await pressAndWait(state.teammate!, name);
+});
+
+// The response to the link itself (the URL with the token), even when it redirects on.
+Then("opening the invite link answers with the header {string}", async ({ page, state }, header: string) => {
+  const [name, value] = header.split(/:\s*/);
+  const response = await page.goto(state.inviteLink!);
+  expect(response).not.toBeNull();
+  let request: Request = response!.request();
+  while (request.redirectedFrom()) request = request.redirectedFrom()!;
+  expect(request.url()).toBe(state.inviteLink);
+  expect((await request.response())!.headers()[name!.toLowerCase()]).toBe(value);
 });
 
 export async function createWorkspace(page: Page, name: string) {
