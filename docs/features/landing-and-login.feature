@@ -33,6 +33,15 @@ Feature: Shell Landing and Login Experience
     Then the page is dark
 
   @task:036
+  Scenario: The dashboard header has the theme toggle
+    Given I am signed in with an existing account
+    When I open "/dashboard"
+    And I choose the "Dark" theme
+    Then the page is dark
+    When I reload the page
+    Then the page is dark
+
+  @task:036
   Scenario: The system theme follows the OS setting
     Given my system prefers a dark color scheme
     And I am on the home page
