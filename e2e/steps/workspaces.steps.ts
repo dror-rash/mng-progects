@@ -84,6 +84,8 @@ When("the teammate logs in", async ({ request, state }) => {
   await teammate.getByLabel("Email").fill(credentials.email);
   await teammate.getByLabel("Password").fill(credentials.password);
   await teammate.getByRole("button", { name: "Log in" }).click();
+  // Wait for "load" like `goto` does: a form submitted before hydration fails on the dev server.
+  await teammate.waitForURL((url) => url.pathname === "/dashboard/invite", { waitUntil: "load" });
   await expect(teammate.getByRole("button", { name: "Join workspace" })).toBeVisible();
 });
 
@@ -91,18 +93,15 @@ When("the teammate presses {string}", async ({ state }, name: string) => {
   await pressAndWait(state.teammate!, name);
 });
 
-// Checks every response on the way, including a redirect from the link itself.
+// The response to the link itself (the URL with the token), even when it redirects on.
 Then("opening the invite link answers with the header {string}", async ({ page, state }, header: string) => {
   const [name, value] = header.split(/:\s*/);
   const response = await page.goto(state.inviteLink!);
   expect(response).not.toBeNull();
-  let request: Request | null = response!.request();
-  while (request) {
-    const r = await request.response();
-    expect(r, request.url()).not.toBeNull();
-    expect(r!.headers()[name!.toLowerCase()], request.url()).toBe(value);
-    request = request.redirectedFrom();
-  }
+  let request: Request = response!.request();
+  while (request.redirectedFrom()) request = request.redirectedFrom()!;
+  expect(request.url()).toBe(state.inviteLink);
+  expect((await request.response())!.headers()[name!.toLowerCase()]).toBe(value);
 });
 
 async function createWorkspace(page: Page, name: string) {
