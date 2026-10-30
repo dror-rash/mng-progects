@@ -176,6 +176,9 @@ importers:
       '@repo/config':
         specifier: workspace:*
         version: link:../packages/config
+      '@repo/db':
+        specifier: workspace:*
+        version: link:../packages/db
       '@types/node':
         specifier: ^22.0.0
         version: 22.20.5

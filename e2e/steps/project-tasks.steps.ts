@@ -256,3 +256,19 @@ Then("the other user's task is still named {string}", async ({ state }, title: s
   await other.reload();
   await expect(other.getByRole("heading", { name: title, level: 1 })).toBeVisible();
 });
+
+function myTasks(page: Page) {
+  return page.getByRole("region", { name: "My tasks", exact: true }).getByRole("listitem");
+}
+
+Then("my task {string} shows {string}", async ({ page }, title: string, text: string) => {
+  await expect(myTasks(page).filter({ hasText: title })).toContainText(text);
+});
+
+Then("my tasks are {string}", async ({ page }, titles: string) => {
+  await expect(myTasks(page).getByRole("link")).toHaveText(titles.split(",").map((t) => t.trim()));
+});
+
+When("I reload the page", async ({ page }) => {
+  await page.reload();
+});
