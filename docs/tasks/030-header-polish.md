@@ -1,6 +1,6 @@
 # Task 030: Header polish
 
-- **Status:** todo
+- **Status:** in-progress
 - **Milestone:** M9
 - **Zone / package:** `apps/dashboard`, `e2e`
 - **Feature file:** `docs/features/workspace-switching.feature`, `docs/features/zone-navigation.feature`
