@@ -28,9 +28,22 @@ Build a modern, full-stack Project Management application on a Next.js multi-zon
 | M6 | Customers | Task page (011) and inline form errors (012); a customers directory with details, contact people, dated notes, and tags (013–015); projects and tasks link to a customer, and each customer shows its projects and open tasks (016–017). ADR-0004 | done |
 | M7 | Task Details | Task priority (018) and due dates with overdue / due-this-week on the home page (019) | done |
 | M8 | Workspaces & Sharing | Workspaces own projects, tasks and customers; Admin/Member roles; invite links; workspace switcher; task assignees and "My tasks" (ADR-0005) | done |
+| M9 | Polish & Hardening | Every open parking-lot item: members-page errors, invite hygiene, workspace settings, header, cross-workspace reads, caching, indexes, test cleanup, SQL counts, dark mode, drag-and-drop, primary contact, chart tooltips (027–039); other organization kinds (040) and time zones (041, ADR-0006) once decided | todo |
 
 ## Current milestone
-None. M8 is done; the next milestone isn't chosen yet. Candidates (from the parking lots and ADR follow-ups): M9 sharing polish and hardening, M10 accounts and email, M11 deploy to GCP, M12 time zones and scale.
+M9 Polish & Hardening. Tasks are split so they can run in parallel; each owns its files and feature-file scenarios (written `@wip` first, per WORKFLOW).
+
+| Lane | Tasks | Can start | Shared files / order |
+|---|---|---|---|
+| Workspaces | 027 members page, 028 invite links, 029 settings, 032 lookups | now | 027 and 028 edit different functions in `workspaces/actions.ts`; 029 uses a new `settings-actions.ts` |
+| Reads | 031 cross-workspace display, 035 SQL counts | now | both edit `tasks/queries.ts`: 031 the existing functions, 035 appends |
+| UI | 030 header, 037 drag-and-drop, 039 tooltips | now | 030 and 037 both touch `projects/[projectId]/page.tsx` (props vs board) |
+| UI | 036 dark mode | now (ui + shell); dashboard header after 030 | `AppHeader` |
+| Data | 033 indexes, 038 primary contact | now | migrations: later merge rebases and re-runs `pnpm db:generate` |
+| Hygiene | 034 test steps and comments | now | trivial comment overlap with 031 |
+| Blocked | 040 organization kinds (product answers), 041 time zones (ADR-0006) | after decision | 041 adds a migration too |
+
+Next candidates after M9: M10 accounts and email (incl. user deletion), M11 deploy to GCP.
 
 ## Risks & open questions
 - CI `deploy` fails until GCP is set up (`infra/README.md`): no Workload Identity provider or project vars configured.
@@ -45,6 +58,7 @@ None. M8 is done; the next milestone isn't chosen yet. Candidates (from the park
 - 2026-10-23 – Planned M6 Customers at the user's request (011–017, ADR-0004: one typed organizations directory, customers first; projects and tasks link to it). Task priority and due dates move to M7 (018–019). Sharing proposed as M8. Unimplemented specs are tagged `@wip`.
 - 2026-10-26 – M6 Customers merged (PR #4, incl. review fixes in task 020). Starting M7.
 - 2026-10-26 – M7 Task Details merged (PR #6, incl. review fixes in task 021). Next: M8 authorization ADR.
+- 2026-10-26 – ADR-0005 proposed: workspaces own all data, Admin/Member roles, invite links, one assignee per task (user decisions).
 - 2026-10-26 – M8 reviewed: a removed member could be re-added as admin, two admins could remove each other at once, and actions trusted the cookie's workspace. Fixed in task 026 with migration 0015 (creator column cleared, not cascaded, on user delete).
 - 2026-10-27 – M8 Workspaces & Sharing merged (PR #9, tasks 022–026; ADR-0005 in PR #8). Validated on `main`: 102/102 e2e, 159 unit, build; screenshots of every page and form via `pnpm --filter @repo/e2e screenshots`.
-- 2026-10-26 – ADR-0005 proposed: workspaces own all data, Admin/Member roles, invite links, one assignee per task (user decisions).
+- 2026-10-30 – Planned M9 Polish & Hardening from every open parking lot (tasks 027–041), split into parallel lanes. Not drafted: moving the board to `packages/ui` (no second zone needs it), structured addresses (no invoices). The user-deletion cascade moves to M10.
