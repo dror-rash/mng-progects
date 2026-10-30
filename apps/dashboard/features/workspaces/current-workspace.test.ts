@@ -17,6 +17,16 @@ describe("currentWorkspaceId", () => {
     expect(currentWorkspaceId(memberships, "someone-elses")).toBe("ws-old");
   });
 
+  it("breaks a tie in join time by workspace id, whatever order the memberships come in", () => {
+    const joinedAt = new Date("2026-03-01T10:00:00Z");
+    const tied = [
+      { workspaceId: "ws-b", joinedAt },
+      { workspaceId: "ws-a", joinedAt: new Date(joinedAt) },
+    ];
+    expect(currentWorkspaceId(tied, undefined)).toBe("ws-a");
+    expect(currentWorkspaceId([...tied].reverse(), undefined)).toBe("ws-a");
+  });
+
   it("is null without any membership", () => {
     expect(currentWorkspaceId([], "ws-old")).toBeNull();
   });

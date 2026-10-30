@@ -1,12 +1,11 @@
 import { Badge } from "@repo/ui/badge";
-import { Button } from "@repo/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@repo/ui/card";
 
 import { AppHeader } from "@/features/layout/app-header";
-import { changeRoleAction, removeMemberAction, revokeInviteAction } from "@/features/workspaces/actions";
 import { InviteForm } from "@/features/workspaces/invite-form";
 import { inviteState } from "@/features/workspaces/invite-token";
 import { LeaveForm } from "@/features/workspaces/leave-form";
+import { ChangeRoleForm, RemoveMemberForm, RevokeInviteForm } from "@/features/workspaces/member-forms";
 import { listMembers, listOpenInvites } from "@/features/workspaces/members";
 import { requireWorkspace } from "@/features/workspaces/require-workspace";
 import { workspaceRoleLabel } from "@/features/workspaces/roles";
@@ -40,6 +39,8 @@ export default async function WorkspacePage() {
               <ul className="divide-y">
                 {members.map((m) => {
                   const isMe = m.userId === session.user.id;
+                  // Client forms get no email: it stays in this server-rendered list.
+                  const member = { userId: m.userId, name: m.name, role: m.role };
                   return (
                     <li key={m.userId} className="flex flex-wrap items-center justify-between gap-3 py-3 first:pt-0">
                       <div className="text-sm">
@@ -49,26 +50,12 @@ export default async function WorkspacePage() {
                         </div>
                         <div className="text-muted-foreground">{m.email}</div>
                       </div>
-                      <div className="flex flex-wrap items-center gap-2">
+                      <div className="flex flex-wrap items-start gap-2">
                         <Badge>{workspaceRoleLabel(m.role)}</Badge>
                         {isAdmin && !isMe && (
                           <>
-                            <form action={changeRoleAction}>
-                              <input type="hidden" name="workspaceId" value={workspace.id} />
-                              <input type="hidden" name="userId" value={m.userId} />
-                              <input type="hidden" name="role" value={m.role === "admin" ? "member" : "admin"} />
-                              <Button type="submit" variant="ghost" size="sm">
-                                {m.role === "admin" ? "Make member" : "Make admin"}
-                                <span className="sr-only"> {m.name}</span>
-                              </Button>
-                            </form>
-                            <form action={removeMemberAction}>
-                              <input type="hidden" name="workspaceId" value={workspace.id} />
-                              <input type="hidden" name="userId" value={m.userId} />
-                              <Button type="submit" variant="ghost" size="sm">
-                                Remove<span className="sr-only"> {m.name}</span>
-                              </Button>
-                            </form>
+                            <ChangeRoleForm workspaceId={workspace.id} member={member} />
+                            <RemoveMemberForm workspaceId={workspace.id} member={member} hasOpenInvites={invites.length > 0} />
                           </>
                         )}
                       </div>
@@ -93,18 +80,12 @@ export default async function WorkspacePage() {
                     {invites.map((invite) => {
                       const expired = inviteState({ ...invite, revokedAt: null }, now) === "expired";
                       return (
-                        <li key={invite.id} className="flex items-center justify-between gap-3 py-2 text-sm">
+                        <li key={invite.id} className="flex items-start justify-between gap-3 py-2 text-sm">
                           <span className="text-muted-foreground">
                             Created {DATE.format(invite.createdAt)} ·{" "}
                             {expired ? "expired" : `expires ${DATE.format(invite.expiresAt)}`}
                           </span>
-                          <form action={revokeInviteAction}>
-                            <input type="hidden" name="workspaceId" value={workspace.id} />
-                            <input type="hidden" name="inviteId" value={invite.id} />
-                            <Button type="submit" variant="ghost" size="sm">
-                              Revoke invite link<span className="sr-only"> created {DATE.format(invite.createdAt)}</span>
-                            </Button>
-                          </form>
+                          <RevokeInviteForm workspaceId={workspace.id} inviteId={invite.id} created={DATE.format(invite.createdAt)} />
                         </li>
                       );
                     })}

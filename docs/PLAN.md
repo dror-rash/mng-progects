@@ -28,10 +28,10 @@ Build a modern, full-stack Project Management application on a Next.js multi-zon
 | M6 | Customers | Task page (011) and inline form errors (012); a customers directory with details, contact people, dated notes, and tags (013–015); projects and tasks link to a customer, and each customer shows its projects and open tasks (016–017). ADR-0004 | done |
 | M7 | Task Details | Task priority (018) and due dates with overdue / due-this-week on the home page (019) | done |
 | M8 | Workspaces & Sharing | Workspaces own projects, tasks and customers; Admin/Member roles; invite links; workspace switcher; task assignees and "My tasks" (ADR-0005) | done |
-| M9 | Polish & Hardening | Every open parking-lot item: members-page errors, invite hygiene, workspace settings, header, cross-workspace reads, caching, indexes, test cleanup, SQL counts, dark mode, drag-and-drop, primary contact, chart tooltips (027–039); other organization kinds (040) and time zones (041, ADR-0006) once decided | todo |
+| M9 | Polish & Hardening | Every open parking-lot item: members-page errors, invite hygiene, workspace settings, header, cross-workspace reads, caching, indexes, test cleanup, SQL counts, dark mode, drag-and-drop, primary contact, chart tooltips (027–039); other organization kinds (040) and time zones (041, ADR-0006) once decided | in review (027–039); 040–041 blocked |
 
 ## Current milestone
-M9 Polish & Hardening. Tasks are split so they can run in parallel; each owns its files and feature-file scenarios (written `@wip` first, per WORKFLOW).
+M9 Polish & Hardening. Tasks 027–039 are in review together on `feat/m9-polish`; 040 and 041 wait for decisions. Tasks were split so they could run in parallel; each owns its files and feature-file scenarios (written `@wip` first, per WORKFLOW).
 
 | Lane | Tasks | Can start | Shared files / order |
 |---|---|---|---|
@@ -62,3 +62,4 @@ Next candidates after M9: M10 accounts and email (incl. user deletion), M11 depl
 - 2026-10-26 – M8 reviewed: a removed member could be re-added as admin, two admins could remove each other at once, and actions trusted the cookie's workspace. Fixed in task 026 with migration 0015 (creator column cleared, not cascaded, on user delete).
 - 2026-10-27 – M8 Workspaces & Sharing merged (PR #9, tasks 022–026; ADR-0005 in PR #8). Validated on `main`: 102/102 e2e, 159 unit, build; screenshots of every page and form via `pnpm --filter @repo/e2e screenshots`.
 - 2026-10-30 – Planned M9 Polish & Hardening from every open parking lot (tasks 027–041), split into parallel lanes. Not drafted: moving the board to `packages/ui` (no second zone needs it), structured addresses (no invoices). The user-deletion cascade moves to M10.
+- 2026-10-30 – Tasks 027–039 ran in parallel (one agent and worktree each, own database and ports) and were merged into `feat/m9-polish`. Task 038's migration was regenerated as `0017` after task 033's `0016`. Task 036's dashboard header toggle was added after task 030 merged. Validated on the combined branch: 146/146 e2e on a quiet machine (the multi-person timeouts seen during parallel runs were load), 223 unit, lint, typecheck, 18 migrations on a fresh database.

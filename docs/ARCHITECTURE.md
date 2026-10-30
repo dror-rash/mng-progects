@@ -19,7 +19,7 @@ Rules:
 ## Packages
 | Package | Purpose |
 |---|---|
-| `packages/ui` | shadcn components, design tokens, Storybook |
+| `packages/ui` | shadcn components, design tokens, Storybook (which also loads `apps/dashboard/features/**/*.stories.tsx`) |
 | `packages/config` | tsconfig, eslint, tailwind presets |
 | `packages/testing` | Test data builders |
 | `packages/db` | Drizzle schema, migrations, lazy Postgres client |
@@ -44,7 +44,7 @@ Rules:
 - Workspaces own projects and customers; tasks, contacts and notes inherit through their parent. Membership (`workspace_member`, role `admin` or `member`) is the only access rule.
 - Pages: `requireWorkspace(path)` gives the session and the current workspace (cookie, checked against membership; first use creates a personal workspace). Record pages check the record's own workspace with `visibleTo`, so links work from any of the user's workspaces.
 - Actions: `requireWorkspaceForAction(formData)` uses the form's posted `workspaceId`, never the cookie. Admin actions also check the role; membership changes lock the workspace row so a workspace always keeps an admin.
-- Invite links store only a SHA-256 hash of the token, expire after 7 days and can be revoked.
+- Invite links store only a SHA-256 hash of the token, expire after 7 days and can be revoked. Opening `/dashboard/invite/<token>` moves the token into a short-lived httpOnly cookie scoped to `/dashboard/invite` and redirects to `/dashboard/invite`, so the token never reaches a login `next=`, the address bar, a `Referer` (`Referrer-Policy: no-referrer`) or the request log. Joining reads the cookie and clears it.
 
 ## Environments
 `local` → `preview` (per PR) → `staging` → `production`. Playwright runs against `preview`.

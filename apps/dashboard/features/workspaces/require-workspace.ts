@@ -1,12 +1,11 @@
-import { getSession } from "@repo/auth/server";
 import { cookies } from "next/headers";
 
-import { requireSession } from "@/features/auth/require-session";
+import { currentSession, requireSession } from "@/features/auth/require-session";
 
 import { currentWorkspaceId, WORKSPACE_COOKIE } from "./current-workspace";
 import { ensurePersonalWorkspace, listMemberships } from "./queries";
 
-type Session = NonNullable<Awaited<ReturnType<typeof getSession>>>;
+type Session = NonNullable<Awaited<ReturnType<typeof currentSession>>>;
 
 /** The user's current workspace (ADR-0005), creating their personal workspace on first use. */
 async function currentWorkspace(session: Session) {
@@ -34,7 +33,7 @@ export async function requireWorkspace(path: string) {
  * or throws. Not the cookie: it may have changed in another tab since the page was shown.
  */
 export async function requireWorkspaceForAction(formData: FormData) {
-  const session = await getSession();
+  const session = await currentSession();
   if (!session) {
     throw new Error("Unauthorized");
   }

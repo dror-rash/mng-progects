@@ -1,6 +1,7 @@
 "use client";
 
 import { Button } from "@repo/ui/button";
+import { CopyButton } from "@repo/ui/copy-button";
 import { FieldError } from "@repo/ui/field-error";
 import { Input } from "@repo/ui/input";
 import { useActionState } from "react";
@@ -19,7 +20,10 @@ export function InviteForm({ workspaceId }: { workspaceId: string }) {
       {state.link && (
         <div className="space-y-1">
           <label htmlFor="invite-link" className="text-sm font-medium">Invite link</label>
-          <Input id="invite-link" readOnly value={state.link} aria-describedby="invite-link-hint" onFocus={(e) => e.currentTarget.select()} />
+          <div className="flex gap-2">
+            <Input id="invite-link" readOnly value={state.link} aria-describedby="invite-link-hint" onFocus={(e) => e.currentTarget.select()} />
+            <CopyButton value={state.link} label="Copy invite link" />
+          </div>
           <p id="invite-link-hint" className="text-xs text-muted-foreground">
             Copy it now: it won&apos;t be shown again. Anyone with the link can join for 7 days.
           </p>

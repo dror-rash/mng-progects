@@ -2,8 +2,6 @@ import { expect, type Page } from "@playwright/test";
 
 import { Given, signUp, Then, userId, When } from "./fixtures";
 
-const origin = process.env.BASE_URL ?? "http://localhost:3000";
-
 async function createProject(page: Page, name: string) {
   await page.goto("/dashboard/projects");
   await page.getByLabel("Project name").fill(name);
@@ -47,18 +45,12 @@ Given("the project has a task {string}", async ({ page }, title: string) => {
   await expect(taskCard(page, title)).toBeVisible();
 });
 
-// A separate browser context is a separate user with its own cookies.
-Given("another user has a project named {string}", async ({ browser, state }, name: string) => {
-  const context = await browser.newContext({ baseURL: origin });
-  const other = await context.newPage();
-  const credentials = { email: `other-${crypto.randomUUID()}@example.com`, password: "correct-horse-battery" };
-  expect((await other.request.post("/api/auth/sign-up/email", { data: { name: "Other User", ...credentials }, headers: { origin } })).ok()).toBeTruthy();
-  expect((await other.request.post("/api/auth/sign-in/email", { data: credentials, headers: { origin } })).ok()).toBeTruthy();
-
+Given("another user has a project named {string}", async ({ people, state }, name: string) => {
+  const other = await people.newPerson();
+  await signUp(other, "Other User");
   await createProject(other, name);
   await openProjectFromDashboard(other, name);
   state.otherUsersProjectUrl = other.url();
-  await context.close();
 });
 
 When("I open the other user's project", async ({ page, state }) => {
@@ -75,6 +67,25 @@ When("I move the task {string} to {string}", async ({ page }, title: string, sta
   await taskCard(page, title).getByRole("button", { name: `Move to ${status}` }).click();
   // Wait for the save to land, so a following navigation can't cancel it.
   await expect(taskInColumn(page, title, status)).toBeVisible();
+});
+
+// The drag handle appears once the board is interactive. dnd-kit listens for pointer events, so
+// drive the mouse by hand: press on the handle, move in steps (past the activation distance), release.
+When("I drag the task {string} to the {string} column", async ({ page }, title: string, column: string) => {
+  const handle = taskCard(page, title).getByRole("button", { name: `Drag ${title}` });
+  await expect(handle).toBeVisible();
+  const from = (await handle.boundingBox())!;
+  const to = (await page.getByRole("region", { name: column }).boundingBox())!;
+
+  await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(to.x + to.width / 2, to.y + to.height / 2, { steps: 10 });
+  // Wait for the save to land, so a following reload can't cancel it.
+  await Promise.all([page.waitForResponse((r) => r.request().method() === "POST"), page.mouse.up()]);
+});
+
+Then("a screen reader hears {string}", async ({ page }, text: string) => {
+  await expect(page.getByRole("status").filter({ hasText: text })).toHaveCount(1);
 });
 
 When("I delete the task {string}", async ({ page }, title: string) => {
@@ -255,4 +266,20 @@ Then("the other user's task is still named {string}", async ({ state }, title: s
   const other = state.otherPerson!;
   await other.reload();
   await expect(other.getByRole("heading", { name: title, level: 1 })).toBeVisible();
+});
+
+function myTasks(page: Page) {
+  return page.getByRole("region", { name: "My tasks", exact: true }).getByRole("listitem");
+}
+
+Then("my task {string} shows {string}", async ({ page }, title: string, text: string) => {
+  await expect(myTasks(page).filter({ hasText: title })).toContainText(text);
+});
+
+Then("my tasks are {string}", async ({ page }, titles: string) => {
+  await expect(myTasks(page).getByRole("link")).toHaveText(titles.split(",").map((t) => t.trim()));
+});
+
+When("I reload the page", async ({ page }) => {
+  await page.reload();
 });

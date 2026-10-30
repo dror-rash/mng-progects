@@ -8,6 +8,7 @@ import { useActionState } from "react";
 import type { FormState } from "@/features/forms/form-state";
 
 import { createWorkspaceAction } from "./actions";
+import { WORKSPACE_NAME_MAX_LENGTH } from "./workspace-name";
 
 export function NewWorkspaceForm() {
   const [state, formAction, pending] = useActionState<FormState, FormData>(createWorkspaceAction, {});
@@ -21,6 +22,7 @@ export function NewWorkspaceForm() {
           name="name"
           placeholder="e.g. Acme Team"
           defaultValue={state.values?.name ?? ""}
+          maxLength={WORKSPACE_NAME_MAX_LENGTH}
           required
           aria-invalid={state.error ? true : undefined}
           aria-describedby={state.error ? "workspace-name-error" : undefined}

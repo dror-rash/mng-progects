@@ -2,7 +2,7 @@
 
 import { resolvePublicOrigin } from "@repo/auth/redirect";
 import { getSession } from "@repo/auth/server";
-import { and, eq, getDb, inArray, schema } from "@repo/db";
+import { and, eq, getDb, inArray, isNull, schema } from "@repo/db";
 import { revalidatePath } from "next/cache";
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
@@ -10,15 +10,20 @@ import { redirect } from "next/navigation";
 import { type FormState, invalid } from "@/features/forms/form-state";
 
 import { WORKSPACE_COOKIE } from "./current-workspace";
-import { hashInviteToken, inviteExpiresAt, inviteState, newInviteToken } from "./invite-token";
+import {
+  clearInviteToken,
+  hashInviteToken,
+  inviteExpiresAt,
+  inviteState,
+  newInviteToken,
+  readInviteToken,
+} from "./invite-token";
 import { findInvite } from "./members";
+import { ADMINS_ONLY, membershipError, type MembershipResult } from "./membership-errors";
 import { ensurePersonalWorkspace, isMember, listMemberships } from "./queries";
 import { requireWorkspaceForAction } from "./require-workspace";
 import { keepsAnAdmin, parseWorkspaceRole, type WorkspaceRole } from "./roles";
 import { parseWorkspaceName } from "./workspace-name";
-
-const LAST_ADMIN = "A workspace needs at least one admin";
-const ADMINS_ONLY = "Only admins can manage this workspace";
 
 type Tx = Parameters<Parameters<ReturnType<typeof getDb>["transaction"]>[0]>[0];
 
@@ -31,13 +36,10 @@ async function useWorkspace(workspaceId: string) {
   });
 }
 
-/** The form's workspace, only for its admins. Every admin action starts here (ADR-0005). */
-async function requireAdmin(formData: FormData) {
+/** The form's workspace, or null when I'm not its admin. Every admin action starts here (ADR-0005). */
+async function adminContext(formData: FormData) {
   const context = await requireWorkspaceForAction(formData);
-  if (context.workspace.role !== "admin") {
-    throw new Error(ADMINS_ONLY);
-  }
-  return context;
+  return context.workspace.role === "admin" ? context : null;
 }
 
 /** Leaving a workspace drops your assignments in it (ADR-0005). */
@@ -53,16 +55,26 @@ function memberOf(workspaceId: string, userId: string) {
   return and(eq(schema.workspaceMember.workspaceId, workspaceId), eq(schema.workspaceMember.userId, userId));
 }
 
+/** Revokes every open invite link of a workspace (ADR-0005: optional when removing a member). */
+async function revokeOpenInvites(tx: Tx, workspaceId: string) {
+  await tx
+    .update(schema.workspaceInvite)
+    .set({ revokedAt: new Date() })
+    .where(and(eq(schema.workspaceInvite.workspaceId, workspaceId), isNull(schema.workspaceInvite.revokedAt)));
+}
+
 /**
  * Gives `userId` a new role, or removes them (`role: null`) and clears their assignments, keeping at
  * least one admin (ADR-0005). The workspace row is locked first, so two admins changing each other at
  * once can't both pass the check; `adminId` (who is acting) must still be an admin under that lock.
+ * `revokeInvites` also revokes the workspace's open invite links when someone is removed.
  */
 async function changeMembership(
   workspaceId: string,
   change: { userId: string; role: WorkspaceRole | null },
   adminId?: string,
-): Promise<"done" | "not-a-member" | "not-an-admin" | "last-admin"> {
+  { revokeInvites = false }: { revokeInvites?: boolean } = {},
+): Promise<MembershipResult> {
   return getDb().transaction(async (tx) => {
     await tx.select({ id: schema.workspace.id }).from(schema.workspace).where(eq(schema.workspace.id, workspaceId)).for("update");
     const members = await tx
@@ -83,17 +95,12 @@ async function changeMembership(
     } else {
       await tx.delete(schema.workspaceMember).where(memberOf(workspaceId, change.userId));
       await clearAssignments(tx, workspaceId, change.userId);
+      if (revokeInvites) {
+        await revokeOpenInvites(tx, workspaceId);
+      }
     }
     return "done";
   });
-}
-
-/** For actions without a form state: anything but "done" is an error. */
-function assertDone(result: Awaited<ReturnType<typeof changeMembership>>) {
-  const errors = { "not-a-member": "Not a member of this workspace", "not-an-admin": ADMINS_ONLY, "last-admin": LAST_ADMIN };
-  if (result !== "done") {
-    throw new Error(errors[result]);
-  }
 }
 
 async function publicOrigin() {
@@ -128,61 +135,91 @@ export async function createInviteAction(_prev: InviteState, formData: FormData)
   return { link: new URL(`/dashboard/invite/${token}`, await publicOrigin()).toString() };
 }
 
-export async function revokeInviteAction(formData: FormData) {
-  const { workspace } = await requireAdmin(formData);
+export async function revokeInviteAction(_prev: FormState, formData: FormData): Promise<FormState> {
+  const context = await adminContext(formData);
+  if (!context) {
+    return { error: ADMINS_ONLY };
+  }
   const revoked = await getDb()
     .update(schema.workspaceInvite)
     .set({ revokedAt: new Date() })
     .where(
       and(
         eq(schema.workspaceInvite.id, String(formData.get("inviteId") ?? "")),
-        eq(schema.workspaceInvite.workspaceId, workspace.id),
+        eq(schema.workspaceInvite.workspaceId, context.workspace.id),
+        isNull(schema.workspaceInvite.revokedAt),
       ),
     )
     .returning({ id: schema.workspaceInvite.id });
   if (revoked.length === 0) {
-    throw new Error("Invite link not found");
+    return { error: "This invite link was already revoked" };
   }
   revalidatePath("/workspace");
+  return {};
 }
 
-export async function changeRoleAction(formData: FormData) {
-  const { session, workspace } = await requireAdmin(formData);
+export async function changeRoleAction(_prev: FormState, formData: FormData): Promise<FormState> {
+  const context = await adminContext(formData);
+  if (!context) {
+    return { error: ADMINS_ONLY };
+  }
   const role = parseWorkspaceRole(formData.get("role"));
   if (!role) {
-    throw new Error("Unknown role");
+    return { error: "Unknown role" };
   }
-  assertDone(await changeMembership(workspace.id, { userId: String(formData.get("userId") ?? ""), role }, session.user.id));
+  const userId = String(formData.get("userId") ?? "");
+  const error = membershipError(await changeMembership(context.workspace.id, { userId, role }, context.session.user.id));
+  if (error) {
+    return { error };
+  }
   revalidatePath("/workspace");
+  return {};
 }
 
-export async function removeMemberAction(formData: FormData) {
-  const { session, workspace } = await requireAdmin(formData);
-  assertDone(await changeMembership(workspace.id, { userId: String(formData.get("userId") ?? ""), role: null }, session.user.id));
+export async function removeMemberAction(_prev: FormState, formData: FormData): Promise<FormState> {
+  const context = await adminContext(formData);
+  if (!context) {
+    return { error: ADMINS_ONLY };
+  }
+  const userId = String(formData.get("userId") ?? "");
+  const revokeInvites = formData.get("revokeInvites") === "on";
+  const error = membershipError(
+    await changeMembership(context.workspace.id, { userId, role: null }, context.session.user.id, { revokeInvites }),
+  );
+  if (error) {
+    return { error };
+  }
   revalidatePath("/workspace");
+  return {};
 }
 
 export async function leaveWorkspaceAction(_prev: FormState, formData: FormData): Promise<FormState> {
   const { session, workspace } = await requireWorkspaceForAction(formData);
-  const result = await changeMembership(workspace.id, { userId: session.user.id, role: null });
-  if (result === "last-admin") {
-    return { error: LAST_ADMIN };
+  const error = membershipError(await changeMembership(workspace.id, { userId: session.user.id, role: null }));
+  if (error) {
+    return { error };
   }
-  assertDone(result);
   (await cookies()).delete(WORKSPACE_COOKIE);
   redirect("/");
 }
 
-/** Joins the invite's workspace and switches to it. The link is checked again here, not just on the page. */
-export async function joinWorkspaceAction(formData: FormData) {
+/**
+ * Joins the invite's workspace and switches to it. The token comes from the invite cookie (not the form),
+ * and the link is checked again here, not just on the page: it may have been revoked since.
+ */
+export async function joinWorkspaceAction(_prev: FormState, _formData: FormData): Promise<FormState> {
   const session = await getSession();
   if (!session) {
     throw new Error("Unauthorized");
   }
-  const invite = await findInvite(String(formData.get("token") ?? ""));
+  const jar = await cookies();
+  const token = readInviteToken(jar);
+  const invite = token ? await findInvite(token) : null;
   if (!invite || inviteState(invite, new Date()) !== "valid") {
-    throw new Error("This invite link is invalid or has expired");
+    // The cookie is left to expire: changing it here would re-render the page and drop this message.
+    return { error: "This invite link is invalid or has expired" };
   }
+  clearInviteToken(jar);
   // Someone joining before ever opening the dashboard gets their own workspace too, to switch back to.
   if ((await listMemberships(session.user.id)).length === 0) {
     await ensurePersonalWorkspace(session.user);

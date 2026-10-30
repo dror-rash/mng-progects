@@ -5,17 +5,17 @@ import { ProjectForm } from "@/features/projects/project-form";
 import { ProjectList } from "@/features/projects/project-list";
 import { listOrganizations } from "@/features/organizations/queries";
 import { listProjects } from "@/features/projects/queries";
-import { summarizeByProject } from "@/features/tasks/progress";
-import { listWorkspaceTaskStatuses } from "@/features/tasks/queries";
+import { summarizeProjectStatusCounts } from "@/features/tasks/progress";
+import { countTasksByProjectAndStatus } from "@/features/tasks/queries";
 import { requireWorkspace } from "@/features/workspaces/require-workspace";
 
 export const dynamic = "force-dynamic";
 
 export default async function AllProjectsPage() {
   const { session, workspace } = await requireWorkspace("/projects");
-  const [projects, taskStatuses, customers] = await Promise.all([
+  const [projects, projectCounts, customers] = await Promise.all([
     listProjects(workspace.id),
-    listWorkspaceTaskStatuses(workspace.id),
+    countTasksByProjectAndStatus(workspace.id),
     listOrganizations(workspace.id, "customer"),
   ]);
 
@@ -41,7 +41,7 @@ export default async function AllProjectsPage() {
             No projects yet. Use the form above to add your first project.
           </Card>
         ) : (
-          <ProjectList projects={projects} progress={summarizeByProject(taskStatuses)} />
+          <ProjectList projects={projects} progress={summarizeProjectStatusCounts(projectCounts)} />
         )}
       </main>
     </div>

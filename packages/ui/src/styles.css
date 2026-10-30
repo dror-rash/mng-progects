@@ -2,3 +2,4 @@
 @import "tailwindcss";
 @import "./theme.css";
 @source "./";
+@source "../../../apps/dashboard/features";

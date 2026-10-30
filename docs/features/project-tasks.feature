@@ -30,6 +30,16 @@ Feature: Project tasks
     When I move the task "Write homepage copy" to "Done"
     Then the task "Write homepage copy" is in the "Done" column
 
+  @task:037
+  Scenario: Drag a task to another column
+    Given I am on the "Website Redesign" project page
+    And the project has a task "Write homepage copy"
+    When I drag the task "Write homepage copy" to the "In progress" column
+    Then the task "Write homepage copy" is in the "In progress" column
+    And a screen reader hears "Moved Write homepage copy to In progress."
+    When I reload the page
+    Then the task "Write homepage copy" is in the "In progress" column
+
   Scenario: Delete a task
     Given I am on the "Website Redesign" project page
     And the project has a task "Write homepage copy"

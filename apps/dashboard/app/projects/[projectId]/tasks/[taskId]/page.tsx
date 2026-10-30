@@ -4,7 +4,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { AppHeader } from "@/features/layout/app-header";
-import { getOrganizationForUser, listOrganizations } from "@/features/organizations/queries";
+import { recordWorkspace } from "@/features/layout/record-workspace";
+import { listOrganizations } from "@/features/organizations/queries";
 import { getProjectForUser } from "@/features/projects/queries";
 import { deleteTaskFromPageAction } from "@/features/tasks/actions";
 import { EditTaskForm } from "@/features/tasks/edit-task-form";
@@ -12,7 +13,7 @@ import { getProjectTask } from "@/features/tasks/queries";
 import { dueState, formatDueDate, todayUtc } from "@/features/tasks/due-dates";
 import { priorityLabel } from "@/features/tasks/task-priority";
 import { parseTaskStatus, TASK_STATUSES } from "@/features/tasks/task-status";
-import { listMembers } from "@/features/workspaces/members";
+import { listMemberOptions } from "@/features/workspaces/members";
 import { requireWorkspace } from "@/features/workspaces/require-workspace";
 
 export const dynamic = "force-dynamic";
@@ -26,17 +27,18 @@ export default async function TaskPage({ params }: { params: Promise<{ projectId
     notFound();
   }
 
-  const [customer, customers, members] = await Promise.all([
-    task.organizationId ? getOrganizationForUser(session.user.id, task.organizationId, "customer") : null,
+  const [customers, members] = await Promise.all([
     listOrganizations(project.workspaceId, "customer"),
-    listMembers(project.workspaceId),
+    listMemberOptions(project.workspaceId),
   ]);
+  // Only the project's own customers count, the same ones its dropdown offers.
+  const customer = customers.find((c) => c.id === task.organizationId);
   const assigneeName = members.find((m) => m.userId === task.assigneeId)?.name;
   const status = TASK_STATUSES.find((s) => s.status === (parseTaskStatus(task.status) ?? "todo"))!;
 
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
-      <AppHeader email={session.user.email} workspaceName={workspace.name} />
+      <AppHeader email={session.user.email} {...await recordWorkspace(session.user.id, workspace, project.workspaceId)} />
 
       <main className="mx-auto w-full max-w-3xl space-y-6 p-6">
         <nav aria-label="Breadcrumb" className="text-sm text-muted-foreground">

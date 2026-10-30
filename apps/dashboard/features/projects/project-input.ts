@@ -1,6 +1,6 @@
 import { cleanText } from "@/features/forms/clean-text";
 
-/** `organizationId` is the chosen customer; callers check the user owns it. */
+/** `organizationId` is the chosen customer; callers check it is in the project's workspace. */
 export type ProjectInput = { name: string; description: string | null; organizationId: string | null };
 
 export function parseProjectInput(

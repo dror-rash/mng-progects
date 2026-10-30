@@ -49,6 +49,14 @@ Feature: Task details
     Then I see the error "This task no longer exists"
     And the other user's task is still named "Launch"
 
+  @task:031
+  Scenario: A customer from another workspace isn't shown on the task
+    Given I have a customer "Globex" in a new workspace named "Side Gig"
+    And the task "Write copy" is linked directly to the customer from my other workspace
+    When I open the "Write copy" task
+    Then I see the text "No customer"
+    And I do not see the text "Globex"
+
   @task:020
   Scenario: Saving a task that was deleted elsewhere says so
     Given I am on the "Write copy" task page

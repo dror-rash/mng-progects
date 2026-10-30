@@ -61,3 +61,38 @@ Feature: Switching workspaces
     And I create a workspace named "Acme Team"
     When I open the kept project link
     Then I see the heading "Personal plan"
+
+  @task:030
+  Scenario: The workspace link says what it does
+    Given I create a workspace named "Acme Team"
+    When I open "/dashboard"
+    Then I see the "Acme Team: switch workspace" link
+
+  @task:030
+  Scenario: A project from another of my workspaces names that workspace in the header
+    Given I have a project named "Personal plan"
+    And I keep the link to the "Personal plan" project
+    When I open the kept project link
+    Then the header shows the workspace "Test User's workspace"
+    And the header does not say "in another workspace"
+    When I create a workspace named "Acme Team"
+    And I open the kept project link
+    Then the header shows the workspace "Test User's workspace"
+    And the header says "in another workspace"
+
+  @task:030
+  Scenario: A customer from another of my workspaces names that workspace in the header
+    Given I have a customer "Globex" in a new workspace named "Acme Team"
+    When I switch to "Test User's workspace"
+    And I open the customer from my other workspace
+    Then the header shows the workspace "Acme Team"
+    And the header says "in another workspace"
+
+  @task:032
+  Scenario: Without a saved choice, every load opens my oldest workspace
+    Given I create a workspace named "Acme Team"
+    And I have no saved workspace
+    When I open "/dashboard/workspaces"
+    Then "Test User's workspace" is marked as the current workspace
+    When I open "/dashboard/workspaces"
+    Then "Test User's workspace" is marked as the current workspace

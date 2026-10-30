@@ -1,17 +1,17 @@
 import { Button } from "@repo/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@repo/ui/card";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { AppHeader } from "@/features/layout/app-header";
+import { recordWorkspace } from "@/features/layout/record-workspace";
 import { getOrganizationForUser } from "@/features/organizations/queries";
 import { getProjectForUser } from "@/features/projects/queries";
 import { deleteTaskAction, updateTaskStatusAction } from "@/features/tasks/actions";
 import { AddTaskForm } from "@/features/tasks/add-task-form";
 import { listProjectTasks } from "@/features/tasks/queries";
-import { dueState, formatDueDate, todayUtc } from "@/features/tasks/due-dates";
-import { byPriority, DEFAULT_PRIORITY, normalizeTaskPriority, priorityLabel } from "@/features/tasks/task-priority";
-import { groupTasksByStatus, TASK_STATUSES } from "@/features/tasks/task-status";
+import { todayUtc } from "@/features/tasks/due-dates";
+import { byPriority } from "@/features/tasks/task-priority";
+import { TaskBoard } from "@/features/tasks/task-board";
 import { requireWorkspace } from "@/features/workspaces/require-workspace";
 
 export const dynamic = "force-dynamic";
@@ -30,12 +30,14 @@ export default async function ProjectPage({ params }: { params: Promise<{ projec
     project.organizationId ? getOrganizationForUser(session.user.id, project.organizationId, "customer") : null,
   ]);
   // Most urgent first in each column; tasks arrive oldest first, and the sort keeps that within a priority.
-  const columns = groupTasksByStatus([...tasks].sort(byPriority));
-  const today = todayUtc();
+  // Only the fields a card shows cross to the client.
+  const boardTasks = [...tasks]
+    .sort(byPriority)
+    .map(({ id, title, status, priority, dueDate, assigneeName, customerName }) => ({ id, title, status, priority, dueDate, assigneeName, customerName }));
 
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
-      <AppHeader email={session.user.email} workspaceName={workspace.name} />
+      <AppHeader email={session.user.email} {...await recordWorkspace(session.user.id, workspace, project.workspaceId)} />
 
       <main className="mx-auto w-full max-w-6xl space-y-8 p-6">
         <section className="flex flex-wrap items-start justify-between gap-4">
@@ -67,71 +69,13 @@ export default async function ProjectPage({ params }: { params: Promise<{ projec
 
         <AddTaskForm projectId={project.id} />
 
-        <div className="grid gap-4 md:grid-cols-3">
-          {columns.map((column) => (
-            <section
-              key={column.status}
-              aria-labelledby={`column-${column.status}`}
-              className="space-y-3 rounded-lg bg-muted/50 p-3"
-            >
-              <h2 id={`column-${column.status}`} className="flex items-center justify-between text-sm font-semibold">
-                {column.label}
-                <span className="rounded-full bg-secondary px-2 text-xs text-secondary-foreground">{column.tasks.length}</span>
-              </h2>
-              {column.tasks.length === 0 ? (
-                <p className="py-4 text-center text-xs text-muted-foreground">No tasks</p>
-              ) : (
-                <ul className="space-y-2">
-                  {column.tasks.map((task) => (
-                    <li key={task.id}>
-                      <Card>
-                        <CardHeader className="pb-2">
-                          <CardTitle className="text-sm font-medium">
-                            <Link href={`/projects/${project.id}/tasks/${task.id}`} className="hover:underline">
-                              {task.title}
-                            </Link>
-                          </CardTitle>
-                          {normalizeTaskPriority(task.priority) !== DEFAULT_PRIORITY && (
-                            <p className="text-xs font-medium">{priorityLabel(task.priority)} priority</p>
-                          )}
-                          {task.dueDate && (
-                            <p className="text-xs text-muted-foreground">
-                              Due <time dateTime={task.dueDate}>{formatDueDate(task.dueDate, "short", today)}</time>{" "}
-                              {dueState(task.dueDate, task.status, today) === "overdue" && (
-                                <span className="ml-2 font-medium text-destructive">Overdue</span>
-                              )}
-                            </p>
-                          )}
-                          {task.assigneeName && (
-                            <p className="text-xs text-muted-foreground">Assigned to {task.assigneeName}</p>
-                          )}
-                          {task.customerName && (
-                            <p className="text-xs text-muted-foreground">For {task.customerName}</p>
-                          )}
-                        </CardHeader>
-                        <CardContent className="flex flex-wrap gap-1">
-                          {TASK_STATUSES.filter((s) => s.status !== column.status).map((target) => (
-                            <form key={target.status} action={updateTaskStatusAction}>
-                              <input type="hidden" name="projectId" value={project.id} />
-                              <input type="hidden" name="taskId" value={task.id} />
-                              <input type="hidden" name="status" value={target.status} />
-                              <Button type="submit" variant="outline" size="sm">Move to {target.label}</Button>
-                            </form>
-                          ))}
-                          <form action={deleteTaskAction}>
-                            <input type="hidden" name="projectId" value={project.id} />
-                            <input type="hidden" name="taskId" value={task.id} />
-                            <Button type="submit" variant="ghost" size="sm">Delete task</Button>
-                          </form>
-                        </CardContent>
-                      </Card>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </section>
-          ))}
-        </div>
+        <TaskBoard
+          projectId={project.id}
+          tasks={boardTasks}
+          today={todayUtc()}
+          moveAction={updateTaskStatusAction}
+          deleteAction={deleteTaskAction}
+        />
       </main>
     </div>
   );
