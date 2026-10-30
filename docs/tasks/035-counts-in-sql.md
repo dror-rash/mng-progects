@@ -1,6 +1,6 @@
 # Task 035: Home and project counts in SQL
 
-- **Status:** todo
+- **Status:** in-progress
 - **Milestone:** M9
 - **Zone / package:** `apps/dashboard`
 - **Feature file:** `docs/features/dashboard-home.feature`, `docs/features/project-dashboard.feature` (no new scenarios; existing ones must stay green)
@@ -28,5 +28,6 @@ Add count queries in `features/tasks/queries.ts` *below* the existing functions 
 
 ## Progress log
 - 2026-10-30 – Drafted from the task 006 and 010 parking lots.
+- 2026-10-30 – Started. No new scenarios: behavior is unchanged, so the existing `dashboard-home.feature` and `project-dashboard.feature` scenarios are the acceptance tests.
 
 ## Parking lot
