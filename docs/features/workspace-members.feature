@@ -39,9 +39,30 @@ Feature: Workspace members and invite links
     And I press "Leave workspace"
     Then I see the error "A workspace needs at least one admin"
 
-  Scenario: A signed-out visitor opening an invite link is sent to log in
+  # Task 028: the token no longer travels in the login URL's `next=`; the visitor still comes back to join.
+  @task:028
+  Scenario: A signed-out visitor logs in and comes back to the invite
     Given I create an invite link
-    Then a signed-out visitor opening the invite link is sent to the login page
+    When a signed-out teammate opens the invite link
+    Then the login page's address doesn't contain the invite token
+    When the teammate logs in
+    And the teammate presses "Join workspace"
+    Then the teammate's workspaces include "Test User's workspace"
+
+  @task:028
+  Scenario: A link revoked while its page is open can't be used to join
+    Given I create an invite link
+    And a teammate opens the invite link
+    When I open "/dashboard/workspace"
+    And I press "Revoke invite link"
+    And the teammate presses "Join workspace"
+    Then the teammate sees the error "This invite link is invalid or has expired"
+    And the teammate's workspaces don't include "Test User's workspace"
+
+  @task:028
+  Scenario: The invite page doesn't send its address to other sites
+    Given I create an invite link
+    Then opening the invite link answers with the header "Referrer-Policy: no-referrer"
 
   @task:026
   Scenario: An admin makes a teammate an admin

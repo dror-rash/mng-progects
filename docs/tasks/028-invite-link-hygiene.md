@@ -1,6 +1,6 @@
 # Task 028: Invite link hygiene
 
-- **Status:** todo
+- **Status:** in-progress
 - **Milestone:** M9
 - **Zone / package:** `apps/dashboard`, `apps/shell`, `e2e`
 - **Feature file:** `docs/features/workspace-members.feature` (invite scenarios only)
