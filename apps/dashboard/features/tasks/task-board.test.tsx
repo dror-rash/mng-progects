@@ -65,10 +65,11 @@ describe("TaskBoard", () => {
 
   it("moves a dropped card right away, saves the new status, and announces the move", async () => {
     const saved: FormData[] = [];
-    // Never resolves: the card shows where it was dropped while the save is in flight.
+    let finishSave!: () => void;
+    // The card shows where it was dropped while the save is in flight.
     const moveAction = vi.fn((formData: FormData) => {
       saved.push(formData);
-      return new Promise<void>(() => {});
+      return new Promise<void>((resolve) => (finishSave = resolve));
     });
     renderBoard([task()], moveAction);
 
@@ -79,6 +80,8 @@ describe("TaskBoard", () => {
     expect(saved).toHaveLength(1);
     expect(Object.fromEntries(saved[0]!)).toEqual({ projectId: "project-1", taskId: "task-1", status: "in_progress" });
     expect(screen.getByRole("status")).toHaveTextContent("Moved Write homepage copy to In progress.");
+    // Settle the save: React entangles pending transitions, so an open one would hold up later tests.
+    await act(async () => finishSave());
   });
 
   it("puts the card back and says so when the save fails", async () => {
@@ -90,7 +93,8 @@ describe("TaskBoard", () => {
     expect(column("In progress").getByRole("link", { name: "Write homepage copy" })).toBeInTheDocument();
     await act(async () => fail());
 
-    expect(column("To do").getByRole("link", { name: "Write homepage copy" })).toBeInTheDocument();
+    // The optimistic move ends when the transition settles, a moment after the save fails.
+    expect(await column("To do").findByRole("link", { name: "Write homepage copy" })).toBeInTheDocument();
     expect(screen.getByRole("alert")).toHaveTextContent("Couldn't move Write homepage copy. It is back in To do.");
   });
 
