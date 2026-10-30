@@ -1,6 +1,6 @@
 # Task 033: Missing indexes
 
-- **Status:** todo
+- **Status:** in-progress
 - **Milestone:** M9
 - **Zone / package:** `packages/db`
 - **Feature file:** none (no behavior change)
@@ -26,6 +26,7 @@ Edit `packages/db/src/schema.ts`, then run `pnpm db:generate`. **Migration order
 
 ## Progress log
 - 2026-10-30 – Drafted from the task 026 parking lot.
+- 2026-10-30 – Started. No behavior change, so no new scenarios and no red test: the sequence is `docs:` (in-progress) → `feat(db):` (schema + generated migration) → `docs:` (in-review).
 
 ## Parking lot
 - `workspace_member.user_id` cascade can leave a shared workspace without an admin when a user is deleted. Handle it in the M10 user-deletion flow.
