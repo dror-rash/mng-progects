@@ -223,3 +223,7 @@ Given("I keep the link to the {string} project", async ({ page, state }, name: s
 When("I open the kept project link", async ({ page, state }) => {
   await page.goto(state.keptUrl!);
 });
+
+Given("I have no saved workspace", async ({ context }) => {
+  await context.clearCookies({ name: "workspace" });
+});
