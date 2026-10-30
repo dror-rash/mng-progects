@@ -1,6 +1,6 @@
 # Task 027: Members page errors and admin checks
 
-- **Status:** in-review
+- **Status:** done
 - **Milestone:** M9
 - **Zone / package:** `apps/dashboard`, `e2e`
 - **Feature file:** `docs/features/workspace-members.feature`
@@ -42,6 +42,7 @@ Turn `changeRoleAction`, `removeMemberAction` and `revokeInviteAction` in `featu
 - 2026-10-30 – Green: `changeRoleAction`, `removeMemberAction`, `revokeInviteAction` take `(prev, formData)` and return `FormState`; `membershipError()` maps `changeMembership` results (also used by leave); `assertDone`/`requireAdmin` removed. Revoke only matches open links ("This invite link was already revoked"). Remove can revoke all open links in the same transaction (ADR-0005 amendment). Client forms in `features/workspaces/member-forms.tsx`; `CopyButton` in `packages/ui` with story (Idle, Copied). `listMemberOptions` (userId, name) feeds the assignee picker.
 - 2026-10-30 – Results: all 12 task-027 tests pass (in `workspace-members` runs the only failures were 30s timeouts in pre-existing long scenarios); full suite 108/112, the 4 failures are 30s timeouts on a loaded shared machine (cold dev compiles), "A project card shows its customer", "Assign a task to a teammate" and "A members page left open…" pass on a targeted rerun; `task-assignees` scenarios keep hitting the 30s limit at varying steps (cold compiles, sign-up 4s+) while the assignment itself works ("Assigned to Teammate" shows). Unit 166 (dashboard 123, ui 25, auth 13, db 5); lint and typecheck clean.
 - 2026-10-30 – On `feat/m9-polish`: with both admin checks disabled (`adminContext` and the check under the lock in `changeMembership`), all 3 examples of "A member can't use admin actions by changing the form" failed at "the teammate sees the error \"Only admins can manage this workspace\"". Restored; the full suite passes 146/146.
+- 2026-10-30 – Merged to `main` in PR #12 (M9). Combined branch: 146/146 e2e, 223 unit tests, lint and typecheck clean. The Storybook build on Node 22 (CI) was fixed in PR #13.
 
 ## Parking lot
 - `listMemberOptions` returns `userId` (not `id`) so `EditTaskForm`'s `MemberOption` stays as is.

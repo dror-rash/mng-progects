@@ -1,6 +1,6 @@
 # Task 033: Missing indexes
 
-- **Status:** in-review
+- **Status:** done
 - **Milestone:** M9
 - **Zone / package:** `packages/db`
 - **Feature file:** none (no behavior change)
@@ -57,6 +57,7 @@ Edit `packages/db/src/schema.ts`, then run `pnpm db:generate`. **Migration order
      ->  Bitmap Index Scan on workspace_invite_created_by_idx  (cost=0.00..4.16 rows=2 width=0)
   ```
 - 2026-10-30 – Checks: `pnpm lint`, `pnpm typecheck` clean; `pnpm test` 159/159 (dashboard 119, ui 22, auth 13, db 5). Full e2e: 99/102; the 3 failures were 30 s timeouts (no assertion mismatch) in `customer-contacts` and `customer-links` while the machine load average was ~31–36 from parallel M9 runs. Rerunning those two feature files: 12/12 passed. Status → in-review.
+- 2026-10-30 – Merged to `main` in PR #12 (M9). Combined branch: 146/146 e2e, 223 unit tests, lint and typecheck clean. The Storybook build on Node 22 (CI) was fixed in PR #13.
 
 ## Parking lot
 - `workspace_member.user_id` cascade can leave a shared workspace without an admin when a user is deleted. Handle it in the M10 user-deletion flow.

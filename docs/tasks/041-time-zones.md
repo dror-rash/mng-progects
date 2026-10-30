@@ -1,7 +1,7 @@
 # Task 041: Time zones (timestamptz and the viewer's time zone)
 
 - **Status:** blocked (needs ADR-0006 accepted)
-- **Milestone:** M9
+- **Milestone:** unscheduled (moved out of M9 when it closed)
 - **Zone / package:** `packages/db`, `apps/dashboard`, `e2e`
 - **Feature file:** `docs/features/task-due-dates.feature`, `docs/features/customer-notes.feature`, `docs/features/dashboard-home.feature`
 - **ADR:** `docs/adr/0006-time-zones.md` (to write)

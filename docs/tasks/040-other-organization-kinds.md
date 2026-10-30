@@ -1,7 +1,7 @@
 # Task 040: Service providers and suppliers
 
 - **Status:** blocked (needs product answers below)
-- **Milestone:** M9
+- **Milestone:** unscheduled (moved out of M9 when it closed)
 - **Zone / package:** `apps/dashboard`, `e2e`
 - **Feature file:** new `docs/features/organization-kinds.feature`
 - **ADR:** `docs/adr/0004-typed-organizations-directory.md`

@@ -1,6 +1,6 @@
 # Task 031: Assignees, customers and My tasks across workspaces
 
-- **Status:** in-review
+- **Status:** done
 - **Milestone:** M9
 - **Zone / package:** `apps/dashboard`, `e2e`
 - **Feature file:** `docs/features/task-assignees.feature`, `docs/features/task-details.feature`, `docs/features/customer-notes.feature`
@@ -36,6 +36,7 @@ Edit `features/tasks/queries.ts` (board + `listMyOpenTasks`), `features/tasks/ac
 - 2026-10-30 – Drafted from the task 026 parking lot.
 - 2026-10-30 – Started. Scenarios added to `task-assignees.feature` (4) and `task-details.feature` (1), tagged `@task:031`. The note-author change is a refactor covered by the existing "A note shows who wrote it" scenario.
 - 2026-10-30 – Red: 3 of 5 new scenarios failed for the right reason (board card read "Assigned to Teammate" after the seeded membership removal; My tasks listed "Bravo, Alpha" for "Alpha, Bravo"; task page showed the foreign customer, no "No customer"). Unit red: tie-break test got `later, b, a` for `a, b, later`. The cross-workspace and no-refresh scenarios were green before the change (the list already joined workspaces; the page is dynamic); they now guard it. Seeded steps (`e2e/steps/seed.steps.ts`) write through `@repo/db`, now an e2e dev dependency, scoped to the scenario's own people's workspaces. Green: 18/18 in the three feature files, full suite 107/107, unit 160 (dashboard 120), lint and typecheck clean. No UI component changed, so no stories.
+- 2026-10-30 – Merged to `main` in PR #12 (M9). Combined branch: 146/146 e2e, 223 unit tests, lint and typecheck clean. The Storybook build on Node 22 (CI) was fixed in PR #13.
 
 ## Parking lot
 - The board still shows a linked customer's name from any workspace (`listProjectTasks` joins the customer by id only). Same fix as the task page: join on the project's workspace too, with a seeded board scenario.

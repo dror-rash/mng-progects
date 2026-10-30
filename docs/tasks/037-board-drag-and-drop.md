@@ -1,6 +1,6 @@
 # Task 037: Drag tasks between board columns
 
-- **Status:** in-review
+- **Status:** done
 - **Milestone:** M9
 - **Zone / package:** `apps/dashboard`, `e2e`
 - **Feature file:** `docs/features/project-tasks.feature`
@@ -37,6 +37,7 @@ Extract the board columns from `app/projects/[projectId]/page.tsx` into a client
   - New dependency `@dnd-kit/core` (dashboard only, so no ADR). Drag starts from a handle button ("Drag <title>"), shown once hydrated; pointer (5px activation) and keyboard sensors; arrow keys jump between columns; dnd-kit's live region announces pick-up, column, drop and cancel.
   - Optimistic move with `useOptimistic`; if the action throws, the card returns and a `role="alert"` message says so (my call: a silent snap-back is confusing).
   - Dashboard Vitest now runs jsdom component tests (`*.test.tsx`, opt-in per file). The `packages/ui` Storybook also loads dashboard feature stories (`@` alias, automatic JSX, Tailwind `@source`). Stories: tasks in each column, empty columns, dragging, move failed; axe shows no violations.
+- 2026-10-30 – Merged to `main` in PR #12 (M9). Combined branch: 146/146 e2e, 223 unit tests, lint and typecheck clean. The Storybook build on Node 22 (CI) was fixed in PR #13.
 
 ## Parking lot
 - The theme has no `--color-card`, so `bg-card` on `Card` is transparent everywhere; the dragged card uses `bg-background` instead.
