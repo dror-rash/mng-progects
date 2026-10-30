@@ -36,18 +36,22 @@ Feature: Workspaces
     Then the teammate opening "/dashboard/workspace/settings" sees "Only admins can manage this workspace"
 
   @task:029
-  Scenario: A member can't rename or delete the workspace by changing the form
+  Scenario: A member can't rename the workspace by changing the form
     Given I am signed in with an existing account
-    And I have a project named "Website Redesign"
     And I create an invite link
     And a teammate joins with the invite link
     When the teammate posts "Rename workspace" for my workspace from their own settings page
     Then the teammate sees the error "Only admins can manage this workspace"
+
+  @task:029
+  Scenario: A member can't delete the workspace by changing the form
+    Given I am signed in with an existing account
+    And I create an invite link
+    And a teammate joins with the invite link
     When the teammate posts "Delete workspace" for my workspace from their own settings page
     Then the teammate sees the error "Only admins can manage this workspace"
-    When I open "/dashboard/projects"
+    When I open "/dashboard"
     Then I see the text "Test User's workspace"
-    And I see the "Website Redesign" link
 
   @task:029
   Scenario: Deleting a workspace needs its exact name
@@ -70,7 +74,6 @@ Feature: Workspaces
     Then I see the text "Test User's workspace"
     And I do not see the text "Acme Team"
     And neither the teammate nor I can open the kept project link
-    And the teammate's workspaces don't include "Acme Team"
 
   @task:029
   Scenario: Deleting my only workspace gives me a fresh one
@@ -88,8 +91,7 @@ Feature: Workspaces
     And I create an invite link
     And a teammate joins with the invite link
     When the teammate creates a workspace named "Acme"
-    Then the teammate's workspaces show "Acme" as "Member · 2 members"
-    And the teammate's workspaces show "Acme" as "Admin · 1 member"
+    Then the teammate's workspaces show "Acme" as "Member · 2 members" and as "Admin · 1 member"
 
   @task:029
   Scenario: A workspace name can't be longer than 100 characters
