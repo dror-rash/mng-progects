@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 
@@ -83,11 +83,10 @@ describe("StackedBar", () => {
   });
 
   it("shows the tooltip on tap", async () => {
+    const user = userEvent.setup();
     render(<StackedBar label="Tasks by status" segments={segments} />);
-    const segment = screen.getByRole("img", { name: "To do: 2 (50%)" });
 
-    fireEvent.pointerDown(segment, { pointerType: "touch" });
-    fireEvent.click(segment);
+    await user.pointer({ keys: "[TouchA]", target: screen.getByRole("img", { name: "To do: 2 (50%)" }) });
 
     expect(await screen.findByRole("tooltip")).toHaveTextContent("To do: 2 (50%)");
   });

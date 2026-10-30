@@ -1,6 +1,7 @@
 import * as React from "react";
 
 import { cn } from "../lib/utils";
+import { ChartTooltip } from "./chart-tooltip";
 
 export type StackedBarSegment = { label: string; value: number };
 
@@ -15,7 +16,10 @@ type StackedBarProps = Omit<React.ComponentProps<"figure">, "children"> & {
 // Fixed order, never cycled: validated as adjacent pairs for color-vision deficiency in light and dark.
 const SEGMENT_COLORS = ["bg-chart-1", "bg-chart-2", "bg-chart-3", "bg-chart-4", "bg-chart-5"];
 
-/** Part-to-whole in one bar. The legend repeats each value, so color is never the only cue. */
+/**
+ * Part-to-whole in one bar. The legend repeats each value, so color is never the only cue.
+ * Stays server-renderable: only the tooltip on each segment (focus, hover, tap) is a client island.
+ */
 function StackedBar({ label, segments, emptyText = "No data yet", className, ...props }: StackedBarProps) {
   if (segments.length > SEGMENT_COLORS.length) {
     throw new Error(`StackedBar supports at most ${SEGMENT_COLORS.length} segments; fold the rest into "Other".`);
@@ -30,18 +34,26 @@ function StackedBar({ label, segments, emptyText = "No data yet", className, ...
           <p className="text-sm text-muted-foreground">{emptyText}</p>
         </>
       ) : (
-        <div className="flex h-3 gap-0.5 overflow-hidden rounded" aria-hidden="true">
-          {segments.map((segment, i) =>
-            segment.value > 0 ? (
-              <div
-                key={segment.label}
-                data-segment
-                title={`${segment.label}: ${segment.value}`}
-                className={cn("h-full", SEGMENT_COLORS[i])}
-                style={{ flexGrow: segment.value }}
-              />
-            ) : null,
-          )}
+        <div className="flex h-3 gap-0.5 rounded">
+          {segments.map((segment, i) => {
+            if (segment.value === 0) return null;
+            const text = `${segment.label}: ${segment.value} (${Math.round((segment.value / total) * 100)}%)`;
+            return (
+              <ChartTooltip key={segment.label} content={text}>
+                <div
+                  data-segment
+                  role="img"
+                  aria-label={text}
+                  tabIndex={0}
+                  className={cn(
+                    "h-full first:rounded-l last:rounded-r focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+                    SEGMENT_COLORS[i],
+                  )}
+                  style={{ flexGrow: segment.value }}
+                />
+              </ChartTooltip>
+            );
+          })}
         </div>
       )}
       <ul className="flex flex-wrap gap-x-6 gap-y-1 text-sm">

@@ -15,7 +15,8 @@
     "./field-error": "./src/components/field-error.tsx",
     "./native-select": "./src/components/native-select.tsx",
     "./badge": "./src/components/badge.tsx",
-    "./filter-chip": "./src/components/filter-chip.tsx"
+    "./filter-chip": "./src/components/filter-chip.tsx",
+    "./tooltip": "./src/components/tooltip.tsx"
   },
   "scripts": {
     "lint": "eslint .",
@@ -26,6 +27,7 @@
   },
   "dependencies": {
     "@radix-ui/react-slot": "^1.2.0",
+    "@radix-ui/react-tooltip": "^1.4.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "tailwind-merge": "^3.3.0"
