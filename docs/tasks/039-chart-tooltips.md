@@ -1,6 +1,6 @@
 # Task 039: Chart tooltips
 
-- **Status:** in-review
+- **Status:** done
 - **Milestone:** M9
 - **Zone / package:** `packages/ui`
 - **Feature file:** none (component behavior; covered in component tests and Storybook)
@@ -34,6 +34,7 @@ Use the shadcn Tooltip primitive (Radix) in `packages/ui`. The dashboard needs n
 - 2026-10-30 – Stories: Tooltip (closed, open, on focus), StackedBar (segment focused, segment hovered), Meter (focused, hovered), with `play` checks. axe over every story in light and with `.dark`: no violations in Tooltip/StackedBar/Meter stories (only pre-existing: FieldError in dark, see Parking lot).
 - 2026-10-30 – `pnpm lint`, `pnpm typecheck` clean; `pnpm test` 167 (dashboard 119, auth 13, db 5, ui 30). e2e `dashboard-home` 7/7. Full e2e 100/102: two `workspace-members` multi-user scenarios hit the 30s test timeout on cold dev servers; the same scenarios also time out with the pre-task `stacked-bar.tsx`/`meter.tsx`, so not caused by this change.
 - 2026-10-30 – In review.
+- 2026-10-30 – Merged to `main` in PR #12 (M9). Combined branch: 146/146 e2e, 223 unit tests, lint and typecheck clean. The Storybook build on Node 22 (CI) was fixed in PR #13.
 
 ## Parking lot
 - `FieldError` story fails axe color-contrast in dark (`.dark`): `--destructive` has no dark value. Pre-existing, not from this task; belongs with dark mode.

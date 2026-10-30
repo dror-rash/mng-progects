@@ -1,6 +1,6 @@
 # Task 029: Rename and delete a workspace
 
-- **Status:** in-review
+- **Status:** done
 - **Milestone:** M9
 - **Zone / package:** `apps/dashboard`, `e2e`
 - **Feature file:** `docs/features/workspaces.feature`
@@ -40,6 +40,7 @@ Put the new actions in `features/workspaces/settings-actions.ts` so `actions.ts`
 - 2026-10-30 – Drafted from the task 024 and 026 parking lots.
 - 2026-10-30 – Started. Open question decided as proposed: deleting your only workspace is allowed; `ensurePersonalWorkspace` gives you a fresh personal workspace on the next page load. Eight scenarios in `workspaces.feature` (`@task:029`).
 - 2026-10-30 – Red: 8/8 new scenarios failed for the expected reasons (no `/workspace/settings` page, no role and member count in the switcher, no `maxlength`); unit red: boundary, `confirmsWorkspaceName`, `workspaceDetails`, `ConfirmByName` missing. Green: all `@task:029` scenarios pass; the forged-form scenario was split in two (rename, delete) and two checks folded so the multi-person scenarios stay inside the 30s timeout under parallel load (9 scenarios now). Every table under `workspace` already cascades (members, invites, projects → tasks, organizations → contacts, notes), so delete is a single `DELETE` under the workspace row lock, with the admin role re-checked under the lock. Full suite 105/111 on a loaded machine: the 6 failures were cold-start timeouts / `ETIMEDOUT` in `authentication` and `customer-contacts` (untouched), and both files pass on rerun (9/9). Unit: dashboard 126, ui 25 (+3), auth 13, db 5. Lint and typecheck clean. Storybook: `ConfirmByName` (default, wrong name, pending, long name). ADR-0005 amended.
+- 2026-10-30 – Merged to `main` in PR #12 (M9). Combined branch: 146/146 e2e, 223 unit tests, lint and typecheck clean. The Storybook build on Node 22 (CI) was fixed in PR #13.
 
 ## Parking lot
 - The rename form gives no "Saved" confirmation; the new name shows in the header and the field.

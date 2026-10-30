@@ -1,6 +1,6 @@
 # Task 032: Request-scoped session and membership lookups
 
-- **Status:** in-review
+- **Status:** done
 - **Milestone:** M9
 - **Zone / package:** `apps/dashboard`
 - **Feature file:** `docs/features/workspace-switching.feature` (default workspace scenario only)
@@ -34,6 +34,7 @@ Edit only `features/workspaces/queries.ts`, `current-workspace.ts`, `require-wor
 - 2026-10-30 – Acceptance: workspace-switching 8/8. Full suite 100/103: three multi-user scenarios (task-details, workspace-members) hit the 30 s test timeout while the shared machine's load average was 35–125. The base code (`docs/plan-m9`) failed 4 workspace-members scenarios the same way at the same time. With `--workers=1`, workspace-members and task-details pass 17/17 on this branch.
 - 2026-10-30 – E2E can't seed two memberships with the same `joinedAt`: the tests have no database access, and every join is its own statement. So the scenario guards the no-cookie default across loads, and the tie itself is covered by the `currentWorkspaceId` unit test and the `orderBy` assertion.
 - 2026-10-30 – Stale data in actions: React `cache()` only memoizes inside a server render (outside one, `getCacheForType` gets a new Map on every call). Next runs a server action before it renders the result, so actions (leave, join, create, switch, remove) always query fresh data, and the page rendered afterwards starts with an empty cache. Within a render, the only write followed by a read is `ensurePersonalWorkspace`, which clears the cached entry.
+- 2026-10-30 – Merged to `main` in PR #12 (M9). Combined branch: 146/146 e2e, 223 unit tests, lint and typecheck clean. The Storybook build on Node 22 (CI) was fixed in PR #13.
 
 ## Parking lot
 - Postgres sorts `workspace_id` by the database collation and JS by code unit. Both orders are deterministic, so the default stays stable. In a tie with mixed-case ids, though, the list order on /workspaces could differ from the chosen default. `COLLATE "C"` would align them if that ever matters.
