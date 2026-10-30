@@ -1,4 +1,8 @@
 /* Shared design tokens (shadcn-style). Import after `@import "tailwindcss"`. */
+
+/* `dark:` follows the `dark` class on <html> (set from the theme cookie), not only the OS setting. */
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
@@ -30,6 +34,8 @@
   --secondary-foreground: oklch(0.985 0 0);
   --muted: oklch(0.269 0 0);
   --muted-foreground: oklch(0.708 0 0);
+  /* Lighter, so error and "Overdue" text reach 4.5:1 on the dark surface (the button darkens it back). */
+  --destructive: oklch(0.704 0.191 22.216);
   --border: oklch(0.269 0 0);
   --ring: oklch(0.556 0 0);
   /* Same hues, stepped for the dark surface. */

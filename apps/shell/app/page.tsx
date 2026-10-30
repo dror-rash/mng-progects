@@ -8,11 +8,15 @@ import {
   CardHeader,
   CardTitle,
 } from "@repo/ui/card";
+import { parseTheme, THEME_COOKIE } from "@repo/ui/theme";
+import { ThemeToggle } from "@repo/ui/theme-toggle";
+import { cookies } from "next/headers";
 
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
   const session = await getSession();
+  const theme = parseTheme((await cookies()).get(THEME_COOKIE)?.value);
 
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
@@ -30,6 +34,8 @@ export default async function HomePage() {
           </div>
 
           <nav className="flex items-center gap-3">
+            <ThemeToggle theme={theme} />
+
             <Button asChild variant="ghost" size="sm">
               {/* Plain <a>: crossing zones is a hard navigation */}
               <a href="/example">Example zone</a>

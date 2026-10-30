@@ -17,7 +17,9 @@
     "./badge": "./src/components/badge.tsx",
     "./filter-chip": "./src/components/filter-chip.tsx",
     "./tooltip": "./src/components/tooltip.tsx",
-    "./copy-button": "./src/components/copy-button.tsx"
+    "./copy-button": "./src/components/copy-button.tsx",
+    "./theme": "./src/lib/theme.ts",
+    "./theme-toggle": "./src/components/theme-toggle.tsx"
   },
   "scripts": {
     "lint": "eslint .",
