@@ -1,5 +1,7 @@
 import { alias, and, asc, desc, eq, getDb, getTableColumns, ne, schema } from "@repo/db";
+import { gte, lt, lte, type SQL, sql } from "@repo/db";
 
+import type { OverviewCount, OverviewWindow } from "@/features/tasks/overview";
 import { visibleTo } from "@/features/workspaces/access";
 
 const assignee = alias(schema.user, "assignee");
@@ -84,4 +86,39 @@ export async function listMyOpenTasks(userId: string) {
         visibleTo(userId, schema.project.workspaceId),
       ),
     );
+}
+
+const countAll = () => sql<number>`count(*)`.mapWith(Number);
+const countWhere = (condition: SQL | undefined) => sql<number>`count(*) filter (where ${condition})`.mapWith(Number);
+
+/** Task counts per project and status in the workspace (one row per pair), for progress meters. */
+export async function countTasksByProjectAndStatus(workspaceId: string) {
+  return getDb()
+    .select({ projectId: schema.task.projectId, status: schema.task.status, count: countAll() })
+    .from(schema.task)
+    .innerJoin(schema.project, eq(schema.task.projectId, schema.project.id))
+    .where(eq(schema.project.workspaceId, workspaceId))
+    .groupBy(schema.task.projectId, schema.task.status);
+}
+
+/**
+ * The home page's task counts per status: due before `today`, due from `today` through `dueSoonUntil`,
+ * and created / completed since `since` (inclusive, no upper bound: the database clock may run ahead).
+ * Timestamps are bound through their column, so they compare in UTC like the stored values.
+ */
+export async function countWorkspaceOverview(workspaceId: string, window: OverviewWindow): Promise<OverviewCount[]> {
+  const { task } = schema;
+  return getDb()
+    .select({
+      status: task.status,
+      count: countAll(),
+      overdue: countWhere(lt(task.dueDate, window.today)),
+      dueSoon: countWhere(and(gte(task.dueDate, window.today), lte(task.dueDate, window.dueSoonUntil))),
+      created: countWhere(gte(task.createdAt, window.since)),
+      completed: countWhere(gte(task.completedAt, window.since)),
+    })
+    .from(task)
+    .innerJoin(schema.project, eq(task.projectId, schema.project.id))
+    .where(eq(schema.project.workspaceId, workspaceId))
+    .groupBy(task.status);
 }

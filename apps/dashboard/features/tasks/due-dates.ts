@@ -16,6 +16,11 @@ export function addDays(date: CalendarDate, days: number): CalendarDate {
   return d.toISOString().slice(0, 10);
 }
 
+/** The last day that counts as "due soon": six days after `today`. */
+export function dueSoonUntil(today: CalendarDate): CalendarDate {
+  return addDays(today, DUE_SOON_DAYS);
+}
+
 /**
  * How urgent a due date is for an open task: past it, due today through six days from now, or later.
  * Done tasks and tasks without a date have no due state. ISO dates compare correctly as strings.
@@ -27,7 +32,7 @@ export function dueState(
 ): "overdue" | "due-soon" | "later" | null {
   if (!dueDate || parseTaskStatus(status) === "done") return null;
   if (dueDate < today) return "overdue";
-  if (dueDate <= addDays(today, DUE_SOON_DAYS)) return "due-soon";
+  if (dueDate <= dueSoonUntil(today)) return "due-soon";
   return "later";
 }
 
