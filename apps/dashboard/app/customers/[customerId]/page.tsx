@@ -5,6 +5,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { AppHeader } from "@/features/layout/app-header";
+import { recordWorkspace } from "@/features/layout/record-workspace";
 import { ContactsSection } from "@/features/organizations/contacts/contacts-section";
 import { listContacts } from "@/features/organizations/contacts/queries";
 import { NotesSection } from "@/features/organizations/notes/notes-section";
@@ -48,7 +49,7 @@ export default async function CustomerPage({ params }: { params: Promise<{ custo
 
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
-      <AppHeader email={session.user.email} workspaceName={workspace.name} />
+      <AppHeader email={session.user.email} {...await recordWorkspace(session.user.id, workspace, customer.workspaceId)} />
 
       <main className="mx-auto w-full max-w-4xl space-y-6 p-6">
         <nav aria-label="Breadcrumb" className="text-sm text-muted-foreground">

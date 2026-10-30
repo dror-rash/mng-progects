@@ -4,6 +4,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { AppHeader } from "@/features/layout/app-header";
+import { recordWorkspace } from "@/features/layout/record-workspace";
 import { listOrganizations } from "@/features/organizations/queries";
 import { getProjectForUser } from "@/features/projects/queries";
 import { deleteTaskFromPageAction } from "@/features/tasks/actions";
@@ -37,7 +38,7 @@ export default async function TaskPage({ params }: { params: Promise<{ projectId
 
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
-      <AppHeader email={session.user.email} workspaceName={workspace.name} />
+      <AppHeader email={session.user.email} {...await recordWorkspace(session.user.id, workspace, project.workspaceId)} />
 
       <main className="mx-auto w-full max-w-3xl space-y-6 p-6">
         <nav aria-label="Breadcrumb" className="text-sm text-muted-foreground">
