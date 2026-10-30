@@ -14,10 +14,11 @@ import { nextCompletedAt } from "./activity";
 import { parseTaskInput } from "./task-input";
 import { parseTaskStatus } from "./task-status";
 
-/** The project's board plus every page that shows task counts or a customer's open tasks. */
+/** The project's board plus every page that shows task counts, a customer's open tasks, or My tasks. */
 function revalidateProject(projectId: string) {
   revalidatePath(`/projects/${projectId}`);
   revalidatePath("/customers/[customerId]", "page");
+  revalidatePath("/my-tasks");
   revalidateOverviews();
 }
 

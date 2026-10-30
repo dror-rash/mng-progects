@@ -1,16 +1,30 @@
-import { alias, and, asc, desc, eq, getDb, getTableColumns, ne, schema } from "@repo/db";
+import { alias, and, asc, desc, eq, getDb, getTableColumns, ne, schema, sql } from "@repo/db";
 
 import { visibleTo } from "@/features/workspaces/access";
 
-const assignee = alias(schema.user, "assignee");
+import { DEFAULT_PRIORITY, TASK_PRIORITIES } from "./task-priority";
 
-/** The project's tasks, with each task's customer and assignee names (null when none). */
+const assignee = alias(schema.user, "assignee");
+const assigneeMembership = alias(schema.workspaceMember, "assignee_membership");
+
+/**
+ * The project's tasks, with each task's customer and assignee names (null when none). An assignee who
+ * is no longer a member of the project's workspace counts as none.
+ */
 export async function listProjectTasks(projectId: string) {
   return getDb()
     .select({ ...getTableColumns(schema.task), customerName: schema.organization.name, assigneeName: assignee.name })
     .from(schema.task)
+    .innerJoin(schema.project, eq(schema.task.projectId, schema.project.id))
     .leftJoin(schema.organization, eq(schema.task.organizationId, schema.organization.id))
-    .leftJoin(assignee, eq(schema.task.assigneeId, assignee.id))
+    .leftJoin(
+      assigneeMembership,
+      and(
+        eq(assigneeMembership.userId, schema.task.assigneeId),
+        eq(assigneeMembership.workspaceId, schema.project.workspaceId),
+      ),
+    )
+    .leftJoin(assignee, eq(assigneeMembership.userId, assignee.id))
     .where(eq(schema.task.projectId, projectId))
     .orderBy(asc(schema.task.createdAt));
 }
@@ -61,7 +75,16 @@ export async function listCustomerOpenTasks(workspaceId: string, organizationId:
     .orderBy(desc(schema.task.createdAt));
 }
 
-/** Open tasks assigned to `userId`, in every workspace they belong to, with project and workspace names. */
+/** SQL mirror of `byPriority`: the priority's place in TASK_PRIORITIES, unknown values ranked as the default. */
+const priorityRank = sql`case ${schema.task.priority} ${sql.join(
+  TASK_PRIORITIES.map((p, i) => sql`when ${p.priority} then ${sql.raw(String(i))}`),
+  sql` `,
+)} else ${sql.raw(String(TASK_PRIORITIES.findIndex((p) => p.priority === DEFAULT_PRIORITY)))} end`;
+
+/**
+ * Open tasks assigned to `userId`, in every workspace they belong to, with project and workspace names.
+ * Ordered like `byDueThenPriority`: due date (undated last), priority, created, then id in byte order (as JS).
+ */
 export async function listMyOpenTasks(userId: string) {
   return getDb()
     .select({
@@ -70,6 +93,7 @@ export async function listMyOpenTasks(userId: string) {
       status: schema.task.status,
       priority: schema.task.priority,
       dueDate: schema.task.dueDate,
+      createdAt: schema.task.createdAt,
       projectId: schema.project.id,
       projectName: schema.project.name,
       workspaceName: schema.workspace.name,
@@ -83,5 +107,11 @@ export async function listMyOpenTasks(userId: string) {
         ne(schema.task.status, "done"),
         visibleTo(userId, schema.project.workspaceId),
       ),
+    )
+    .orderBy(
+      sql`${schema.task.dueDate} asc nulls last`,
+      priorityRank,
+      asc(schema.task.createdAt),
+      sql`${schema.task.id} collate "C"`,
     );
 }

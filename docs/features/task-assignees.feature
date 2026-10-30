@@ -50,3 +50,54 @@ Feature: Task assignees and My tasks
     When I choose someone outside the workspace in "Assignee"
     And I press "Save changes"
     Then I see the error "Choose someone in this workspace"
+
+  @task:031
+  Scenario: A former member shows as unassigned even if an assignment survives
+    Given I create an invite link
+    And a teammate joins with the invite link
+    And I am on the "Website Redesign" project page
+    And the project has a task "Write copy"
+    And the task "Write copy" is assigned to "Teammate"
+    When the teammate's membership is removed directly, keeping the assignment
+    And I am on the "Website Redesign" project page
+    Then the task "Write copy" does not show "Teammate"
+    When I am on the "Write copy" task page
+    Then I see the text "Unassigned"
+    And I do not see the text "Assigned to Teammate"
+
+  @task:031
+  Scenario: My tasks lists tasks from every workspace I'm in, with each workspace's name
+    Given I am on the "Website Redesign" project page
+    And the project has a task "Write copy"
+    And the task "Write copy" is assigned to "Test User"
+    And I create a workspace named "Side Gig"
+    And I have a project named "Garden"
+    And I am on the "Garden" project page
+    And the project has a task "Plant tulips"
+    And the task "Plant tulips" is assigned to "Test User"
+    When I open "/dashboard/my-tasks"
+    Then my task "Plant tulips" shows "Garden · Side Gig"
+    And my task "Write copy" shows "Website Redesign · Test User's workspace"
+
+  @task:031
+  Scenario: My tasks with the same due date and priority keep their order
+    Given I am on the "Website Redesign" project page
+    And the project has a task "Alpha"
+    And the project has a task "Bravo"
+    And the task "Bravo" is assigned to "Test User"
+    And the task "Alpha" is assigned to "Test User"
+    When I open "/dashboard/my-tasks"
+    Then my tasks are "Alpha, Bravo"
+    When I reload the page
+    Then my tasks are "Alpha, Bravo"
+
+  @task:031
+  Scenario: A task I just assigned to myself shows in My tasks without a refresh
+    Given I open "/dashboard/my-tasks"
+    And I am on the "Website Redesign" project page
+    And the project has a task "Write copy"
+    And I am on the "Write copy" task page
+    When I select "Test User" from "Assignee"
+    And I press "Save changes"
+    And I follow the "My tasks" link
+    Then the "My tasks" section shows "Write copy"

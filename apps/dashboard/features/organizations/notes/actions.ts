@@ -1,25 +1,26 @@
 "use server";
 
-import { getSession } from "@repo/auth/server";
 import { and, eq, getDb, schema } from "@repo/db";
 import { revalidatePath } from "next/cache";
 
 import { type FormState, invalid } from "@/features/forms/form-state";
 
-import { requireOrganizationAccess } from "../require-organization-access";
+import { requireOrganizationAccess, requireOrganizationSession } from "../require-organization-access";
 import { parseNoteInput } from "./note-input";
 
 export async function addNoteAction(_prev: FormState, formData: FormData): Promise<FormState> {
-  const customer = await requireOrganizationAccess(String(formData.get("customerId") ?? ""), "customer");
+  const { session, organization: customer } = await requireOrganizationSession(
+    String(formData.get("customerId") ?? ""),
+    "customer",
+  );
   const input = parseNoteInput(formData);
   if (!input.ok) {
     return invalid(input.error, formData, input.field);
   }
 
-  const session = await getSession();
   await getDb()
     .insert(schema.organizationNote)
-    .values({ id: crypto.randomUUID(), organizationId: customer.id, authorId: session?.user.id ?? null, ...input.value });
+    .values({ id: crypto.randomUUID(), organizationId: customer.id, authorId: session.user.id, ...input.value });
   revalidatePath(`/customers/${customer.id}`);
   return {};
 }
