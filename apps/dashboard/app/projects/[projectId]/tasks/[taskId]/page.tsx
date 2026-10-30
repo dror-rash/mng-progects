@@ -13,7 +13,7 @@ import { getProjectTask } from "@/features/tasks/queries";
 import { dueState, formatDueDate, todayUtc } from "@/features/tasks/due-dates";
 import { priorityLabel } from "@/features/tasks/task-priority";
 import { parseTaskStatus, TASK_STATUSES } from "@/features/tasks/task-status";
-import { listMembers } from "@/features/workspaces/members";
+import { listMemberOptions } from "@/features/workspaces/members";
 import { requireWorkspace } from "@/features/workspaces/require-workspace";
 
 export const dynamic = "force-dynamic";
@@ -29,7 +29,7 @@ export default async function TaskPage({ params }: { params: Promise<{ projectId
 
   const [customers, members] = await Promise.all([
     listOrganizations(project.workspaceId, "customer"),
-    listMembers(project.workspaceId),
+    listMemberOptions(project.workspaceId),
   ]);
   // Only the project's own customers count, the same ones its dropdown offers.
   const customer = customers.find((c) => c.id === task.organizationId);

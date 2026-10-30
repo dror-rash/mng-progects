@@ -33,3 +33,6 @@ Every project, task and customer belongs to the user who created it (`project.ow
 2. Members page, roles, invite links, leave/remove.
 3. Workspace switcher and creating extra workspaces.
 4. Task assignees and "My tasks"; note authors.
+
+## Amendment 2026-10-30: revoking invite links when removing a member (task 027)
+Invite links are reusable, so a removed member could rejoin with a link they still have. When removing a member, the admin can also revoke all of the workspace's open invite links ("Also revoke open invite links", off by default). The revocation happens in the same transaction as the removal. It is opt-in because links may be in use by others the admin still wants to let in; the admin can create a new link afterwards.
