@@ -88,10 +88,6 @@ Then("a screen reader hears {string}", async ({ page }, text: string) => {
   await expect(page.getByRole("status").filter({ hasText: text })).toHaveCount(1);
 });
 
-When("I reload the page", async ({ page }) => {
-  await page.reload();
-});
-
 When("I delete the task {string}", async ({ page }, title: string) => {
   await taskCard(page, title).getByRole("button", { name: "Delete task" }).click();
   await expect(taskCard(page, title)).toHaveCount(0);
