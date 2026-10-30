@@ -1,6 +1,6 @@
 # Task 038: Primary contact
 
-- **Status:** todo
+- **Status:** in-progress
 - **Milestone:** M9
 - **Zone / package:** `packages/db`, `apps/dashboard`, `e2e`
 - **Feature file:** `docs/features/customer-contacts.feature`
