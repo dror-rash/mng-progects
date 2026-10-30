@@ -61,3 +61,12 @@ Feature: Switching workspaces
     And I create a workspace named "Acme Team"
     When I open the kept project link
     Then I see the heading "Personal plan"
+
+  @task:032
+  Scenario: Without a saved choice, every load opens my oldest workspace
+    Given I create a workspace named "Acme Team"
+    And I have no saved workspace
+    When I open "/dashboard/workspaces"
+    Then "Test User's workspace" is marked as the current workspace
+    When I open "/dashboard/workspaces"
+    Then "Test User's workspace" is marked as the current workspace

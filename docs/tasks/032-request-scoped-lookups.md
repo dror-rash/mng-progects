@@ -1,6 +1,6 @@
 # Task 032: Request-scoped session and membership lookups
 
-- **Status:** todo
+- **Status:** in-progress
 - **Milestone:** M9
 - **Zone / package:** `apps/dashboard`
 - **Feature file:** `docs/features/workspace-switching.feature` (default workspace scenario only)
