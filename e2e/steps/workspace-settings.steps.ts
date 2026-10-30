@@ -46,10 +46,14 @@ When("the teammate creates a workspace named {string}", async ({ state }, name: 
   await createWorkspace(state.teammate!, name);
 });
 
-Then("the teammate's workspaces show {string} as {string}", async ({ state }, name: string, details: string) => {
-  const rows = (await teammatesWorkspaces(state.teammate!)).getByRole("listitem");
-  await expect(rows.filter({ hasText: name }).filter({ hasText: details })).toHaveCount(1);
-});
+Then(
+  "the teammate's workspaces show {string} as {string} and as {string}",
+  async ({ state }, name: string, first: string, second: string) => {
+    const rows = (await teammatesWorkspaces(state.teammate!)).getByRole("listitem").filter({ hasText: name });
+    await expect(rows.filter({ hasText: first })).toHaveCount(1);
+    await expect(rows.filter({ hasText: second })).toHaveCount(1);
+  },
+);
 
 Then("the {string} field accepts at most {int} characters", async ({ page }, label: string, max: number) => {
   await expect(page.getByLabel(label, { exact: true })).toHaveAttribute("maxlength", String(max));
