@@ -4,6 +4,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { AppHeader } from "@/features/layout/app-header";
+import { recordWorkspace } from "@/features/layout/record-workspace";
 import { getOrganizationForUser } from "@/features/organizations/queries";
 import { getProjectForUser } from "@/features/projects/queries";
 import { deleteTaskAction, updateTaskStatusAction } from "@/features/tasks/actions";
@@ -35,7 +36,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ projec
 
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
-      <AppHeader email={session.user.email} workspaceName={workspace.name} />
+      <AppHeader email={session.user.email} {...await recordWorkspace(session.user.id, workspace, project.workspaceId)} />
 
       <main className="mx-auto w-full max-w-6xl space-y-8 p-6">
         <section className="flex flex-wrap items-start justify-between gap-4">
