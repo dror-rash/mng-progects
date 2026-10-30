@@ -1,6 +1,6 @@
 # Task 034: Test steps and comment cleanup
 
-- **Status:** todo
+- **Status:** in-progress
 - **Milestone:** M9
 - **Zone / package:** `e2e`, `apps/dashboard` (comments only)
 - **Feature file:** none (no behavior change)
