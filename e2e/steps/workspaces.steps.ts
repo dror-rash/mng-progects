@@ -2,7 +2,7 @@ import { expect, type Page } from "@playwright/test";
 
 import { Given, origin, signUp, Then, When } from "./fixtures";
 
-async function pressAndWait(page: Page, name: string) {
+export async function pressAndWait(page: Page, name: string) {
   await Promise.all([
     page.waitForResponse((r) => r.request().method() === "POST"),
     page.getByRole("button", { name }).click(),
@@ -61,7 +61,7 @@ Then("a signed-out visitor opening the invite link is sent to the login page", a
   await expect(visitor).toHaveURL((url) => url.pathname === "/login" && (url.searchParams.get("next") ?? "").startsWith("/dashboard/invite/"));
 });
 
-async function createWorkspace(page: Page, name: string) {
+export async function createWorkspace(page: Page, name: string) {
   await page.goto("/dashboard/workspaces");
   await page.getByLabel("Workspace name", { exact: true }).fill(name);
   await pressAndWait(page, "Create workspace");
@@ -72,7 +72,7 @@ Given("I create a workspace named {string}", async ({ page }, name: string) => {
   await createWorkspace(page, name);
 });
 
-async function switchTo(page: Page, name: string) {
+export async function switchTo(page: Page, name: string) {
   await page.goto("/dashboard/workspaces");
   await pressAndWait(page, `Switch to ${name}`);
   await expect(page).toHaveURL(/\/dashboard$/);
@@ -91,7 +91,7 @@ Then("the teammate sees the text {string}", async ({ state }, text: string) => {
 });
 
 /** The id of one of my other workspaces, from its Switch form. */
-async function workspaceIdOf(page: Page, name: string) {
+export async function workspaceIdOf(page: Page, name: string) {
   await page.goto("/dashboard/workspaces");
   return page
     .locator("form", { has: page.getByRole("button", { name: `Switch to ${name}`, exact: true }) })
@@ -100,7 +100,7 @@ async function workspaceIdOf(page: Page, name: string) {
 }
 
 /** Simulates a tampered form: sets (or adds) its hidden workspaceId. */
-async function setWorkspaceIdOn(page: Page, button: string, workspaceId: string) {
+export async function setWorkspaceIdOn(page: Page, button: string, workspaceId: string) {
   await page.locator("form", { has: page.getByRole("button", { name: button, exact: true }) }).evaluate((form, id) => {
     let input = form.querySelector<HTMLInputElement>('input[name="workspaceId"]');
     if (!input) {
@@ -159,7 +159,7 @@ When("I switch to {string} in another tab", async ({ context }, name: string) =>
   await tab.close();
 });
 
-async function teammatesWorkspaces(teammate: Page) {
+export async function teammatesWorkspaces(teammate: Page) {
   await teammate.goto("/dashboard/workspaces");
   return teammate.getByRole("region", { name: "Your workspaces", exact: true });
 }
