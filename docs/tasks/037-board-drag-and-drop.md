@@ -1,6 +1,6 @@
 # Task 037: Drag tasks between board columns
 
-- **Status:** todo
+- **Status:** in-progress
 - **Milestone:** M9
 - **Zone / package:** `apps/dashboard`, `e2e`
 - **Feature file:** `docs/features/project-tasks.feature`
