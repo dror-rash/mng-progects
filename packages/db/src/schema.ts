@@ -93,7 +93,11 @@ export const workspaceInvite = pgTable(
     expiresAt: timestamp("expires_at").notNull(),
     revokedAt: timestamp("revoked_at"),
   },
-  (table) => [index("workspace_invite_workspace_idx").on(table.workspaceId)],
+  (table) => [
+    index("workspace_invite_workspace_idx").on(table.workspaceId),
+    // The SET NULL when the inviting user is deleted (task 033).
+    index("workspace_invite_created_by_idx").on(table.createdBy),
+  ],
 );
 
 export const project = pgTable("project", {
@@ -134,6 +138,8 @@ export const task = pgTable("task", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 }, (table) => [
+  // A project's board, and the cascade when a project is deleted (task 033).
+  index("task_project_idx").on(table.projectId),
   // A customer's open tasks, and the SET NULL when a customer is deleted.
   index("task_organization_idx").on(table.organizationId),
   // "My tasks", and clearing assignments when a member leaves.
@@ -198,5 +204,9 @@ export const organizationNote = pgTable(
     authorId: text("author_id").references(() => user.id, { onDelete: "set null" }),
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
-  (table) => [index("organization_note_organization_idx").on(table.organizationId, table.createdAt)],
+  (table) => [
+    index("organization_note_organization_idx").on(table.organizationId, table.createdAt),
+    // The SET NULL when the author is deleted (task 033).
+    index("organization_note_author_idx").on(table.authorId),
+  ],
 );
