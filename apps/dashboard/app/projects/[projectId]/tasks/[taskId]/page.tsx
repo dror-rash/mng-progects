@@ -12,7 +12,7 @@ import { getProjectTask } from "@/features/tasks/queries";
 import { dueState, formatDueDate, todayUtc } from "@/features/tasks/due-dates";
 import { priorityLabel } from "@/features/tasks/task-priority";
 import { parseTaskStatus, TASK_STATUSES } from "@/features/tasks/task-status";
-import { listMembers } from "@/features/workspaces/members";
+import { listMemberOptions } from "@/features/workspaces/members";
 import { requireWorkspace } from "@/features/workspaces/require-workspace";
 
 export const dynamic = "force-dynamic";
@@ -29,7 +29,7 @@ export default async function TaskPage({ params }: { params: Promise<{ projectId
   const [customer, customers, members] = await Promise.all([
     task.organizationId ? getOrganizationForUser(session.user.id, task.organizationId, "customer") : null,
     listOrganizations(project.workspaceId, "customer"),
-    listMembers(project.workspaceId),
+    listMemberOptions(project.workspaceId),
   ]);
   const assigneeName = members.find((m) => m.userId === task.assigneeId)?.name;
   const status = TASK_STATUSES.find((s) => s.status === (parseTaskStatus(task.status) ?? "todo"))!;

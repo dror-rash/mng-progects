@@ -2,6 +2,7 @@ import { and, asc, eq, getDb, isNull, schema } from "@repo/db";
 
 import { hashInviteToken } from "./invite-token";
 
+/** Members with their email, for the server-rendered members list. Client forms use `listMemberOptions`. */
 export async function listMembers(workspaceId: string) {
   return getDb()
     .select({
@@ -11,6 +12,16 @@ export async function listMembers(workspaceId: string) {
       name: schema.user.name,
       email: schema.user.email,
     })
+    .from(schema.workspaceMember)
+    .innerJoin(schema.user, eq(schema.workspaceMember.userId, schema.user.id))
+    .where(eq(schema.workspaceMember.workspaceId, workspaceId))
+    .orderBy(asc(schema.workspaceMember.joinedAt));
+}
+
+/** Members for client forms (e.g. assignee pickers): only id and name, never email. */
+export async function listMemberOptions(workspaceId: string) {
+  return getDb()
+    .select({ userId: schema.workspaceMember.userId, name: schema.user.name })
     .from(schema.workspaceMember)
     .innerJoin(schema.user, eq(schema.workspaceMember.userId, schema.user.id))
     .where(eq(schema.workspaceMember.workspaceId, workspaceId))
