@@ -1,6 +1,6 @@
 # Task 039: Chart tooltips
 
-- **Status:** todo
+- **Status:** in-progress
 - **Milestone:** M9
 - **Zone / package:** `packages/ui`
 - **Feature file:** none (component behavior; covered in component tests and Storybook)
@@ -28,5 +28,6 @@ Use the shadcn Tooltip primitive (Radix) in `packages/ui`. The dashboard needs n
 
 ## Progress log
 - 2026-10-30 – Drafted from the task 009 parking lot.
+- 2026-10-30 – Started. No feature file (component behavior): red/green is component tests in `packages/ui`.
 
 ## Parking lot
