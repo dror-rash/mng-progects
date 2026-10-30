@@ -1,9 +1,11 @@
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 import tailwindcss from "@tailwindcss/vite";
 import type { StorybookConfig } from "@storybook/react-vite";
 
-const dashboard = path.resolve(import.meta.dirname, "../../../apps/dashboard");
+// `import.meta.dirname` is undefined when Storybook loads this file on Node 22 (CI); derive it from the URL.
+const dashboard = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../apps/dashboard");
 
 const config: StorybookConfig = {
   // Zone components that are too app-specific for this package still get stories here, beside the primitives.
