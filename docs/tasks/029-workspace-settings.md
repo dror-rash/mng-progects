@@ -1,6 +1,6 @@
 # Task 029: Rename and delete a workspace
 
-- **Status:** todo
+- **Status:** in-progress
 - **Milestone:** M9
 - **Zone / package:** `apps/dashboard`, `e2e`
 - **Feature file:** `docs/features/workspaces.feature`
@@ -38,5 +38,6 @@ Put the new actions in `features/workspaces/settings-actions.ts` so `actions.ts`
 
 ## Progress log
 - 2026-10-30 – Drafted from the task 024 and 026 parking lots.
+- 2026-10-30 – Started. Open question decided as proposed: deleting your only workspace is allowed; `ensurePersonalWorkspace` gives you a fresh personal workspace on the next page load. Eight scenarios in `workspaces.feature` (`@task:029`).
 
 ## Parking lot
