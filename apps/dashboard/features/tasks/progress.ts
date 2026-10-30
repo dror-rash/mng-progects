@@ -2,19 +2,31 @@ import { parseTaskStatus } from "./task-status";
 
 export type TaskSummary = { total: number; done: number; open: number; completionRate: number };
 
+/** A `GROUP BY status` row: how many tasks have this status. */
+export type StatusCount = { status: string; count: number };
+
 export function summarizeTasks(tasks: { status: string }[]): TaskSummary {
-  const total = tasks.length;
-  const done = tasks.filter((t) => parseTaskStatus(t.status) === "done").length;
+  return summarizeStatusCounts(tasks.map((t) => ({ status: t.status, count: 1 })));
+}
+
+/** The summary from counts grouped by status; an unknown status counts as open. */
+export function summarizeStatusCounts(rows: StatusCount[]): TaskSummary {
+  let total = 0;
+  let done = 0;
+  for (const row of rows) {
+    total += row.count;
+    if (parseTaskStatus(row.status) === "done") done += row.count;
+  }
   return { total, done, open: total - done, completionRate: total === 0 ? 0 : Math.round((done / total) * 100) };
 }
 
-/** One summary per project, built in a single pass over the tasks. */
-export function summarizeByProject(tasks: { projectId: string; status: string }[]): Map<string, TaskSummary> {
-  const grouped = new Map<string, { status: string }[]>();
-  for (const task of tasks) {
-    const list = grouped.get(task.projectId);
-    if (list) list.push(task);
-    else grouped.set(task.projectId, [task]);
+/** One summary per project, from counts grouped by project and status. */
+export function summarizeProjectStatusCounts(rows: (StatusCount & { projectId: string })[]): Map<string, TaskSummary> {
+  const grouped = new Map<string, StatusCount[]>();
+  for (const row of rows) {
+    const list = grouped.get(row.projectId);
+    if (list) list.push(row);
+    else grouped.set(row.projectId, [row]);
   }
-  return new Map([...grouped].map(([projectId, list]) => [projectId, summarizeTasks(list)]));
+  return new Map([...grouped].map(([projectId, list]) => [projectId, summarizeStatusCounts(list)]));
 }

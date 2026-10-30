@@ -14,8 +14,8 @@ import { organizationStatusLabel } from "@/features/organizations/organization-k
 import { getOrganizationForUser } from "@/features/organizations/queries";
 import { ProjectList } from "@/features/projects/project-list";
 import { listCustomerProjects } from "@/features/projects/queries";
-import { summarizeByProject } from "@/features/tasks/progress";
-import { listCustomerOpenTasks, listWorkspaceTaskStatuses } from "@/features/tasks/queries";
+import { summarizeProjectStatusCounts } from "@/features/tasks/progress";
+import { countTasksByProjectAndStatus, listCustomerOpenTasks } from "@/features/tasks/queries";
 import { TASK_STATUSES } from "@/features/tasks/task-status";
 import { requireWorkspace } from "@/features/workspaces/require-workspace";
 
@@ -39,11 +39,11 @@ export default async function CustomerPage({ params }: { params: Promise<{ custo
   if (!customer) {
     notFound();
   }
-  const [contacts, notes, projects, taskStatuses, openTasks] = await Promise.all([
+  const [contacts, notes, projects, projectCounts, openTasks] = await Promise.all([
     listContacts(customer.id),
     listNotes(customer.id),
     listCustomerProjects(customer.workspaceId, customer.id),
-    listWorkspaceTaskStatuses(customer.workspaceId),
+    countTasksByProjectAndStatus(customer.workspaceId),
     listCustomerOpenTasks(customer.workspaceId, customer.id),
   ]);
 
@@ -123,7 +123,7 @@ export default async function CustomerPage({ params }: { params: Promise<{ custo
               No projects for this customer yet. Pick this customer when you create or edit a project.
             </Card>
           ) : (
-            <ProjectList projects={projects} progress={summarizeByProject(taskStatuses)} showCustomer={false} />
+            <ProjectList projects={projects} progress={summarizeProjectStatusCounts(projectCounts)} showCustomer={false} />
           )}
         </section>
 

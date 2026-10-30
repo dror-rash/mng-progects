@@ -6,11 +6,9 @@ import Link from "next/link";
 import { AppHeader } from "@/features/layout/app-header";
 import { ProjectList } from "@/features/projects/project-list";
 import { countProjects, listProjects } from "@/features/projects/queries";
-import { countThisWeek } from "@/features/tasks/activity";
-import { dueState, todayUtc } from "@/features/tasks/due-dates";
-import { summarizeByProject, summarizeTasks } from "@/features/tasks/progress";
-import { listWorkspaceTaskStatuses } from "@/features/tasks/queries";
-import { groupTasksByStatus } from "@/features/tasks/task-status";
+import { overviewWindow, summarizeOverview } from "@/features/tasks/overview";
+import { summarizeProjectStatusCounts } from "@/features/tasks/progress";
+import { countTasksByProjectAndStatus, countWorkspaceOverview } from "@/features/tasks/queries";
 import { requireWorkspace } from "@/features/workspaces/require-workspace";
 
 export const dynamic = "force-dynamic";
@@ -19,31 +17,25 @@ const RECENT_PROJECTS = 5;
 
 export default async function DashboardPage() {
   const { session, workspace } = await requireWorkspace("/");
-  const [projectCount, recentProjects, taskStatuses] = await Promise.all([
+  const [projectCount, recentProjects, overviewCounts, projectCounts] = await Promise.all([
     countProjects(workspace.id),
     listProjects(workspace.id, RECENT_PROJECTS),
-    listWorkspaceTaskStatuses(workspace.id),
+    countWorkspaceOverview(workspace.id, overviewWindow(new Date())),
+    countTasksByProjectAndStatus(workspace.id),
   ]);
-  const overall = summarizeTasks(taskStatuses);
-  // One clock read for the whole page, so "today" and "this week" can't straddle midnight.
-  const now = new Date();
-  const today = todayUtc(now);
-  const dueStates = taskStatuses.map((t) => dueState(t.dueDate, t.status, today));
-  const countDue = (state: "overdue" | "due-soon") => dueStates.filter((s) => s === state).length;
+  const { summary: overall, overdue, dueSoon, thisWeek, byStatus } = summarizeOverview(overviewCounts);
 
   const stats = [
     { id: "total-projects", label: "Total Projects", value: String(projectCount), hint: "Active in your workspace" },
     { id: "open-tasks", label: "Open Tasks", value: String(overall.open), hint: "To do or in progress" },
     { id: "completion-rate", label: "Completion Rate", value: `${overall.completionRate}%`, hint: `${overall.done} of ${overall.total} tasks done` },
-    { id: "overdue", label: "Overdue", value: String(countDue("overdue")), hint: "Open tasks past their due date" },
-    { id: "due-this-week", label: "Due This Week", value: String(countDue("due-soon")), hint: "Open tasks due within seven days, including today" },
+    { id: "overdue", label: "Overdue", value: String(overdue), hint: "Open tasks past their due date" },
+    { id: "due-this-week", label: "Due This Week", value: String(dueSoon), hint: "Open tasks due within seven days, including today" },
   ];
-  const thisWeek = countThisWeek(taskStatuses, now);
   const weekStats = [
     { id: "created-this-week", label: "Created", value: thisWeek.created, hint: "New tasks, last seven days" },
     { id: "completed-this-week", label: "Completed", value: thisWeek.completed, hint: "Moved to Done, last seven days" },
   ];
-  const byStatus = groupTasksByStatus(taskStatuses).map((column) => ({ label: column.label, value: column.tasks.length }));
 
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
@@ -111,7 +103,7 @@ export default async function DashboardPage() {
               No projects yet. <Link href="/projects" className="underline">Create your first project</Link>.
             </Card>
           ) : (
-            <ProjectList projects={recentProjects} progress={summarizeByProject(taskStatuses)} />
+            <ProjectList projects={recentProjects} progress={summarizeProjectStatusCounts(projectCounts)} />
           )}
         </section>
       </main>
