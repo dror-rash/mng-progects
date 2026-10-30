@@ -17,21 +17,6 @@ export async function listProjectTasks(projectId: string) {
     .orderBy(asc(schema.task.createdAt));
 }
 
-/** Every task in the workspace's projects, with just the fields the overview needs. */
-export async function listWorkspaceTaskStatuses(workspaceId: string) {
-  return getDb()
-    .select({
-      projectId: schema.task.projectId,
-      status: schema.task.status,
-      createdAt: schema.task.createdAt,
-      completedAt: schema.task.completedAt,
-      dueDate: schema.task.dueDate,
-    })
-    .from(schema.task)
-    .innerJoin(schema.project, eq(schema.task.projectId, schema.project.id))
-    .where(eq(schema.project.workspaceId, workspaceId));
-}
-
 /** The task, only if it belongs to `projectId`. Callers check project ownership first. */
 export async function getProjectTask(projectId: string, taskId: string) {
   const [task] = await getDb()
