@@ -1,6 +1,6 @@
 # Task 031: Assignees, customers and My tasks across workspaces
 
-- **Status:** todo
+- **Status:** in-progress
 - **Milestone:** M9
 - **Zone / package:** `apps/dashboard`, `e2e`
 - **Feature file:** `docs/features/task-assignees.feature`, `docs/features/task-details.feature`, `docs/features/customer-notes.feature`
@@ -34,5 +34,6 @@ Edit `features/tasks/queries.ts` (board + `listMyOpenTasks`), `features/tasks/ac
 
 ## Progress log
 - 2026-10-30 – Drafted from the task 026 parking lot.
+- 2026-10-30 – Started. Scenarios added to `task-assignees.feature` (4) and `task-details.feature` (1), tagged `@task:031`. The note-author change is a refactor covered by the existing "A note shows who wrote it" scenario.
 
 ## Parking lot
