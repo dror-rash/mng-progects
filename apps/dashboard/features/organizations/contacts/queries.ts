@@ -8,7 +8,7 @@ export async function listContacts(organizationId: string) {
     .orderBy(asc(schema.organizationContact.createdAt));
 }
 
-/** The contact, only if it belongs to `organizationId`. Callers check organization ownership first. */
+/** The contact, only if it belongs to `organizationId`. Callers check the organization is visible to the user (workspace access) first. */
 export async function getOrganizationContact(organizationId: string, contactId: string) {
   const [contact] = await getDb()
     .select()
