@@ -1,6 +1,6 @@
 # Task 026: M8 review fixes
 
-- **Status:** in-review
+- **Status:** done
 - **Milestone:** M8
 - **Zone / package:** `packages/db`, `apps/dashboard`, `e2e`
 - **Feature files:** `docs/features/workspace-members.feature`, `docs/features/workspace-switching.feature`, `docs/features/task-assignees.feature`, `docs/features/customer-links.feature`, `docs/features/task-details.feature`
@@ -49,6 +49,7 @@ Migration 0012 makes `workspace_id` required before the M8 code is live. During 
 ## Progress log
 - 2026-10-26 – Task created from the M8 review.
 - 2026-10-26 – 10 scenarios added or strengthened. Red: removed member let back in, open members page acting on the cookie's workspace, member creating invite links. After the re-add fix the concurrent-removal scenario went red (1 of 3, both admins removed); green 8/8 after locking. Migration `0015` makes `owner_id` nullable / SET NULL; deleting a user in a rolled-back transaction kept their project (2958 before and after) with the creator cleared.
+- 2026-10-27 – Merged to `main` in PR #9 (M8). Full suite on `main`: 102/102 e2e, 159 unit tests, build green.
 
 ## Parking lot
 - Admin actions other than "Create invite link" (change role, remove, revoke) still throw to the error page; return form errors instead.

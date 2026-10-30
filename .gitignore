@@ -16,5 +16,6 @@ test-results
 infra/terraform.tfvars
 infra/backend.hcl
 .features-gen
+e2e/screenshots
 next-env.d.ts
 *.tsbuildinfo

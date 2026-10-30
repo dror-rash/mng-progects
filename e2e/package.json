@@ -8,7 +8,8 @@
     "e2e:ui": "bddgen && playwright test --ui",
     "test:ui": "bddgen && playwright test --ui",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "screenshots": "node scripts/screenshots.mjs"
   },
   "devDependencies": {
     "@playwright/test": "^1.55.0",

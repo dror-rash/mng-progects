@@ -1,6 +1,6 @@
 # Task 022: Workspaces own the data (M8 step 1)
 
-- **Status:** in-review
+- **Status:** done
 - **Milestone:** M8
 - **Zone / package:** `packages/db`, `apps/dashboard`
 - **Feature file:** `docs/features/workspaces.feature`
@@ -36,5 +36,6 @@ ADR-0005: workspaces, not individual users, own projects, tasks and customers. T
 - 2026-10-26 – Task created.
 - 2026-10-26 – Migration `0012` (edited before first apply to backfill before NOT NULL). Local DB backed up first. Before: 3,062 users, 2,372 projects, 782 customers, 1,263 tasks. After: 3,062 workspaces, 3,062 admin memberships, all 2,372 projects and 782 customers in their owner's workspace, tasks unchanged.
 - 2026-10-26 – Every owner check replaced by workspace membership (`visibleTo`), lists by current workspace; renamed helpers (`getProjectForUser`, `requireProjectAccess`, `getOrganizationForUser`, `requireOrganizationAccess`, `customerInWorkspace`). 2 new scenarios red → green; full suite 77/77 (all existing cross-user scenarios now cross-workspace). Header shows the workspace name; Home button hidden on narrow screens so it still fits.
+- 2026-10-27 – Merged to `main` in PR #9 (M8). Full suite on `main`: 102/102 e2e, 159 unit tests, build green.
 
 ## Parking lot

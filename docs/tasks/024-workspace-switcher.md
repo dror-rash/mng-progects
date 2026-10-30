@@ -1,6 +1,6 @@
 # Task 024: Workspace switcher and new workspaces (M8 step 3)
 
-- **Status:** in-review
+- **Status:** done
 - **Milestone:** M8
 - **Zone / package:** `apps/dashboard`
 - **Feature file:** `docs/features/workspace-switching.feature`
@@ -34,6 +34,7 @@ After joining a workspace (task 023) there is no way back to your own, and nobod
 ## Progress log
 - 2026-10-26 – Task created.
 - 2026-10-26 – 4 scenarios red → green (stable over 2 repeats); `parseWorkspaceName` unit tests. Joining via invite now creates the joiner's personal workspace first (found while specifying the switch-back scenario). Header workspace name now links to the workspaces page. Full suite 87/87 twice.
+- 2026-10-27 – Merged to `main` in PR #9 (M8). Full suite on `main`: 102/102 e2e, 159 unit tests, build green.
 
 ## Parking lot
 - Rename and delete a workspace (admins).

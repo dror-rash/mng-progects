@@ -1,6 +1,6 @@
 # Task 023: Members, roles and invite links (M8 step 2)
 
-- **Status:** in-review
+- **Status:** done
 - **Milestone:** M8
 - **Zone / package:** `packages/db`, `apps/dashboard`, `e2e`
 - **Feature file:** `docs/features/workspace-members.feature`
@@ -37,6 +37,7 @@ Pure helpers in `features/workspaces/` (roles, invite token/hash/expiry/state, "
 ## Progress log
 - 2026-10-26 – Task created.
 - 2026-10-26 – Migration `0013` adds `workspace_invite`. 6 scenarios red → green (stable over 3 repeats) using a `people` fixture that closes extra browser contexts; unit tests for roles, the admin-keeping rule and invite tokens. Full suite 83/83 twice. The workspace name in the header links to the members page.
+- 2026-10-27 – Merged to `main` in PR #9 (M8). Full suite on `main`: 102/102 e2e, 159 unit tests, build green.
 
 ## Parking lot
 - Test that the server refuses a member's direct admin request (today the UI hides the controls and every admin action calls `requireAdmin`, but no test sends the request).
