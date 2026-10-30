@@ -1,6 +1,14 @@
 import { describe, expect, it } from "vitest";
 
-import { hashInviteToken, inviteExpiresAt, inviteState, newInviteToken } from "./invite-token";
+import {
+  clearInviteToken,
+  hashInviteToken,
+  inviteExpiresAt,
+  inviteState,
+  newInviteToken,
+  readInviteToken,
+  stashInviteToken,
+} from "./invite-token";
 
 describe("newInviteToken", () => {
   it("is a long URL-safe random string, different every time", () => {
@@ -35,5 +43,52 @@ describe("inviteState", () => {
 
   it("is revoked once revoked, whatever the expiry", () => {
     expect(inviteState({ expiresAt: new Date("2026-11-01T00:00:00Z"), revokedAt: now }, now)).toBe("revoked");
+  });
+});
+
+/** A cookie jar that, like a browser, only deletes a cookie when the path matches the one it was set with. */
+function fakeJar() {
+  const cookies = new Map<string, { value: string; options: Record<string, unknown> }>();
+  return {
+    cookies,
+    get: (name: string) => {
+      const found = [...cookies.entries()].find(([key]) => key.startsWith(`${name}@`));
+      return found ? { name, value: found[1].value } : undefined;
+    },
+    set: (cookie: { name: string; value: string; path?: string } & Record<string, unknown>) => {
+      cookies.set(`${cookie.name}@${cookie.path ?? "/"}`, { value: cookie.value, options: cookie });
+    },
+    delete: (cookie: { name: string; path?: string }) => {
+      cookies.delete(`${cookie.name}@${cookie.path ?? "/"}`);
+    },
+  };
+}
+
+describe("the invite cookie", () => {
+  it("keeps the token httpOnly, same-site, only for the invite page, for a few minutes", () => {
+    const jar = fakeJar();
+    stashInviteToken(jar, "secret-token");
+    const [stored] = [...jar.cookies.values()];
+    expect(stored!.value).toBe("secret-token");
+    expect(stored!.options).toMatchObject({ httpOnly: true, sameSite: "lax", path: "/dashboard/invite" });
+    expect(stored!.options.maxAge).toBeGreaterThan(0);
+    expect(stored!.options.maxAge).toBeLessThanOrEqual(60 * 60);
+  });
+
+  it("gives the stashed token back", () => {
+    const jar = fakeJar();
+    stashInviteToken(jar, "secret-token");
+    expect(readInviteToken(jar)).toBe("secret-token");
+  });
+
+  it("has no token once cleared", () => {
+    const jar = fakeJar();
+    stashInviteToken(jar, "secret-token");
+    clearInviteToken(jar);
+    expect(readInviteToken(jar)).toBeUndefined();
+  });
+
+  it("has no token when none was stashed", () => {
+    expect(readInviteToken(fakeJar())).toBeUndefined();
   });
 });
