@@ -155,7 +155,7 @@ export default async function CustomerPage({ params }: { params: Promise<{ custo
           </Card>
         </section>
 
-        <ContactsSection customerId={customer.id} contacts={contacts} />
+        <ContactsSection customerId={customer.id} contacts={contacts} primaryContactId={customer.primaryContactId} />
         <NotesSection customerId={customer.id} notes={notes} />
       </main>
     </div>

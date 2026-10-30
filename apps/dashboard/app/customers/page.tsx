@@ -6,7 +6,6 @@ import Link from "next/link";
 
 import { AppHeader } from "@/features/layout/app-header";
 import { firstParam, withParams } from "@/features/navigation/search-params";
-import { firstContactNames } from "@/features/organizations/contacts/queries";
 import { ORGANIZATION_STATUSES, organizationStatusLabel, parseOrganizationStatus } from "@/features/organizations/organization-kinds";
 import { listOrganizations, listOrganizationTags } from "@/features/organizations/queries";
 import { sameTag } from "@/features/organizations/tag-list";
@@ -28,7 +27,6 @@ export default async function CustomersPage({ searchParams }: { searchParams: Se
     listOrganizations(workspace.id, "customer", { status, tag }),
     listOrganizationTags(workspace.id, "customer"),
   ]);
-  const contactNames = await firstContactNames(customers.map((c) => c.id));
 
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
@@ -105,7 +103,7 @@ export default async function CustomersPage({ searchParams }: { searchParams: Se
                   )}
                 </div>
                 <div className="text-right text-sm text-muted-foreground">
-                  {contactNames.has(c.id) && <div className="font-medium text-foreground">{contactNames.get(c.id)}</div>}
+                  {c.primaryContactName && <div className="font-medium text-foreground">{c.primaryContactName}</div>}
                   {c.email && <div>{c.email}</div>}
                   {c.phone && <div>{c.phone}</div>}
                 </div>

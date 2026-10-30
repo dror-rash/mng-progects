@@ -1,4 +1,4 @@
-import { and, asc, eq, getDb, schema, sql } from "@repo/db";
+import { and, asc, eq, getDb, getTableColumns, schema, sql } from "@repo/db";
 
 import { visibleTo } from "@/features/workspaces/access";
 
@@ -20,14 +20,16 @@ export async function getOrganizationForUser(userId: string, id: string, kind: O
   return organization ?? null;
 }
 
+/** The workspace's organizations of `kind` by name, each with its primary contact's name (task 038). */
 export async function listOrganizations(
   workspaceId: string,
   kind: OrganizationKind,
   filter: { status?: OrganizationStatus; tag?: string } = {},
 ) {
   return getDb()
-    .select()
+    .select({ ...getTableColumns(schema.organization), primaryContactName: schema.organizationContact.name })
     .from(schema.organization)
+    .leftJoin(schema.organizationContact, eq(schema.organizationContact.id, schema.organization.primaryContactId))
     .where(
       and(
         eq(schema.organization.workspaceId, workspaceId),
