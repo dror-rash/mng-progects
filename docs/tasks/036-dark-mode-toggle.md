@@ -1,6 +1,6 @@
 # Task 036: Dark mode toggle
 
-- **Status:** in-review (dashboard header toggle waits for task 030; see progress log)
+- **Status:** in-review
 - **Milestone:** M9
 - **Zone / package:** `packages/ui`, `apps/shell`, `apps/dashboard`
 - **Feature file:** `docs/features/landing-and-login.feature` (new scenario)
@@ -37,6 +37,7 @@ The theme already has dark tokens (`.dark` in `packages/ui/src/theme.css`), but 
 - 2026-10-30 – Storybook: ThemeToggle Light / Dark / System / DarkTokens. An axe scan of every story with the page forced dark found one real violation, `text-destructive` at 4.15:1 on the dark surface (`.dark` never overrode `--destructive`). Fixed with shadcn's dark step plus `dark:bg-destructive/60` on the destructive button (white text stays ≥4.5:1). Now 31/31 stories clean in dark and light.
 - 2026-10-30 – Full e2e: 104/105. The one failure (`workspace-members` "A members page left open…") was a 30s timeout; reruns failed on other scenarios in that file, again timeouts, with dev requests taking up to 24s at load average 30–45 on 8 cores. The same file passes on the base commit, and 11/11 on this branch with `--workers=1`.
 - 2026-10-30 – In review. **Remaining:** add `<ThemeToggle theme={…} />` to `AppHeader` (`apps/dashboard/features/layout/app-header.tsx`) after task 030 merges; read the theme with `parseTheme((await cookies()).get(THEME_COOKIE)?.value)`. Until then, the dashboard follows the theme chosen in the shell.
+- 2026-10-30 – On `feat/m9-polish` after 030 merged: `AppHeader` reads the theme cookie and shows `ThemeToggle` beside Home. Red: "The dashboard header has the theme toggle" timed out waiting for the Theme group. Green: `landing-and-login` + `zone-navigation` 13/13, including the header width checks at 360/768/1024px.
 
 ## Parking lot
 - Example zone's root layout doesn't read the theme cookie yet (outside this task's zones).
