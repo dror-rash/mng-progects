@@ -1,6 +1,6 @@
 # Task 036: Dark mode toggle
 
-- **Status:** todo
+- **Status:** in-progress
 - **Milestone:** M9
 - **Zone / package:** `packages/ui`, `apps/shell`, `apps/dashboard`
 - **Feature file:** `docs/features/landing-and-login.feature` (new scenario)
