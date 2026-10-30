@@ -69,6 +69,29 @@ When("I move the task {string} to {string}", async ({ page }, title: string, sta
   await expect(taskInColumn(page, title, status)).toBeVisible();
 });
 
+// The drag handle appears once the board is interactive. dnd-kit listens for pointer events, so
+// drive the mouse by hand: press on the handle, move in steps (past the activation distance), release.
+When("I drag the task {string} to the {string} column", async ({ page }, title: string, column: string) => {
+  const handle = taskCard(page, title).getByRole("button", { name: `Drag ${title}` });
+  await expect(handle).toBeVisible();
+  const from = (await handle.boundingBox())!;
+  const to = (await page.getByRole("region", { name: column }).boundingBox())!;
+
+  await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(to.x + to.width / 2, to.y + to.height / 2, { steps: 10 });
+  // Wait for the save to land, so a following reload can't cancel it.
+  await Promise.all([page.waitForResponse((r) => r.request().method() === "POST"), page.mouse.up()]);
+});
+
+Then("a screen reader hears {string}", async ({ page }, text: string) => {
+  await expect(page.getByRole("status").filter({ hasText: text })).toHaveCount(1);
+});
+
+When("I reload the page", async ({ page }) => {
+  await page.reload();
+});
+
 When("I delete the task {string}", async ({ page }, title: string) => {
   await taskCard(page, title).getByRole("button", { name: "Delete task" }).click();
   await expect(taskCard(page, title)).toHaveCount(0);

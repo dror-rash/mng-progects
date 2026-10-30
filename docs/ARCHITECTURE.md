@@ -19,7 +19,7 @@ Rules:
 ## Packages
 | Package | Purpose |
 |---|---|
-| `packages/ui` | shadcn components, design tokens, Storybook |
+| `packages/ui` | shadcn components, design tokens, Storybook (which also loads `apps/dashboard/features/**/*.stories.tsx`) |
 | `packages/config` | tsconfig, eslint, tailwind presets |
 | `packages/testing` | Test data builders |
 | `packages/db` | Drizzle schema, migrations, lazy Postgres client |
