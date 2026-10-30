@@ -1,9 +1,9 @@
 import { and, asc, eq, getDb, schema } from "@repo/db";
+import { cache } from "react";
 
 import { personalWorkspaceName } from "./current-workspace";
 
-/** The user's workspaces with their role, oldest membership first. */
-export async function listMemberships(userId: string) {
+async function queryMemberships(userId: string) {
   return getDb()
     .select({
       workspaceId: schema.workspaceMember.workspaceId,
@@ -14,7 +14,27 @@ export async function listMemberships(userId: string) {
     .from(schema.workspaceMember)
     .innerJoin(schema.workspace, eq(schema.workspaceMember.workspaceId, schema.workspace.id))
     .where(eq(schema.workspaceMember.userId, userId))
-    .orderBy(asc(schema.workspaceMember.joinedAt));
+    .orderBy(asc(schema.workspaceMember.joinedAt), asc(schema.workspaceMember.workspaceId));
+}
+
+/**
+ * This request's membership lookups, by user id. React's `cache` keeps one map per server render;
+ * outside a render (in a server action) it gives a new map on every call, so nothing is reused there.
+ */
+const requestMemberships = cache(() => new Map<string, ReturnType<typeof queryMemberships>>());
+
+/**
+ * The user's workspaces with their role, oldest membership first (ties by workspace id, so the default
+ * workspace doesn't change between loads). Queried once per request; `ensurePersonalWorkspace` forgets it.
+ */
+export function listMemberships(userId: string) {
+  const lookups = requestMemberships();
+  let memberships = lookups.get(userId);
+  if (!memberships) {
+    memberships = queryMemberships(userId);
+    lookups.set(userId, memberships);
+  }
+  return memberships;
 }
 
 /**
@@ -46,6 +66,7 @@ export async function ensurePersonalWorkspace(user: { id: string; name: string }
     }
     await tx.insert(schema.workspaceMember).values({ workspaceId, userId: user.id, role: "admin" }).onConflictDoNothing();
   });
+  requestMemberships().delete(user.id);
 }
 
 export async function isMember(userId: string, workspaceId: string) {

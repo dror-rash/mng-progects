@@ -87,3 +87,12 @@ Feature: Switching workspaces
     And I open the customer from my other workspace
     Then the header shows the workspace "Acme Team"
     And the header says "in another workspace"
+
+  @task:032
+  Scenario: Without a saved choice, every load opens my oldest workspace
+    Given I create a workspace named "Acme Team"
+    And I have no saved workspace
+    When I open "/dashboard/workspaces"
+    Then "Test User's workspace" is marked as the current workspace
+    When I open "/dashboard/workspaces"
+    Then "Test User's workspace" is marked as the current workspace

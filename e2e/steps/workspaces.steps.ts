@@ -318,4 +318,7 @@ When("I copy the invite link", async ({ context, page }) => {
 
 Then("the clipboard holds the invite link", async ({ page, state }) => {
   expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(state.inviteLink);
+
+Given("I have no saved workspace", async ({ context }) => {
+  await context.clearCookies({ name: "workspace" });
 });
