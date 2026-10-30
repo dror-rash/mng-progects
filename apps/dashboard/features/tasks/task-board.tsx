@@ -219,7 +219,7 @@ function BoardCard({ task, status, projectId, today, draggable, moveAction, dele
       style={transform ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` } : undefined}
       className={cn("relative", isDragging && "z-10")}
     >
-      <Card className={cn(isDragging && "shadow-lg ring-2 ring-ring")}>
+      <Card className={cn(isDragging && "bg-background shadow-lg ring-2 ring-ring")}>
         <CardHeader className="pb-2">
           <div className="flex items-start justify-between gap-2">
             <CardTitle className="text-sm font-medium">
