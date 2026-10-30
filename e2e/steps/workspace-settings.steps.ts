@@ -23,7 +23,10 @@ Then("the teammate opening {string} sees {string}", async ({ state }, path: stri
 // changed, and the form's name field is filled with my workspace's name (what a delete would need).
 When("the teammate posts {string} for my workspace from their own settings page", async ({ state }, button: string) => {
   const teammate = state.teammate!;
-  await switchTo(teammate, "Teammate's workspace");
+  await teammate.goto("/dashboard/workspaces");
+  if (await teammate.getByRole("button", { name: "Switch to Teammate's workspace", exact: true }).isVisible()) {
+    await switchTo(teammate, "Teammate's workspace");
+  }
   const mine = await workspaceIdOf(teammate, "Test User's workspace");
   await teammate.goto(SETTINGS);
   const form = teammate.locator("form", { has: teammate.getByRole("button", { name: button, exact: true }) });
@@ -44,9 +47,8 @@ When("the teammate creates a workspace named {string}", async ({ state }, name: 
 });
 
 Then("the teammate's workspaces show {string} as {string}", async ({ state }, name: string, details: string) => {
-  const rows = (await teammatesWorkspaces(state.teammate!)).getByRole("listitem").filter({ hasText: details });
-  await expect(rows).toHaveCount(1);
-  await expect(rows).toContainText(name);
+  const rows = (await teammatesWorkspaces(state.teammate!)).getByRole("listitem");
+  await expect(rows.filter({ hasText: name }).filter({ hasText: details })).toHaveCount(1);
 });
 
 Then("the {string} field accepts at most {int} characters", async ({ page }, label: string, max: number) => {

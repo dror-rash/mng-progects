@@ -6,15 +6,17 @@ import Link from "next/link";
 import { AppHeader } from "@/features/layout/app-header";
 import { switchWorkspaceAction } from "@/features/workspaces/actions";
 import { NewWorkspaceForm } from "@/features/workspaces/new-workspace-form";
+import { memberCounts } from "@/features/workspaces/member-counts";
 import { listMemberships } from "@/features/workspaces/queries";
 import { requireWorkspace } from "@/features/workspaces/require-workspace";
-import { workspaceRoleLabel } from "@/features/workspaces/roles";
+import { workspaceDetails } from "@/features/workspaces/workspace-label";
 
 export const dynamic = "force-dynamic";
 
 export default async function WorkspacesPage() {
   const { session, workspace } = await requireWorkspace("/workspaces");
   const memberships = await listMemberships(session.user.id);
+  const counts = await memberCounts(memberships.map((m) => m.workspaceId));
 
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
@@ -32,21 +34,31 @@ export default async function WorkspacesPage() {
               <ul className="divide-y">
                 {memberships.map((m) => {
                   const isCurrent = m.workspaceId === workspace.id;
+                  const detailsId = `workspace-details-${m.workspaceId}`;
                   return (
                     <li key={m.workspaceId} className="flex flex-wrap items-center justify-between gap-3 py-3 first:pt-0">
                       <div className="flex flex-wrap items-center gap-2 text-sm">
                         <span className="font-medium">{m.name}</span>
-                        <Badge variant="outline">{workspaceRoleLabel(m.role)}</Badge>
+                        <span id={detailsId} className="text-muted-foreground">
+                          {workspaceDetails({ role: m.role, memberCount: counts.get(m.workspaceId) ?? 1 })}
+                        </span>
                         {isCurrent && <Badge>Current</Badge>}
                       </div>
                       {isCurrent ? (
-                        <Button asChild variant="ghost" size="sm">
-                          <Link href="/workspace">Members and invites</Link>
-                        </Button>
+                        <div className="flex flex-wrap gap-1">
+                          <Button asChild variant="ghost" size="sm">
+                            <Link href="/workspace">Members and invites</Link>
+                          </Button>
+                          {m.role === "admin" && (
+                            <Button asChild variant="ghost" size="sm">
+                              <Link href="/workspace/settings">Settings</Link>
+                            </Button>
+                          )}
+                        </div>
                       ) : (
                         <form action={switchWorkspaceAction}>
                           <input type="hidden" name="workspaceId" value={m.workspaceId} />
-                          <Button type="submit" variant="outline" size="sm">
+                          <Button type="submit" variant="outline" size="sm" aria-describedby={detailsId}>
                             Switch<span className="sr-only"> to {m.name}</span>
                           </Button>
                         </form>

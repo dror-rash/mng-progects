@@ -15,7 +15,8 @@
     "./field-error": "./src/components/field-error.tsx",
     "./native-select": "./src/components/native-select.tsx",
     "./badge": "./src/components/badge.tsx",
-    "./filter-chip": "./src/components/filter-chip.tsx"
+    "./filter-chip": "./src/components/filter-chip.tsx",
+    "./confirm-by-name": "./src/components/confirm-by-name.tsx"
   },
   "scripts": {
     "lint": "eslint .",

@@ -33,3 +33,8 @@ Every project, task and customer belongs to the user who created it (`project.ow
 2. Members page, roles, invite links, leave/remove.
 3. Workspace switcher and creating extra workspaces.
 4. Task assignees and "My tasks"; note authors.
+
+## Amendment 2026-10-30: renaming and deleting a workspace (task 029)
+- Only admins rename or delete a workspace, from `/workspace/settings`. Both actions lock the workspace row and check the role again under the lock, as membership changes do.
+- Deleting needs the workspace's exact name typed, and removes everything in it through `ON DELETE CASCADE` from `workspace`: projects (and their tasks), customers (and their contacts and notes), invite links and memberships. Nothing is moved to another workspace.
+- An admin may delete their only workspace. Like anyone who belongs to no workspace, they get a new personal one on their next page load. Former members land in their next workspace.
