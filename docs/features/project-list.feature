@@ -67,3 +67,51 @@ Feature: Project list
   Scenario: Unknown filters in a link are ignored
     When I open "/dashboard/projects?status=archived&customer=nobody"
     Then the projects shown are "Internal Ops, Website Redesign"
+
+  @task:045
+  Scenario: Sorting by a column and reversing it
+    When I open "/dashboard/projects"
+    Then the "Started" column is sorted "descending"
+    When I sort projects by "Project"
+    Then the projects shown are "Internal Ops, Website Redesign"
+    And the "Project" column is sorted "ascending"
+    When I sort projects by "Project"
+    Then the projects shown are "Website Redesign, Internal Ops"
+    And the "Project" column is sorted "descending"
+
+  @task:045
+  Scenario: Projects without a customer sort last
+    When I open "/dashboard/projects"
+    And I sort projects by "Customer"
+    Then the projects shown are "Website Redesign, Internal Ops"
+    When I sort projects by "Customer"
+    Then the projects shown are "Website Redesign, Internal Ops"
+    And the "Customer" column is sorted "descending"
+
+  @task:045
+  Scenario: Sorting by progress puts the furthest along first
+    Given I am on the "Website Redesign" project page
+    And the project has a task "Write copy"
+    And the project has a task "Ship it"
+    And I move the task "Ship it" to "Done"
+    When I open "/dashboard/projects"
+    And I sort projects by "Progress"
+    Then the projects shown are "Website Redesign, Internal Ops"
+
+  @task:045
+  Scenario: The sort is kept when searching and switching views
+    When I open "/dashboard/projects"
+    And I sort projects by "Project"
+    And I sort projects by "Project"
+    And I search projects for "e"
+    Then the projects shown are "Website Redesign, Internal Ops"
+    When I follow the "Tiles" link
+    And I follow the "Table" link
+    Then the projects shown are "Website Redesign, Internal Ops"
+    And the "Project" column is sorted "descending"
+
+  @task:045
+  Scenario: An unknown sort in a link is ignored
+    When I open "/dashboard/projects?sort=budget&dir=sideways"
+    Then the projects shown are "Internal Ops, Website Redesign"
+    And the "Started" column is sorted "descending"
