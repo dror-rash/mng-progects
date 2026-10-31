@@ -24,6 +24,8 @@ type Task = {
   priority: string;
   dueDate: string | null;
   assigneeId: string | null;
+  /** The assignee isn't one of the choices (an auditor, say); `assigneeId` is then null, never their id. */
+  assigneeHidden?: boolean;
 };
 type MemberOption = { userId: string; name: string };
 type CustomerOption = { id: string; name: string };
@@ -48,7 +50,12 @@ export function EditTaskForm({
   const priorityError = state.field === "priority" ? state.error : undefined;
   const dueDateError = state.field === "dueDate" ? state.error : undefined;
   const assigneeError = state.field === "assigneeId" ? state.error : undefined;
-  const assigneeValue = state.values?.assigneeId ?? task.assigneeId ?? "";
+  // An assignee who isn't one of the choices (an auditor, rule 7) shows as "Unassigned". Until I choose
+  // someone, the form doesn't post the field, so the server keeps them rather than clearing them.
+  const assigneeHidden =
+    task.assigneeHidden === true || (task.assigneeId !== null && !members.some((m) => m.userId === task.assigneeId));
+  const [assigneeChosen, setAssigneeChosen] = useState(false);
+  const assigneeValue = state.values?.assigneeId ?? (assigneeHidden ? "" : (task.assigneeId ?? ""));
   // A submitted value is restored only if it is a real option, so the select never shows an unrelated one.
   const priority = parseTaskPriority(state.values?.priority) ?? normalizeTaskPriority(task.priority);
   // A customer that isn't one of my choices (a partner can't see it, rule 7a) shows as "No customer". Until
@@ -117,8 +124,9 @@ export function EditTaskForm({
         <NativeSelect
           key={assigneeValue}
           id="assigneeId"
-          name="assigneeId"
+          name={assigneeHidden && !assigneeChosen ? undefined : "assigneeId"}
           defaultValue={assigneeValue}
+          onChange={() => setAssigneeChosen(true)}
           aria-invalid={assigneeError ? true : undefined}
           aria-describedby={assigneeError ? "assigneeId-error" : undefined}
         >

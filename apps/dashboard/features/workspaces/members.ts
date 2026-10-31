@@ -1,4 +1,4 @@
-import { and, asc, eq, getDb, isNull, or, schema, sql, withAccess } from "@repo/db";
+import { and, asc, eq, exists, getDb, isNull, or, schema, sql, withAccess } from "@repo/db";
 
 import type { WorkspaceRole } from "@/features/access/roles";
 
@@ -30,7 +30,8 @@ export async function listMembers(userId: string, workspaceId: string) {
 
 /**
  * Who may be assigned a task in `project` (rule 7): its partner's users and admins for a partner's
- * project, admins only for an internal one. Auditors never: they can't change anything.
+ * project, admins only for an internal one. Auditors never: they can't change anything. A deleted
+ * partner's users never either: they have no access (rule 8c).
  */
 function assignable(project: { workspaceId: string; partnerId: string | null }) {
   const admin = eq(schema.workspaceMember.role, "admin" satisfies WorkspaceRole);
@@ -39,7 +40,16 @@ function assignable(project: { workspaceId: string; partnerId: string | null }) 
     project.partnerId
       ? or(
           admin,
-          and(eq(schema.workspaceMember.role, "partner" satisfies WorkspaceRole), eq(schema.workspaceMember.partnerId, project.partnerId)),
+          and(
+            eq(schema.workspaceMember.role, "partner" satisfies WorkspaceRole),
+            eq(schema.workspaceMember.partnerId, project.partnerId),
+            exists(
+              getDb()
+                .select({ id: schema.partner.id })
+                .from(schema.partner)
+                .where(and(eq(schema.partner.id, project.partnerId), isNull(schema.partner.deletedAt))),
+            ),
+          ),
         )
       : admin,
   );
