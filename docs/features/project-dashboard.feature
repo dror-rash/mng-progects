@@ -16,7 +16,7 @@ Feature: Project Management Dashboard
 
   Scenario: Authenticated user creates a new project
     Given I am signed in with an existing account
-    When I open "/dashboard/projects"
+    When I open "/dashboard/projects/new"
     And I fill in "Project name" with "Website Redesign"
     And I fill in "Description" with "Revamping our marketing site"
     And I press "Create Project"

@@ -10,7 +10,7 @@ Feature: Customer links
 
   @task:016
   Scenario: A project for a customer shows on the customer's page
-    When I open "/dashboard/projects"
+    When I open "/dashboard/projects/new"
     And I fill in "Project name" with "Website Redesign"
     And I select "Acme Ltd" from "Customer"
     And I press "Create Project"
@@ -63,7 +63,7 @@ Feature: Customer links
   @task:020
   Scenario: Another user's customer can't be linked to a project
     Given another user has a customer named "Secret Corp"
-    When I open "/dashboard/projects"
+    When I open "/dashboard/projects/new"
     And I fill in "Project name" with "Sneaky"
     And I choose the other user's customer in "Customer"
     And I press "Create Project"
@@ -86,7 +86,7 @@ Feature: Customer links
   Scenario: A customer from my other workspace can't be linked to a project
     Given I have a customer "Globex" in a new workspace named "Acme Team"
     And I switch to "Test User's workspace"
-    When I open "/dashboard/projects"
+    When I open "/dashboard/projects/new"
     And I fill in "Project name" with "Sneaky"
     And I choose the customer from my other workspace in "Customer"
     And I press "Create Project"
