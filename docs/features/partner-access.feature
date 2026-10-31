@@ -78,6 +78,7 @@ Feature: Partner access: a partner's user sees only their own partner's work
     When I am on the "Copy" task page
     Then I see the text "No customer"
     And the page shows none of "Initech"
+    And the page source doesn't contain the id of "Initech"
     When I fill in "Description" with "Shorter copy"
     And I press "Save changes"
     Then the admin sees the task "Copy" for the customer "Initech", with the description "Shorter copy"
