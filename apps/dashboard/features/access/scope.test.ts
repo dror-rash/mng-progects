@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { canChange, canChangeCustomers, canSeeCustomers, canSeePartners } from "./scope";
+import { canChange, canChangeCustomers, canRestore, canSeeCustomers, canSeeDeleted, canSeePartners } from "./scope";
 
 describe("canChange", () => {
   it("is false for an auditor, who sees everything and changes nothing", () => {
@@ -34,5 +34,21 @@ describe("canSeeCustomers", () => {
     expect(canSeeCustomers("admin")).toBe(true);
     expect(canSeeCustomers("auditor")).toBe(true);
     expect(canSeeCustomers("partner")).toBe(false);
+  });
+});
+
+describe("canSeeDeleted", () => {
+  it("lets admins and auditors see the Deleted page, never partners", () => {
+    expect(canSeeDeleted("admin")).toBe(true);
+    expect(canSeeDeleted("auditor")).toBe(true);
+    expect(canSeeDeleted("partner")).toBe(false);
+  });
+});
+
+describe("canRestore", () => {
+  it("is true only for admins", () => {
+    expect(canRestore("admin")).toBe(true);
+    expect(canRestore("auditor")).toBe(false);
+    expect(canRestore("partner")).toBe(false);
   });
 });

@@ -378,7 +378,8 @@ Then("the admin sees the {string} project", async ({ people, state }, project: s
 Then("the admin sees no project {string}", async ({ people, state }, project: string) => {
   const admin = await pageOf(state, people, "admin");
   await admin.goto("/dashboard/projects");
-  await expect(admin.getByRole("table", { name: "Projects" })).toBeVisible();
+  // The table, or the empty list's message when the admin has no projects left.
+  await expect(admin.getByRole("table", { name: "Projects" }).or(admin.getByText(/^No projects yet\./))).toBeVisible();
   await expect(admin.getByRole("link", { name: project, exact: true })).toHaveCount(0);
 });
 

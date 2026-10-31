@@ -29,16 +29,18 @@ Build a modern, full-stack Project Management application on a Next.js multi-zon
 | M7 | Task Details | Task priority (018) and due dates with overdue / due-this-week on the home page (019) | done |
 | M8 | Workspaces & Sharing | Workspaces own projects, tasks and customers; Admin/Member roles; invite links; workspace switcher; task assignees and "My tasks" (ADR-0005) | done |
 | M9 | Polish & Hardening | Open parking-lot items: members-page errors, invite hygiene, workspace settings, header, cross-workspace reads, request caching, indexes, test cleanup, SQL counts, dark mode, drag-and-drop, primary contact, chart tooltips (tasks 027–039) | done |
-| M12 | Partner Access | Admin / Auditor / Partner roles; partner companies with assigned customers; partners see only their own projects and customer names; enforced by SQL access functions and row-level security; project cancel/copy; soft delete everywhere (ADR-0006, tasks 046–051, plan `docs/superpowers/plans/2026-10-31-partner-access.md`) | in progress (046–050 done) |
+| M12 | Partner Access | Admin / Auditor / Partner roles; partner companies with assigned customers; partners see only their own projects and customer names; enforced by SQL access functions and row-level security; project cancel/copy; soft delete everywhere (ADR-0006, tasks 046–051, plan `docs/superpowers/plans/2026-10-31-partner-access.md`) | done |
 
 ## Current milestone
-M12 Partner Access (in progress: 046–050 done, 051 next). M9 is done. Candidates: M10 accounts and email (incl. user deletion), M11 deploy to GCP, and two drafted but blocked tasks moved out of M9: 040 other organization kinds (needs product answers) and 041 time zones (needs ADR-0007).
+None in progress: M12 Partner Access is done (tasks 046–051). Candidates: M10 accounts and email (incl. user deletion), M11 deploy to GCP, and two drafted but blocked tasks moved out of M9: 040 other organization kinds (needs product answers) and 041 time zones (needs ADR-0007).
 
 ## Risks & open questions
 - Invite tokens will appear in Cloud Run / load balancer request logs until a log exclusion is added in `infra/` (task 028 parking lot; do it with M11).
 - CI `deploy` fails until GCP is set up (`infra/README.md`): no Workload Identity provider or project vars configured.
 - Timestamps are stored without time zone schema-wide; safe while Postgres runs in UTC (see task 010 parking lot).
 - Multi-zone rewrites configuration for new `/dashboard` zone in Next.js shell and Cloud Run deployment.
+- Row-level security calls an access function per row (`can_see_project` and friends, ADR-0006): fine at today's sizes, but large lists may need the policies or the functions tuned (measure before M11 load).
+- Deletes are soft, but nothing records who changed what else: an audit log is a follow-up (and purging deleted items after a retention period, design Parking lot).
 
 ## Change log
 - 2026-10-18 – Updated plan for Project Management app: M1 Landing & Login polish, M2 Dashboard zone.
@@ -61,3 +63,5 @@ M12 Partner Access (in progress: 046–050 done, 051 next). M9 is done. Candidat
 - 2026-10-31 – Task 046: Admin / Auditor / Partner roles, partner tables, project owners and the six SQL access functions (migration 0018); every query and action goes through `features/access/`; existing members became admins and open invite links were revoked.
 - 2026-10-31 – Task 048: partner companies on `/partners` (admins create them and assign customers; auditors see them), "Partner: <name>" invite links and role changes, which clear assignments the person can no longer see (migration 0022); opening a link when already a member changes nothing.
 - 2026-10-31 – Task 049: the partner experience. Customer names come from the `customer_name` view everywhere (customers only, not deleted: migration 0023), as text for partners; partners create their own partner's projects and admins choose the owner; assignees are the partner's users and admins (never auditors). The `@task:049` leak suite (`partner-access.feature`) checks every page and form for another partner's data; later tasks extend it.
+- 2026-11-01 – Task 050: cancel a project (a hand-set lifecycle shown as "Canceled") or copy it to a new owner.
+- 2026-11-01 – Task 051: every delete is soft (projects, tasks, customers, contacts, notes, partners); admins restore from the Deleted page, auditors see it, partners never do. Migration 0024: `delete_task` and `restore_project` (what the policies can't allow), and a deleted partner's invite links stop working. A deleted partner's users land in a personal workspace. M12 Partner Access done.

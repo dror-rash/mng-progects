@@ -1,6 +1,6 @@
 "use server";
 
-import { and, eq, getDb, schema, withAccess } from "@repo/db";
+import { and, eq, getDb, isNull, schema, sql, withAccess } from "@repo/db";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
@@ -25,8 +25,13 @@ function revalidateProject(projectId: string) {
   revalidateOverviews();
 }
 
+/** The form's task of the project, not deleted. */
 function taskInProject(formData: FormData, projectId: string) {
-  return and(eq(schema.task.id, String(formData.get("taskId") ?? "")), eq(schema.task.projectId, projectId));
+  return and(
+    eq(schema.task.id, String(formData.get("taskId") ?? "")),
+    eq(schema.task.projectId, projectId),
+    isNull(schema.task.deletedAt),
+  );
 }
 
 type Project = Awaited<ReturnType<typeof requireProjectAccess>>;
@@ -114,9 +119,19 @@ export async function updateTaskStatusAction(formData: FormData) {
   revalidateProject(projectId);
 }
 
+/**
+ * Soft-deletes the form's task of `project` (design rule 8) through `delete_task`, which checks again that
+ * the user can change its project: a partner's users can't update a task into one they can't see.
+ */
+async function softDeleteTask(formData: FormData, project: Project) {
+  const db = getDb();
+  const task = db.select({ id: schema.task.id }).from(schema.task).where(taskInProject(formData, project.id));
+  await db.execute(sql`select delete_task(t.id) from (${task}) t`);
+}
+
 export async function deleteTaskAction(formData: FormData) {
   const projectId = await withProject(formData, async (project) => {
-    await getDb().delete(schema.task).where(taskInProject(formData, project.id));
+    await softDeleteTask(formData, project);
     return project.id;
   });
   revalidateProject(projectId);
@@ -163,7 +178,7 @@ export async function updateTaskAction(_prev: FormState, formData: FormData): Pr
 /** Delete from the task's own page, then go back to the board. */
 export async function deleteTaskFromPageAction(formData: FormData) {
   const projectId = await withProject(formData, async (project) => {
-    await getDb().delete(schema.task).where(taskInProject(formData, project.id));
+    await softDeleteTask(formData, project);
     return project.id;
   });
   revalidateProject(projectId);

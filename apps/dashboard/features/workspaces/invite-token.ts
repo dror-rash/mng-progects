@@ -53,10 +53,15 @@ export function inviteExpiresAt(now: Date): Date {
   return new Date(now.getTime() + VALID_DAYS * 24 * 60 * 60 * 1000);
 }
 
+/**
+ * Whether a link can be used. A link of a deleted partner company is no longer valid (design rule 8c); it
+ * works again if the partner is restored, unless it has been revoked or has expired meanwhile.
+ */
 export function inviteState(
-  invite: { expiresAt: Date; revokedAt: Date | null },
+  invite: { expiresAt: Date; revokedAt: Date | null; partnerDeleted?: boolean },
   now: Date,
-): "valid" | "expired" | "revoked" {
+): "valid" | "expired" | "revoked" | "partner-deleted" {
   if (invite.revokedAt) return "revoked";
-  return now.getTime() < invite.expiresAt.getTime() ? "valid" : "expired";
+  if (now.getTime() >= invite.expiresAt.getTime()) return "expired";
+  return invite.partnerDeleted ? "partner-deleted" : "valid";
 }

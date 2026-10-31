@@ -100,10 +100,11 @@ type InviteRow = {
   revoked_at: string | null;
   role: string;
   partner_id: string | null;
+  partner_deleted: boolean;
 };
 
 /**
- * The invite for a token (by hash) with its workspace name, or null. Read through the database function
+ * The invite for a token (by hash) with its workspace name and whether its partner is deleted, or null. Read through the database function
  * `find_invite`: whoever holds a link isn't a member yet, so row-level security hides the invite from them.
  */
 export async function findInvite(token: string) {
@@ -118,5 +119,6 @@ export async function findInvite(token: string) {
     revokedAt: invite.revoked_at === null ? null : utc(invite.revoked_at),
     role: invite.role,
     partnerId: invite.partner_id,
+    partnerDeleted: invite.partner_deleted,
   };
 }

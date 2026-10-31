@@ -22,3 +22,13 @@ export function canSeePartners(role: WorkspaceRole): boolean {
 export function canSeeCustomers(role: WorkspaceRole): boolean {
   return role !== "partner";
 }
+
+/** Whether someone with `role` sees the Deleted page: admins and auditors; partners never see deleted items (design rule 8). */
+export function canSeeDeleted(role: WorkspaceRole): boolean {
+  return role !== "partner";
+}
+
+/** Whether someone with `role` restores deleted items: admins only (`restoreAction` checks again). */
+export function canRestore(role: WorkspaceRole): boolean {
+  return role === "admin";
+}

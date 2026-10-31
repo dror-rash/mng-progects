@@ -169,6 +169,13 @@
       "when": 1793481224854,
       "tag": "0023_customer_name_customers_only",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1793487870536,
+      "tag": "0024_soft_delete",
+      "breakpoints": true
     }
   ]
 }

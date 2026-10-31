@@ -24,7 +24,9 @@ export default async function DeleteProjectPage({ params }: { params: Promise<{ 
       <Card className="w-full">
         <CardHeader>
           <CardTitle>Delete &ldquo;{project.name}&rdquo;?</CardTitle>
-          <CardDescription>This deletes the project and all of its tasks. It can&apos;t be undone.</CardDescription>
+          <CardDescription>
+            This deletes the project and all of its tasks. An admin can restore them from Deleted.
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <form action={deleteProjectAction} className="flex gap-2">
