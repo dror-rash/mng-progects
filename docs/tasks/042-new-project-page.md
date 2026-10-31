@@ -1,6 +1,6 @@
 # Task 042: New project page
 
-- **Status:** in-review
+- **Status:** done
 - **Milestone:** unscheduled (requested directly)
 - **Zone / package:** `apps/dashboard`, `e2e`
 - **Feature file:** `docs/features/project-dashboard.feature`, `docs/features/dashboard-home.feature`, `docs/features/form-validation.feature`, `docs/features/customer-links.feature`
@@ -33,9 +33,9 @@ New route `app/projects/new/page.tsx` like `customers/new`. `createProjectAction
 
 ## Progress log
 - 2026-10-31 – Drafted from a direct request ("new customer and new project should get its own pages so it's scalable").
-
 - 2026-10-31 – Red: the 7 changed scenarios fail (no `/projects/new`). Green: `app/projects/new/page.tsx`, `createProjectAction` redirects to the new project, `ProjectForm` has Cancel for new projects too, All projects has a "New project" button. E2E helpers that create projects end on the project page (one extra navigation in "another user has a project … with a task" removed). The screenshots script uses the new page.
 - 2026-10-31 – `pnpm lint`, `pnpm typecheck` clean. Full e2e (with 043 stacked on top) 153/153; unit 248.
+- 2026-10-31 – Merged to `main` in PR #15; CI `verify` and `e2e` green.
 
 ## Parking lot
 - "New project" on a customer's page that opens `/projects/new?customer=<id>` with the customer chosen.
