@@ -44,6 +44,17 @@ describe("inviteState", () => {
   it("is revoked once revoked, whatever the expiry", () => {
     expect(inviteState({ expiresAt: new Date("2026-11-01T00:00:00Z"), revokedAt: now }, now)).toBe("revoked");
   });
+
+  it("is no longer valid once its partner is deleted", () => {
+    expect(inviteState({ expiresAt: new Date("2026-10-27T00:00:00Z"), revokedAt: null, partnerDeleted: true }, now)).toBe(
+      "partner-deleted",
+    );
+  });
+
+  it("stays revoked or expired when its partner is deleted too", () => {
+    expect(inviteState({ expiresAt: new Date("2026-10-27T00:00:00Z"), revokedAt: now, partnerDeleted: true }, now)).toBe("revoked");
+    expect(inviteState({ expiresAt: now, revokedAt: null, partnerDeleted: true }, now)).toBe("expired");
+  });
 });
 
 /** A cookie jar that, like a browser, only deletes a cookie when the path matches the one it was set with. */
