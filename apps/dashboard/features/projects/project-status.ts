@@ -1,12 +1,18 @@
 import type { StatusCount } from "@/features/tasks/progress";
 import { parseTaskStatus } from "@/features/tasks/task-status";
 
-/** A project's progress, derived from its tasks (projects have no status of their own). */
+import { isCanceled } from "./project-lifecycle";
+
+/**
+ * A project's status as lists show it: its progress, derived from its tasks, or "Canceled" once someone
+ * cancels it (its lifecycle, `project-lifecycle.ts`).
+ */
 export const PROJECT_STATUSES = [
   { status: "no_tasks", label: "No tasks" },
   { status: "not_started", label: "Not started" },
   { status: "in_progress", label: "In progress" },
   { status: "done", label: "Done" },
+  { status: "canceled", label: "Canceled" },
 ] as const;
 
 export type ProjectStatus = (typeof PROJECT_STATUSES)[number]["status"];
@@ -19,8 +25,12 @@ export function projectStatusLabel(status: ProjectStatus): string {
   return PROJECT_STATUSES.find((s) => s.status === status)!.label;
 }
 
-/** From the project's task counts per status; an unknown task status counts as to do. */
-export function projectStatus(counts: StatusCount[]): ProjectStatus {
+/**
+ * From the project's task counts per status (an unknown task status counts as to do), unless the project's
+ * stored `lifecycle` is canceled.
+ */
+export function projectStatus(counts: StatusCount[], lifecycle = "active"): ProjectStatus {
+  if (isCanceled(lifecycle)) return "canceled";
   let total = 0;
   let todo = 0;
   let done = 0;

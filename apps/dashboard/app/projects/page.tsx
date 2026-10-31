@@ -44,7 +44,7 @@ export default async function AllProjectsPage({ searchParams }: { searchParams: 
   const progress = summarizeProjectStatusCounts(projectCounts);
   const rows = projects.map((p) => ({
     ...p,
-    status: projectStatus(countsByProject.get(p.id) ?? []),
+    status: projectStatus(countsByProject.get(p.id) ?? [], p.lifecycle),
     overdue: overdue.get(p.id) ?? 0,
     progress: progress.get(p.id)?.completionRate ?? 0,
   }));
