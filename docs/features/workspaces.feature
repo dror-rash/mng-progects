@@ -29,14 +29,14 @@ Feature: Workspaces
     And the "Your workspaces" section does not show "Test User's workspace"
 
   @task:029
-  Scenario: A member can't open the workspace settings
+  Scenario: An auditor can't open the workspace settings
     Given I am signed in with an existing account
     And I create an invite link
     And a teammate joins with the invite link
     Then the teammate opening "/dashboard/workspace/settings" sees "Only admins can manage this workspace"
 
   @task:029
-  Scenario: A member can't rename the workspace by changing the form
+  Scenario: An auditor can't rename the workspace by changing the form
     Given I am signed in with an existing account
     And I create an invite link
     And a teammate joins with the invite link
@@ -44,7 +44,7 @@ Feature: Workspaces
     Then the teammate sees the error "Only admins can manage this workspace"
 
   @task:029
-  Scenario: A member can't delete the workspace by changing the form
+  Scenario: An auditor can't delete the workspace by changing the form
     Given I am signed in with an existing account
     And I create an invite link
     And a teammate joins with the invite link
@@ -91,7 +91,7 @@ Feature: Workspaces
     And I create an invite link
     And a teammate joins with the invite link
     When the teammate creates a workspace named "Acme"
-    Then the teammate's workspaces show "Acme" as "Member · 2 members" and as "Admin · 1 member"
+    Then the teammate's workspaces show "Acme" as "Auditor · 2 members" and as "Admin · 1 member"
 
   @task:029
   Scenario: A workspace name can't be longer than 100 characters
