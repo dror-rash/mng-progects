@@ -3,10 +3,10 @@ import { Card } from "@repo/ui/card";
 import { FilterChip } from "@repo/ui/filter-chip";
 import Link from "next/link";
 
-import { canChange } from "@/features/access/scope";
+import { canChange, canSeeCustomers } from "@/features/access/scope";
 import { AppHeader } from "@/features/layout/app-header";
 import { firstParam, withParams } from "@/features/navigation/search-params";
-import { listOrganizations } from "@/features/organizations/queries";
+import { listCustomerNames } from "@/features/organizations/customer-names";
 import { ProjectFilterForm } from "@/features/projects/project-filter-form";
 import { filterParams, filterProjects, parseProjectFilters, type ProjectFilters } from "@/features/projects/project-filters";
 import { ProjectList } from "@/features/projects/project-list";
@@ -36,7 +36,7 @@ export default async function AllProjectsPage({ searchParams }: { searchParams: 
     listProjects(session.user.id, workspace.id),
     countTasksByProjectAndStatus(session.user.id, workspace.id),
     countOverdueTasksByProject(session.user.id, workspace.id, todayUtc()),
-    listOrganizations(session.user.id, workspace.id, "customer"),
+    listCustomerNames(session.user.id, workspace.id),
   ]);
   const filters = parseProjectFilters(params, customers.map((c) => c.id));
   const sort = parseProjectSort(params);
@@ -106,9 +106,15 @@ export default async function AllProjectsPage({ searchParams }: { searchParams: 
             {shown.length === 0 ? (
               <Card className="border-dashed p-8 text-center text-muted-foreground">No projects match these filters.</Card>
             ) : filters.view === "tiles" ? (
-              <ProjectList projects={shown} progress={progress} />
+              <ProjectList projects={shown} progress={progress} linkCustomers={canSeeCustomers(workspace.role)} />
             ) : (
-              <ProjectTable projects={shown} progress={progress} sort={sort} sortHref={(next) => link({}, next)} />
+              <ProjectTable
+                projects={shown}
+                progress={progress}
+                sort={sort}
+                sortHref={(next) => link({}, next)}
+                linkCustomers={canSeeCustomers(workspace.role)}
+              />
             )}
           </>
         )}

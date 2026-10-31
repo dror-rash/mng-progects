@@ -35,3 +35,11 @@ export function canChangeCustomer(userId: string, orgId: AnyColumn) {
 export function hasWorkspaceRole(userId: string, workspaceId: AnyColumn, roles: ("admin" | "auditor")[]) {
   return sql<boolean>`has_workspace_role(${userId}, ${workspaceId}, ${`{${roles.join(",")}}`}::text[])`;
 }
+
+/**
+ * The partner in `partnerId` works for the customer in `orgId`: it is assigned to the partner, and neither
+ * is deleted (`partner_serves_customer`). A partner's project must have such a customer (rule 4).
+ */
+export function partnerServesCustomer(partnerId: string, orgId: AnyColumn) {
+  return sql<boolean>`partner_serves_customer(${partnerId}, ${orgId})`;
+}

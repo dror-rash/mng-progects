@@ -3,8 +3,9 @@ import { Button } from "@repo/ui/button";
 import { Card } from "@repo/ui/card";
 import { FilterChip } from "@repo/ui/filter-chip";
 import Link from "next/link";
+import { notFound } from "next/navigation";
 
-import { canChangeCustomers } from "@/features/access/scope";
+import { canChangeCustomers, canSeeCustomers } from "@/features/access/scope";
 import { AppHeader } from "@/features/layout/app-header";
 import { firstParam, withParams } from "@/features/navigation/search-params";
 import { ORGANIZATION_STATUSES, organizationStatusLabel, parseOrganizationStatus } from "@/features/organizations/organization-kinds";
@@ -23,6 +24,10 @@ export default async function CustomersPage({ searchParams }: { searchParams: Se
   // Each filter link changes its own filter and keeps the other one.
   const link = (next: { status?: string; tag?: string }) => withParams("/customers", { status, tag, ...next });
   const { session, workspace } = await requireWorkspace(link({}));
+  // A partner's users see customer names only, never customer pages (row-level security hides them too).
+  if (!canSeeCustomers(workspace.role)) {
+    notFound();
+  }
 
   const [customers, tags] = await Promise.all([
     listOrganizations(session.user.id, workspace.id, "customer", { status, tag }),

@@ -79,24 +79,3 @@ export async function listOrganizationTags(userId: string, workspaceId: string, 
   );
   return distinctTags(rows.map((r) => r.tags));
 }
-
-/**
- * Whether a project or task in `workspaceId` may be linked to `organizationId`: "no customer"
- * (null/undefined) is always allowed; otherwise it must be a customer in the same workspace. The only
- * guard against linking another workspace's customer by tampering with the form. Inside an action's `withAccess`.
- */
-export async function customerInWorkspace(workspaceId: string, organizationId: string | null | undefined) {
-  if (!organizationId) return true;
-  const [row] = await getDb()
-    .select({ id: schema.organization.id })
-    .from(schema.organization)
-    .where(
-      and(
-        eq(schema.organization.id, organizationId),
-        eq(schema.organization.workspaceId, workspaceId),
-        eq(schema.organization.kind, "customer"),
-        isNull(schema.organization.deletedAt),
-      ),
-    );
-  return row !== undefined;
-}

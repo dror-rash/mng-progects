@@ -1,31 +1,41 @@
 import { and, desc, eq, getDb, getTableColumns, isNull, schema, withAccess } from "@repo/db";
 
-import { canChangeProject, canSeeCustomerName, canSeeProject } from "@/features/access/predicates";
+import { canChangeProject, canSeeProject } from "@/features/access/predicates";
 
-/** The project with whether `userId` may change it, only if they can see it (ADR-0006). Not deleted ones. */
+/** Join condition: the project's customer in `customer_name` (its own workspace's only). */
+const projectCustomerName = and(
+  eq(schema.project.organizationId, schema.customerName.id),
+  eq(schema.customerName.workspaceId, schema.project.workspaceId),
+);
+
+/**
+ * Project columns plus the linked customer's name, when the user may see it (null otherwise or without
+ * one). Names come from `customer_name` (ADR-0006), so a partner's users see them too. Inside `withAccess`.
+ */
+function selectWithCustomer() {
+  return getDb()
+    .select({ ...getTableColumns(schema.project), customerName: schema.customerName.name })
+    .from(schema.project)
+    .leftJoin(schema.customerName, projectCustomerName);
+}
+
+/**
+ * The project with its customer's name and whether `userId` may change it, only if they can see it
+ * (ADR-0006). Not deleted ones.
+ */
 export async function getProjectForUser(userId: string, projectId: string) {
   const [project] = await withAccess(userId, () =>
     getDb()
-      .select({ ...getTableColumns(schema.project), canChange: canChangeProject(userId, schema.project.id) })
+      .select({
+        ...getTableColumns(schema.project),
+        customerName: schema.customerName.name,
+        canChange: canChangeProject(userId, schema.project.id),
+      })
       .from(schema.project)
+      .leftJoin(schema.customerName, projectCustomerName)
       .where(and(eq(schema.project.id, projectId), isNull(schema.project.deletedAt), canSeeProject(userId, schema.project.id))),
   );
   return project ?? null;
-}
-
-/** Project columns plus the linked customer's name, when `userId` may see it (null otherwise or without one). Inside `withAccess`. */
-function selectWithCustomer(userId: string) {
-  return getDb()
-    .select({ ...getTableColumns(schema.project), customerName: schema.organization.name })
-    .from(schema.project)
-    .leftJoin(
-      schema.organization,
-      and(
-        eq(schema.project.organizationId, schema.organization.id),
-        isNull(schema.organization.deletedAt),
-        canSeeCustomerName(userId, schema.organization.id),
-      ),
-    );
 }
 
 /** SQL condition: the projects `userId` can see in a workspace (not deleted). For queries that join `project`. */
@@ -40,7 +50,7 @@ export function visibleProjects(userId: string, workspaceId: string) {
 /** The workspace's projects `userId` can see, newest first; pass `limit` for just the most recent. */
 export async function listProjects(userId: string, workspaceId: string, limit?: number) {
   return withAccess(userId, async () => {
-    const query = selectWithCustomer(userId)
+    const query = selectWithCustomer()
       .where(visibleProjects(userId, workspaceId))
       .orderBy(desc(schema.project.createdAt));
     return limit === undefined ? query : query.limit(limit);
@@ -50,7 +60,7 @@ export async function listProjects(userId: string, workspaceId: string, limit?: 
 /** The workspace's projects for one customer that `userId` can see, newest first ("previous projects"). */
 export async function listCustomerProjects(userId: string, workspaceId: string, organizationId: string) {
   return withAccess(userId, async () =>
-    selectWithCustomer(userId)
+    selectWithCustomer()
       .where(and(visibleProjects(userId, workspaceId), eq(schema.project.organizationId, organizationId)))
       .orderBy(desc(schema.project.createdAt)),
   );

@@ -17,6 +17,12 @@ export type ScenarioState = {
   /** A customer in a workspace other than the one a later step works in. */
   foreignCustomerUrl?: string;
   keptUrl?: string;
+  /** Partner-access scenarios: the ids of records written to the database, by name (projects, tasks, people, …). */
+  ids?: Record<string, string>;
+  /** Accounts that sign in only when a step needs them ("admin", "auditor"), and their pages once they have. */
+  accounts?: Record<string, { account: Account; page?: Page }>;
+  /** Posts the last tampered form again with another id, to compare the refusals. */
+  replay?: (id: string) => Promise<void>;
 };
 
 /** Opens extra browser contexts (other people) and closes them when the scenario ends. */

@@ -1,10 +1,12 @@
-import { and, asc, eq, getDb, isNull, schema, sql, withAccess } from "@repo/db";
+import { and, asc, eq, getDb, isNull, or, schema, sql, withAccess } from "@repo/db";
+
+import type { WorkspaceRole } from "@/features/access/roles";
 
 import { hashInviteToken } from "./invite-token";
 
 /**
  * Members with their email and, for a partner's users, the partner's name, for the server-rendered members
- * list. Client forms use `listMemberOptions`.
+ * list. Assignee pickers use `listAssigneeOptions`.
  */
 export async function listMembers(userId: string, workspaceId: string) {
   return withAccess(userId, async () =>
@@ -26,16 +28,45 @@ export async function listMembers(userId: string, workspaceId: string) {
   );
 }
 
-/** Members for client forms (e.g. assignee pickers): only id and name, never email. */
-export async function listMemberOptions(userId: string, workspaceId: string) {
+/**
+ * Who may be assigned a task in `project` (rule 7): its partner's users and admins for a partner's
+ * project, admins only for an internal one. Auditors never: they can't change anything.
+ */
+function assignable(project: { workspaceId: string; partnerId: string | null }) {
+  const admin = eq(schema.workspaceMember.role, "admin" satisfies WorkspaceRole);
+  return and(
+    eq(schema.workspaceMember.workspaceId, project.workspaceId),
+    project.partnerId
+      ? or(
+          admin,
+          and(eq(schema.workspaceMember.role, "partner" satisfies WorkspaceRole), eq(schema.workspaceMember.partnerId, project.partnerId)),
+        )
+      : admin,
+  );
+}
+
+/** The assignee choices for a task in `project`, for client forms: only id and name, never email. */
+export async function listAssigneeOptions(userId: string, project: { workspaceId: string; partnerId: string | null }) {
   return withAccess(userId, async () =>
     getDb()
       .select({ userId: schema.workspaceMember.userId, name: schema.user.name })
       .from(schema.workspaceMember)
       .innerJoin(schema.user, eq(schema.workspaceMember.userId, schema.user.id))
-      .where(eq(schema.workspaceMember.workspaceId, workspaceId))
+      .where(assignable(project))
       .orderBy(asc(schema.workspaceMember.joinedAt)),
   );
+}
+
+/**
+ * Whether `assigneeId` may be assigned a task in `project`, as the acting user sees the members: the
+ * server check behind `listAssigneeOptions`. Inside the action's `withAccess`.
+ */
+export async function isAssignable(assigneeId: string, project: { workspaceId: string; partnerId: string | null }) {
+  const [row] = await getDb()
+    .select({ userId: schema.workspaceMember.userId })
+    .from(schema.workspaceMember)
+    .where(and(eq(schema.workspaceMember.userId, assigneeId), assignable(project)));
+  return row !== undefined;
 }
 
 /** Links that haven't been revoked (expired ones are shown as expired until revoked). Admins only (row-level security). */

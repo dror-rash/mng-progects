@@ -19,11 +19,14 @@ export function ProjectList({
   projects,
   progress,
   showCustomer = true,
+  linkCustomers = true,
 }: {
   projects: Project[];
   progress: Map<string, TaskSummary>;
   /** Off on a customer's own page, where every project is theirs. */
   showCustomer?: boolean;
+  /** Off for a partner's users, who see customer names but no customer pages. */
+  linkCustomers?: boolean;
 }) {
   return (
     <ul className="grid gap-4 md:grid-cols-2">
@@ -42,9 +45,13 @@ export function ProjectList({
                 {showCustomer && project.organizationId && project.customerName && (
                   <p className="text-xs text-muted-foreground">
                     For{" "}
-                    <Link href={`/customers/${project.organizationId}`} className="font-medium text-foreground hover:underline">
-                      {project.customerName}
-                    </Link>
+                    {linkCustomers ? (
+                      <Link href={`/customers/${project.organizationId}`} className="font-medium text-foreground hover:underline">
+                        {project.customerName}
+                      </Link>
+                    ) : (
+                      <span className="font-medium text-foreground">{project.customerName}</span>
+                    )}
                   </p>
                 )}
               </CardHeader>

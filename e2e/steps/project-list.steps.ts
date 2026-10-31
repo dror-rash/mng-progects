@@ -19,8 +19,11 @@ When("I check {string}", async ({ page }, label: string) => {
 
 When("I search projects for {string}", async ({ page }, text: string) => {
   await page.getByLabel("Search projects", { exact: true }).fill(text);
+  await expect(page.getByLabel("Search projects", { exact: true })).toHaveValue(text);
   await page.getByLabel("Search projects", { exact: true }).press("Enter");
-  await expect(page).toHaveURL(new RegExp(`[?&]q=${encodeURIComponent(text)}`));
+  // A GET form encodes a space as "+", encodeURIComponent as "%20": accept either.
+  const query = encodeURIComponent(text).replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/%20/g, "(?:%20|\\+)");
+  await expect(page).toHaveURL(new RegExp(`[?&]q=${query}(?:&|$)`));
 });
 
 // Column headers are links that sort; wait for the new order's URL so the next step can't pass against the old page.

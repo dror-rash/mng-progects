@@ -25,9 +25,12 @@ export default async function ProjectPage({ params }: { params: Promise<{ projec
     notFound();
   }
 
-  const [tasks, customer] = await Promise.all([
+  // The customer is a link only for those who can open customer pages; partners see its name only.
+  const [tasks, customerPage] = await Promise.all([
     listProjectTasks(session.user.id, project.id),
-    project.organizationId ? getOrganizationForUser(session.user.id, project.organizationId, "customer") : null,
+    project.organizationId && project.customerName
+      ? getOrganizationForUser(session.user.id, project.organizationId, "customer")
+      : null,
   ]);
   // Most urgent first in each column; tasks arrive oldest first, and the sort keeps that within a priority.
   // Only the fields a card shows cross to the client.
@@ -45,12 +48,16 @@ export default async function ProjectPage({ params }: { params: Promise<{ projec
             <h1 className="text-2xl font-bold tracking-tight">{project.name}</h1>
             {project.description && <p className="text-muted-foreground">{project.description}</p>}
             <p className="text-sm text-muted-foreground">
-              {customer ? (
+              {project.customerName ? (
                 <>
                   Customer:{" "}
-                  <Link href={`/customers/${customer.id}`} className="font-medium text-foreground hover:underline">
-                    {customer.name}
-                  </Link>
+                  {customerPage ? (
+                    <Link href={`/customers/${customerPage.id}`} className="font-medium text-foreground hover:underline">
+                      {project.customerName}
+                    </Link>
+                  ) : (
+                    <span className="font-medium text-foreground">{project.customerName}</span>
+                  )}
                 </>
               ) : (
                 "No customer"

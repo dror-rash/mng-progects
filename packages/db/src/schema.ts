@@ -331,7 +331,8 @@ export const organizationNote = pgTable(
 
 /**
  * Customer names a user may see (`can_see_customer_name`, ADR-0006): partners read the names of their
- * assigned customers here, never `organization` itself. Created in migration 0020 (task 047).
+ * assigned customers here, never `organization` itself. Customers only, not deleted ones. Created in
+ * migration 0020 (task 047), narrowed in 0023 (task 049).
  */
 export const customerName = pgView("customer_name", {
   id: text("id").notNull(),

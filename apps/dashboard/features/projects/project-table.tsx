@@ -26,12 +26,15 @@ export function ProjectTable({
   progress,
   sort,
   sortHref,
+  linkCustomers = true,
 }: {
   projects: Project[];
   progress: Map<string, TaskSummary>;
   sort: ProjectSort;
   /** The page's URL with this sort, keeping the filters. */
   sortHref: (sort: ProjectSort) => string;
+  /** Off for a partner's users, who see customer names but no customer pages. */
+  linkCustomers?: boolean;
 }) {
   return (
     <Table>
@@ -66,9 +69,13 @@ export function ProjectTable({
               </TableHead>
               <TableCell>
                 {project.organizationId && project.customerName ? (
-                  <Link href={`/customers/${project.organizationId}`} className="hover:underline">
-                    {project.customerName}
-                  </Link>
+                  linkCustomers ? (
+                    <Link href={`/customers/${project.organizationId}`} className="hover:underline">
+                      {project.customerName}
+                    </Link>
+                  ) : (
+                    project.customerName
+                  )
                 ) : (
                   <span className="text-muted-foreground">—</span>
                 )}

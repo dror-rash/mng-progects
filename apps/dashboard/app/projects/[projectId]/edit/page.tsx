@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@repo/ui/card";
 import { notFound } from "next/navigation";
 
 import { ProjectForm } from "@/features/projects/project-form";
-import { listOrganizations } from "@/features/organizations/queries";
+import { listCustomerNames } from "@/features/organizations/customer-names";
 import { getProjectForUser } from "@/features/projects/queries";
 import { requireWorkspace } from "@/features/workspaces/require-workspace";
 
@@ -25,7 +25,12 @@ export default async function EditProjectPage({ params }: { params: Promise<{ pr
           <CardTitle>Edit project</CardTitle>
         </CardHeader>
         <CardContent>
-          <ProjectForm project={project} customers={await listOrganizations(session.user.id, project.workspaceId, "customer")} />
+          {/* The owner never changes (rule 4a); a partner's project keeps one of the partner's customers. */}
+          <ProjectForm
+            project={project}
+            customers={await listCustomerNames(session.user.id, project.workspaceId, project.partnerId)}
+            customerRequired={project.partnerId !== null}
+          />
         </CardContent>
       </Card>
     </main>

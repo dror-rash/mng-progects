@@ -16,40 +16,42 @@ function visibleTasks(userId: string, workspaceId: string) {
 const assigneeMembership = alias(schema.workspaceMember, "assignee_membership");
 
 /**
- * The project's tasks (not deleted), with each task's customer and assignee names (null when none). An
- * assignee who is no longer a member of the project's workspace counts as none. Callers check the project
- * is visible to the user (`getProjectForUser`) first.
+ * Task columns with the task's customer and assignee names (null when none). The customer's name comes
+ * from `customer_name`, so it shows only while the user may see it (rule 7a: a partner sees an unassigned
+ * customer as none). An assignee who is no longer a member of the project's workspace counts as none.
+ * Inside `withAccess`; callers check the project is visible to the user (`getProjectForUser`) first.
  */
+function selectWithNames() {
+  return getDb()
+    .select({ ...getTableColumns(schema.task), customerName: schema.customerName.name, assigneeName: assignee.name })
+    .from(schema.task)
+    .innerJoin(schema.project, eq(schema.task.projectId, schema.project.id))
+    .leftJoin(
+      schema.customerName,
+      and(eq(schema.task.organizationId, schema.customerName.id), eq(schema.customerName.workspaceId, schema.project.workspaceId)),
+    )
+    .leftJoin(
+      assigneeMembership,
+      and(eq(assigneeMembership.userId, schema.task.assigneeId), eq(assigneeMembership.workspaceId, schema.project.workspaceId)),
+    )
+    .leftJoin(assignee, eq(assigneeMembership.userId, assignee.id));
+}
+
+/** The project's tasks (not deleted), oldest first, with customer and assignee names (`selectWithNames`). */
 export async function listProjectTasks(userId: string, projectId: string) {
   return withAccess(userId, async () =>
-    getDb()
-      .select({ ...getTableColumns(schema.task), customerName: schema.organization.name, assigneeName: assignee.name })
-      .from(schema.task)
-      .innerJoin(schema.project, eq(schema.task.projectId, schema.project.id))
-      .leftJoin(
-        schema.organization,
-        and(eq(schema.task.organizationId, schema.organization.id), isNull(schema.organization.deletedAt)),
-      )
-      .leftJoin(
-        assigneeMembership,
-        and(
-          eq(assigneeMembership.userId, schema.task.assigneeId),
-          eq(assigneeMembership.workspaceId, schema.project.workspaceId),
-        ),
-      )
-      .leftJoin(assignee, eq(assigneeMembership.userId, assignee.id))
+    selectWithNames()
       .where(and(eq(schema.task.projectId, projectId), isNull(schema.task.deletedAt)))
       .orderBy(asc(schema.task.createdAt)),
   );
 }
 
-/** The task, only if it belongs to `projectId` (not deleted). Callers check the project is visible to the user (`getProjectForUser`) first. */
+/** The task with customer and assignee names, only if it belongs to `projectId` (not deleted). */
 export async function getProjectTask(userId: string, projectId: string, taskId: string) {
   const [task] = await withAccess(userId, () =>
-    getDb()
-      .select()
-      .from(schema.task)
-      .where(and(eq(schema.task.id, taskId), eq(schema.task.projectId, projectId), isNull(schema.task.deletedAt))),
+    selectWithNames().where(
+      and(eq(schema.task.id, taskId), eq(schema.task.projectId, projectId), isNull(schema.task.deletedAt)),
+    ),
   );
   return task ?? null;
 }
