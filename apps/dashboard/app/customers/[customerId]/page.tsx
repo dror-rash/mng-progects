@@ -117,10 +117,15 @@ export default async function CustomerPage({ params }: { params: Promise<{ custo
         </Card>
 
         <section aria-labelledby="projects-heading" className="space-y-3">
-          <h2 id="projects-heading" className="text-base font-semibold">Projects</h2>
+          <div className="flex items-center justify-between gap-4">
+            <h2 id="projects-heading" className="text-base font-semibold">Projects</h2>
+            <Button asChild variant="outline" size="sm">
+              <Link href={`/projects/new?customer=${customer.id}`}>New project</Link>
+            </Button>
+          </div>
           {projects.length === 0 ? (
             <Card className="border-dashed p-6 text-center text-sm text-muted-foreground">
-              No projects for this customer yet. Pick this customer when you create or edit a project.
+              No projects for this customer yet. Use &ldquo;New project&rdquo; to start one.
             </Card>
           ) : (
             <ProjectList projects={projects} progress={summarizeProjectStatusCounts(projectCounts)} showCustomer={false} />
