@@ -1,6 +1,6 @@
 # Task 043: Projects table and filters
 
-- **Status:** in-review
+- **Status:** done
 - **Milestone:** unscheduled (requested directly)
 - **Zone / package:** `packages/ui`, `apps/dashboard`, `e2e`
 - **Feature file:** `docs/features/project-list.feature`
@@ -46,11 +46,11 @@ All projects shows one tile per project. With dozens of projects (the demo seed 
 
 ## Progress log
 - 2026-10-31 – Drafted from a direct request ("change the overview for projects to a table view (can be toggle between tiles and table) add filters for customer, status, and additional").
-
 - 2026-10-31 – Started. Feature change in its own commit: "A project card shows its customer" opens `?view=tiles`, since the table is the default.
 - 2026-10-31 – Red: the 7 `project-list.feature` scenarios fail; unit tests for `projectStatus` and the filters fail (no modules); `Table` component test fails (no `./table`).
 - 2026-10-31 – Green: `project-status.ts` (`PROJECT_STATUSES`; unknown task status counts as to do), `project-filters.ts` (`parseProjectFilters`, `filterParams`, `filterProjects`; a customer outside the workspace, an unknown status or view is ignored), `countOverdueTasksByProject`, `groupStatusCountsByProject` pulled out of `summarizeProjectStatusCounts`. `ProjectTable` (server) and `ProjectFilterForm` (client island, `next/form` GET form; selects and checkbox submit on change). `Table` in `@repo/ui` with test and stories (Default, Empty); Storybook builds.
 - 2026-10-31 – `pnpm lint`, `pnpm typecheck` clean; `pnpm test` 248 (dashboard 181, ui 49, auth 13, db 5); full e2e 153/153 (seed steps need `DATABASE_URL` exported in the shell).
+- 2026-10-31 – Merged to `main` in PR #16; CI `verify` and `e2e` green.
 
 ## Parking lot
 - Sort by clicking a column header; pagination or infinite scroll.
