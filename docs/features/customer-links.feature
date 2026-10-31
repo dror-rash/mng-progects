@@ -19,6 +19,22 @@ Feature: Customer links
     When I am on the "Acme Ltd" customer page
     Then the "Projects" section shows "Website Redesign"
 
+  @task:044
+  Scenario: Starting a project from a customer's page picks that customer
+    Given I am on the "Acme Ltd" customer page
+    When I follow the "New project" link
+    Then "Acme Ltd" is selected in "Customer"
+    When I fill in "Project name" with "Website Redesign"
+    And I press "Create Project"
+    Then I see the heading "Website Redesign"
+    When I am on the "Acme Ltd" customer page
+    Then the "Projects" section shows "Website Redesign"
+
+  @task:044
+  Scenario: An unknown customer in the new project link is ignored
+    When I open "/dashboard/projects/new?customer=not-a-customer"
+    Then "No customer" is selected in "Customer"
+
   @task:016
   Scenario: Deleting a customer keeps its projects
     Given I have a project named "Website Redesign" for customer "Acme Ltd"
