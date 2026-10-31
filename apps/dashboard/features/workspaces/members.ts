@@ -2,19 +2,25 @@ import { and, asc, eq, getDb, isNull, schema, sql, withAccess } from "@repo/db";
 
 import { hashInviteToken } from "./invite-token";
 
-/** Members with their email, for the server-rendered members list. Client forms use `listMemberOptions`. */
+/**
+ * Members with their email and, for a partner's users, the partner's name, for the server-rendered members
+ * list. Client forms use `listMemberOptions`.
+ */
 export async function listMembers(userId: string, workspaceId: string) {
   return withAccess(userId, async () =>
     getDb()
       .select({
         userId: schema.workspaceMember.userId,
         role: schema.workspaceMember.role,
+        partnerId: schema.workspaceMember.partnerId,
+        partnerName: schema.partner.name,
         joinedAt: schema.workspaceMember.joinedAt,
         name: schema.user.name,
         email: schema.user.email,
       })
       .from(schema.workspaceMember)
       .innerJoin(schema.user, eq(schema.workspaceMember.userId, schema.user.id))
+      .leftJoin(schema.partner, eq(schema.partner.id, schema.workspaceMember.partnerId))
       .where(eq(schema.workspaceMember.workspaceId, workspaceId))
       .orderBy(asc(schema.workspaceMember.joinedAt)),
   );
@@ -41,8 +47,10 @@ export async function listOpenInvites(userId: string, workspaceId: string) {
         createdAt: schema.workspaceInvite.createdAt,
         expiresAt: schema.workspaceInvite.expiresAt,
         role: schema.workspaceInvite.role,
+        partnerName: schema.partner.name,
       })
       .from(schema.workspaceInvite)
+      .leftJoin(schema.partner, eq(schema.partner.id, schema.workspaceInvite.partnerId))
       .where(and(eq(schema.workspaceInvite.workspaceId, workspaceId), isNull(schema.workspaceInvite.revokedAt)))
       .orderBy(asc(schema.workspaceInvite.createdAt)),
   );

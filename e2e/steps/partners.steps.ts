@@ -30,7 +30,8 @@ Given("I have a partner {string} with the customer {string}", async ({ page }, n
   await createPartner(page, name);
   await page.getByLabel("Customer", { exact: true }).selectOption({ label: customer });
   await pressAndWait(page, "Assign customer");
-  await expect(section(page, "Customers")).toContainText(customer);
+  // A link, not the option of the Customer select.
+  await expect(section(page, "Customers").getByRole("link", { name: customer, exact: true })).toBeVisible();
 });
 
 When("I open the {string} partner page", async ({ page }, name: string) => {
@@ -57,7 +58,7 @@ Then(
     await auditor.getByRole("banner").getByRole("link", { name: "Partners", exact: true }).click();
     await auditor.getByRole("link", { name, exact: true }).click();
     await expect(auditor.getByRole("heading", { name, level: 1 })).toBeVisible();
-    await expect(section(auditor, "Customers")).toContainText(customer);
+    await expect(section(auditor, "Customers").getByRole("link", { name: customer, exact: true })).toBeVisible();
     await expect(auditor.getByRole("button", { name: assign })).toHaveCount(0);
     await expect(auditor.getByRole("button", { name: new RegExp(`^${unassign}\\b`) })).toHaveCount(0);
     await expect(auditor.getByRole("combobox")).toHaveCount(0);

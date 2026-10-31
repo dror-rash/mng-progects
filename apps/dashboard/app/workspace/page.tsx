@@ -1,8 +1,9 @@
 import { Badge } from "@repo/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@repo/ui/card";
 
-import { workspaceRoleLabel } from "@/features/access/roles";
+import { roleChoiceLabel } from "@/features/access/roles";
 import { AppHeader } from "@/features/layout/app-header";
+import { listPartners } from "@/features/partners/queries";
 import { InviteForm } from "@/features/workspaces/invite-form";
 import { inviteState } from "@/features/workspaces/invite-token";
 import { LeaveForm } from "@/features/workspaces/leave-form";
@@ -17,10 +18,13 @@ const DATE = new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeZone: "
 export default async function WorkspacePage() {
   const { session, workspace } = await requireWorkspace("/workspace");
   const isAdmin = workspace.role === "admin";
-  const [members, invites] = await Promise.all([
+  const [members, invites, partnerRows] = await Promise.all([
     listMembers(session.user.id, workspace.id),
     isAdmin ? listOpenInvites(session.user.id, workspace.id) : Promise.resolve([]),
+    isAdmin ? listPartners(session.user.id, workspace.id) : Promise.resolve([]),
   ]);
+  // Only what the role selects need (the role choices are "partner:<id>").
+  const partners = partnerRows.map((p) => ({ id: p.id, name: p.name }));
   const now = new Date();
 
   return (
@@ -40,7 +44,7 @@ export default async function WorkspacePage() {
                 {members.map((m) => {
                   const isMe = m.userId === session.user.id;
                   // Client forms get no email: it stays in this server-rendered list.
-                  const member = { userId: m.userId, name: m.name, role: m.role };
+                  const member = { userId: m.userId, name: m.name, role: m.role, partnerId: m.partnerId, partnerName: m.partnerName };
                   return (
                     <li key={m.userId} className="flex flex-wrap items-center justify-between gap-3 py-3 first:pt-0">
                       <div className="text-sm">
@@ -51,10 +55,10 @@ export default async function WorkspacePage() {
                         <div className="text-muted-foreground">{m.email}</div>
                       </div>
                       <div className="flex flex-wrap items-start gap-2">
-                        <Badge>{workspaceRoleLabel(m.role)}</Badge>
+                        <Badge>{roleChoiceLabel(m.role, m.partnerName)}</Badge>
                         {isAdmin && !isMe && (
                           <>
-                            <ChangeRoleForm workspaceId={workspace.id} member={member} />
+                            <ChangeRoleForm workspaceId={workspace.id} member={member} partners={partners} />
                             <RemoveMemberForm workspaceId={workspace.id} member={member} hasOpenInvites={invites.length > 0} />
                           </>
                         )}
@@ -74,7 +78,7 @@ export default async function WorkspacePage() {
                 <CardTitle id="invites-heading" className="text-base">Invite links</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <InviteForm workspaceId={workspace.id} />
+                <InviteForm workspaceId={workspace.id} partners={partners} />
                 {invites.length > 0 && (
                   <ul className="divide-y border-t">
                     {invites.map((invite) => {
@@ -84,7 +88,7 @@ export default async function WorkspacePage() {
                           <span className="text-muted-foreground">
                             Created {DATE.format(invite.createdAt)} ·{" "}
                             {expired ? "expired" : `expires ${DATE.format(invite.expiresAt)}`} ·{" "}
-                            {workspaceRoleLabel(invite.role)}
+                            {roleChoiceLabel(invite.role, invite.partnerName)}
                           </span>
                           <RevokeInviteForm workspaceId={workspace.id} inviteId={invite.id} created={DATE.format(invite.createdAt)} />
                         </li>

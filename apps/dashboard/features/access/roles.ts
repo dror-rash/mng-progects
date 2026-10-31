@@ -11,7 +11,7 @@ export function parseWorkspaceRole(value: unknown): WorkspaceRole | null {
   return WORKSPACE_ROLES.find((r) => r.role === value)?.role ?? null;
 }
 
-/** The roles an admin gives on the members page or an invite link. Partner needs a partner company (task 048). */
+/** The roles an admin gives without a partner company; a partner's user is a `RoleChoice` with one. */
 export const ASSIGNABLE_ROLES = WORKSPACE_ROLES.filter((r) => r.role !== "partner");
 
 export type AssignableRole = Exclude<WorkspaceRole, "partner">;
@@ -19,6 +19,33 @@ export type AssignableRole = Exclude<WorkspaceRole, "partner">;
 export function parseAssignableRole(value: unknown): AssignableRole | null {
   const role = parseWorkspaceRole(value);
   return role === "admin" || role === "auditor" ? role : null;
+}
+
+/**
+ * What an admin chooses for an invite link or a member (one select): Admin, Auditor, or a partner
+ * company's user. The server still checks that the partner is one of the workspace's.
+ */
+export type RoleChoice = { role: AssignableRole; partnerId: null } | { role: "partner"; partnerId: string };
+
+const PARTNER_PREFIX = "partner:";
+
+/** The select option value for a role: `admin`, `auditor` or `partner:<partner id>`. */
+export function roleChoiceValue(role: string, partnerId: string | null): string {
+  return role === "partner" && partnerId ? `${PARTNER_PREFIX}${partnerId}` : role;
+}
+
+export function parseRoleChoice(value: unknown): RoleChoice | null {
+  if (typeof value === "string" && value.startsWith(PARTNER_PREFIX)) {
+    const partnerId = value.slice(PARTNER_PREFIX.length);
+    return partnerId ? { role: "partner", partnerId } : null;
+  }
+  const role = parseAssignableRole(value);
+  return role ? { role, partnerId: null } : null;
+}
+
+/** A role as people read it: "Partner: Northwind" for a partner's user (just "Partner" without the name). */
+export function roleChoiceLabel(role: string, partnerName: string | null): string {
+  return role === "partner" && partnerName ? `Partner: ${partnerName}` : workspaceRoleLabel(role);
 }
 
 /** A stored role, with anything unknown read as the least privileged one (auditor: sees, never changes). */

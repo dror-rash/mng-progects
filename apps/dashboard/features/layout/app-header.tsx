@@ -5,12 +5,18 @@ import { ThemeToggle } from "@repo/ui/theme-toggle";
 import { cookies } from "next/headers";
 import Link from "next/link";
 
+import { canSeePartners } from "@/features/access/scope";
+import { requireWorkspace } from "@/features/workspaces/require-workspace";
+
 const NAV = [
   { href: "/", label: "Overview" },
   { href: "/projects", label: "All projects" },
   { href: "/customers", label: "Customers" },
   { href: "/my-tasks", label: "My tasks" },
 ];
+
+/** Shown to admins and auditors of the current workspace only. */
+const PARTNERS = { href: "/partners", label: "Partners" };
 
 /**
  * Zone header. Links inside the zone use next/link; "Home" is the shell, so it's a plain <a>.
@@ -28,6 +34,9 @@ export async function AppHeader({
   otherWorkspace?: boolean;
 }) {
   const theme = parseTheme((await cookies()).get(THEME_COOKIE)?.value);
+  // The page has looked up the current workspace already; the session and memberships are cached per request.
+  const { workspace } = await requireWorkspace("/");
+  const nav = canSeePartners(workspace.role) ? [...NAV.slice(0, 3), PARTNERS, ...NAV.slice(3)] : NAV;
 
   return (
     <header className="border-b bg-card">
@@ -39,7 +48,7 @@ export async function AppHeader({
           <span className="sr-only">Dashboard home</span>
           <span aria-hidden="true">W</span>
         </Link>
-        <div className="flex min-w-0 flex-1 flex-col lg:max-w-48 lg:flex-none">
+        <div className="flex min-w-0 flex-1 flex-col lg:max-w-48 lg:flex-initial">
           <Link
             href="/workspaces"
             className="truncate text-sm font-semibold hover:underline"
@@ -54,7 +63,7 @@ export async function AppHeader({
           aria-label="Dashboard"
           className="order-last -ml-3 flex w-full flex-wrap items-center gap-1 lg:order-none lg:ml-0 lg:w-auto lg:flex-nowrap"
         >
-          {NAV.map((item) => (
+          {nav.map((item) => (
             <Button key={item.href} asChild variant="ghost" size="sm">
               <Link href={item.href}>{item.label}</Link>
             </Button>

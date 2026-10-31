@@ -12,3 +12,8 @@ export function canChange(role: WorkspaceRole): boolean {
 export function canChangeCustomers(role: WorkspaceRole): boolean {
   return role === "admin";
 }
+
+/** Whether someone with `role` sees the partner companies pages: admins and auditors (admins change them). */
+export function canSeePartners(role: WorkspaceRole): boolean {
+  return role !== "partner";
+}

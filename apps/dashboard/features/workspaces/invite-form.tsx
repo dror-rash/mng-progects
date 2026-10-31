@@ -7,15 +7,15 @@ import { Input } from "@repo/ui/input";
 import { NativeSelect } from "@repo/ui/native-select";
 import { useActionState } from "react";
 
-import { ASSIGNABLE_ROLES, workspaceRoleLabel } from "@/features/access/roles";
+import { ASSIGNABLE_ROLES, roleChoiceLabel, roleChoiceValue } from "@/features/access/roles";
 
 import { createInviteAction, type InviteState } from "./actions";
 
 /**
- * Creates an invite link for a role and shows it once (only its hash is stored). Auditor is chosen to
- * start with: the least a link can give (ADR-0006).
+ * Creates an invite link for a role, or for a user of one of `partners`, and shows it once (only its hash
+ * is stored). Auditor is chosen to start with: the least a link can give (ADR-0006).
  */
-export function InviteForm({ workspaceId }: { workspaceId: string }) {
+export function InviteForm({ workspaceId, partners }: { workspaceId: string; partners: { id: string; name: string }[] }) {
   const [state, formAction, pending] = useActionState<InviteState, FormData>(createInviteAction, {});
   const role = state.role ?? state.values?.role ?? "auditor";
 
@@ -39,6 +39,11 @@ export function InviteForm({ workspaceId }: { workspaceId: string }) {
                 {r.label}
               </option>
             ))}
+            {partners.map((p) => (
+              <option key={p.id} value={roleChoiceValue("partner", p.id)}>
+                {roleChoiceLabel("partner", p.name)}
+              </option>
+            ))}
           </NativeSelect>
         </div>
         <Button type="submit" size="sm" disabled={pending}>Create invite link</Button>
@@ -52,7 +57,7 @@ export function InviteForm({ workspaceId }: { workspaceId: string }) {
             <CopyButton value={state.link} label="Copy invite link" />
           </div>
           <p id="invite-link-hint" className="text-xs text-muted-foreground">
-            Copy it now: it won&apos;t be shown again. Anyone with the link can join as {workspaceRoleLabel(state.role ?? "auditor")} for 7 days.
+            Copy it now: it won&apos;t be shown again. Anyone with the link can join as {state.roleLabel ?? "Auditor"} for 7 days.
           </p>
         </div>
       )}

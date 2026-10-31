@@ -8,7 +8,7 @@ import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { isAdmin } from "@/features/access/require-change";
-import { type AssignableRole, keepsAnAdmin, parseAssignableRole } from "@/features/access/roles";
+import { keepsAnAdmin, parseRoleChoice, type RoleChoice, roleChoiceLabel, roleChoiceValue } from "@/features/access/roles";
 import { type FormState, invalid } from "@/features/forms/form-state";
 
 import { WORKSPACE_COOKIE } from "./current-workspace";
@@ -54,6 +54,17 @@ function memberOf(workspaceId: string, userId: string) {
   return and(eq(schema.workspaceMember.workspaceId, workspaceId), eq(schema.workspaceMember.userId, userId));
 }
 
+/** The workspace's partner (not deleted) named in `partnerId`, or null. */
+async function workspacePartner(tx: Db, workspaceId: string, partnerId: string) {
+  const [partner] = await tx
+    .select({ id: schema.partner.id, name: schema.partner.name })
+    .from(schema.partner)
+    .where(
+      and(eq(schema.partner.id, partnerId), eq(schema.partner.workspaceId, workspaceId), isNull(schema.partner.deletedAt)),
+    );
+  return partner ?? null;
+}
+
 /** Revokes every open invite link of a workspace (ADR-0005: optional when removing a member). */
 async function revokeOpenInvites(tx: Db, workspaceId: string) {
   await tx
@@ -63,15 +74,17 @@ async function revokeOpenInvites(tx: Db, workspaceId: string) {
 }
 
 /**
- * Gives `userId` a new role, or removes them (`role: null`) and clears their assignments, keeping at
- * least one admin (ADR-0005). The workspace row is locked first, so two admins changing each other at
- * once can't both pass the check; `adminId` (who is acting) must still be an admin under that lock.
- * `revokeInvites` also revokes the workspace's open invite links when someone is removed. Runs as
- * `adminId`, or as the member themself when they leave.
+ * Gives `userId` a new role (with its partner company for a partner's user), or removes them
+ * (`role: null`) and clears their assignments, keeping at least one admin (ADR-0005). The workspace row is
+ * locked first, so two admins changing each other at once can't both pass the check; `adminId` (who is
+ * acting) must still be an admin under that lock. A changed role or partner clears, in the same
+ * transaction, the assignments on tasks they can no longer see (design rule 8d). `revokeInvites` also
+ * revokes the workspace's open invite links when someone is removed. Runs as `adminId`, or as the member
+ * themself when they leave.
  */
 async function changeMembership(
   workspaceId: string,
-  change: { userId: string; role: AssignableRole | null },
+  change: { userId: string; role: null } | ({ userId: string } & RoleChoice),
   adminId?: string,
   { revokeInvites = false }: { revokeInvites?: boolean } = {},
 ): Promise<MembershipResult> {
@@ -80,24 +93,37 @@ async function changeMembership(
     // Row-level security returns (and locks) the row only for admins; a non-admin leaving can't remove the last admin anyway.
     await tx.select({ id: schema.workspace.id }).from(schema.workspace).where(eq(schema.workspace.id, workspaceId)).for("update");
     const members = await tx
-      .select({ userId: schema.workspaceMember.userId, role: schema.workspaceMember.role })
+      .select({
+        userId: schema.workspaceMember.userId,
+        role: schema.workspaceMember.role,
+        partnerId: schema.workspaceMember.partnerId,
+      })
       .from(schema.workspaceMember)
       .where(eq(schema.workspaceMember.workspaceId, workspaceId));
     if (adminId && members.find((m) => m.userId === adminId)?.role !== "admin") {
       return "not-an-admin";
     }
-    if (!members.some((m) => m.userId === change.userId)) {
+    const current = members.find((m) => m.userId === change.userId);
+    if (!current) {
       return "not-a-member";
     }
     if (!keepsAnAdmin(members, change)) {
       return "last-admin";
     }
     if (change.role) {
-      // Admins and auditors belong to no partner company (a check constraint ties partner_id to the role).
+      if (change.partnerId && !(await workspacePartner(tx, workspaceId, change.partnerId))) {
+        return "unknown-partner";
+      }
+      if (current.role === change.role && current.partnerId === change.partnerId) {
+        return "done";
+      }
+      // A check constraint ties partner_id to the role: set for a partner's user, null otherwise.
       await tx
         .update(schema.workspaceMember)
-        .set({ role: change.role, partnerId: null })
+        .set({ role: change.role, partnerId: change.partnerId })
         .where(memberOf(workspaceId, change.userId));
+      // Only admins change roles (adminId is set), so this runs as an admin of the workspace.
+      await tx.execute(sql`select clear_unseen_assignments(${workspaceId}, ${change.userId})`);
     } else {
       await clearAssignments(tx, workspaceId, change.userId);
       await tx.delete(schema.workspaceMember).where(memberOf(workspaceId, change.userId));
@@ -119,35 +145,47 @@ async function publicOrigin() {
   });
 }
 
-/** A created link comes back once, with the role it gives. */
-export type InviteState = FormState & { link?: string; role?: AssignableRole };
+/** A created link comes back once, with the role choice it gives (its select value) and that role's label. */
+export type InviteState = FormState & { link?: string; role?: string; roleLabel?: string };
 
-/** Creates a link for the chosen role and returns it once; only its hash is stored. */
+/** Creates a link for the chosen role (or partner company) and returns it once; only its hash is stored. */
 export async function createInviteAction(_prev: InviteState, formData: FormData): Promise<InviteState> {
   const context = await adminContext(formData);
   if (!context) {
     return { error: ADMINS_ONLY };
   }
   const { session, workspace } = context;
-  const role = parseAssignableRole(formData.get("role"));
-  if (!role) {
+  const choice = parseRoleChoice(formData.get("role"));
+  if (!choice) {
     return invalid("Choose a role", formData, "role");
   }
   const token = newInviteToken();
-  await withAccess(session.user.id, () =>
-    getDb()
-      .insert(schema.workspaceInvite)
-      .values({
-        id: crypto.randomUUID(),
-        workspaceId: workspace.id,
-        tokenHash: hashInviteToken(token),
-        createdBy: session.user.id,
-        expiresAt: inviteExpiresAt(new Date()),
-        role,
-      }),
-  );
+  const roleLabel = await withAccess(session.user.id, async () => {
+    const tx = getDb();
+    const partner = choice.partnerId ? await workspacePartner(tx, workspace.id, choice.partnerId) : null;
+    if (choice.partnerId && !partner) {
+      return null;
+    }
+    await tx.insert(schema.workspaceInvite).values({
+      id: crypto.randomUUID(),
+      workspaceId: workspace.id,
+      tokenHash: hashInviteToken(token),
+      createdBy: session.user.id,
+      expiresAt: inviteExpiresAt(new Date()),
+      role: choice.role,
+      partnerId: choice.partnerId,
+    });
+    return roleChoiceLabel(choice.role, partner?.name ?? null);
+  });
+  if (!roleLabel) {
+    return invalid("Choose a partner of this workspace", formData, "role");
+  }
   revalidatePath("/workspace");
-  return { link: new URL(`/dashboard/invite/${token}`, await publicOrigin()).toString(), role };
+  return {
+    link: new URL(`/dashboard/invite/${token}`, await publicOrigin()).toString(),
+    role: roleChoiceValue(choice.role, choice.partnerId),
+    roleLabel,
+  };
 }
 
 export async function revokeInviteAction(_prev: FormState, formData: FormData): Promise<FormState> {
@@ -180,12 +218,12 @@ export async function changeRoleAction(_prev: FormState, formData: FormData): Pr
   if (!context) {
     return { error: ADMINS_ONLY };
   }
-  const role = parseAssignableRole(formData.get("role"));
-  if (!role) {
+  const choice = parseRoleChoice(formData.get("role"));
+  if (!choice) {
     return { error: "Unknown role" };
   }
   const userId = String(formData.get("userId") ?? "");
-  const error = membershipError(await changeMembership(context.workspace.id, { userId, role }, context.session.user.id));
+  const error = membershipError(await changeMembership(context.workspace.id, { userId, ...choice }, context.session.user.id));
   if (error) {
     return { error };
   }
@@ -221,6 +259,7 @@ export async function leaveWorkspaceAction(_prev: FormState, formData: FormData)
 }
 
 const INVALID_INVITE = "This invite link is invalid or has expired";
+const ALREADY_A_MEMBER = "You're already a member of this workspace";
 
 /**
  * Joins the invite's workspace and switches to it. The token comes from the invite cookie (not the form),
@@ -248,6 +287,10 @@ export async function joinWorkspaceAction(_prev: FormState, _formData: FormData)
   );
   if (rows[0]?.result === "invalid") {
     return { error: INVALID_INVITE };
+  }
+  // Nothing changes for someone already in the workspace: a link never changes a role (design rule 8d).
+  if (rows[0]?.result === "member") {
+    return { error: ALREADY_A_MEMBER };
   }
   clearInviteToken(jar);
   await useWorkspace(invite.workspaceId);

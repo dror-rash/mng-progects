@@ -27,3 +27,11 @@ export function canSeeCustomerName(userId: string, orgId: AnyColumn) {
 export function canChangeCustomer(userId: string, orgId: AnyColumn) {
   return sql<boolean>`can_change_customer(${userId}, ${orgId})`;
 }
+
+/**
+ * `userId` has one of `roles` in the workspace in `workspaceId` (`has_workspace_role`; a deleted
+ * partner's users have none). Partner companies are seen by admins and auditors and changed by admins.
+ */
+export function hasWorkspaceRole(userId: string, workspaceId: AnyColumn, roles: ("admin" | "auditor")[]) {
+  return sql<boolean>`has_workspace_role(${userId}, ${workspaceId}, ${`{${roles.join(",")}}`}::text[])`;
+}
