@@ -1,16 +1,16 @@
 # Task 041: Time zones (timestamptz and the viewer's time zone)
 
-- **Status:** blocked (needs ADR-0006 accepted)
+- **Status:** blocked (needs ADR-0007 accepted)
 - **Milestone:** unscheduled (moved out of M9 when it closed)
 - **Zone / package:** `packages/db`, `apps/dashboard`, `e2e`
 - **Feature file:** `docs/features/task-due-dates.feature`, `docs/features/customer-notes.feature`, `docs/features/dashboard-home.feature`
-- **ADR:** `docs/adr/0006-time-zones.md` (to write)
+- **ADR:** `docs/adr/0007-time-zones.md` (to write)
 
 ## Why
 Timestamps are stored without a time zone and shown in the server's. "Today" for due dates is UTC. Someone in Tel Aviv or Los Angeles sees note times, "started" dates and overdue state shifted by hours.
 
 ## Scope
-- ADR-0006: move every `timestamp` column to `timestamptz`, and decide how the viewer's time zone is known.
+- ADR-0007: move every `timestamp` column to `timestamptz`, and decide how the viewer's time zone is known.
 - Migration to `timestamptz`, interpreting existing values as UTC. Split it into expand and contract steps if the deploy needs that (see task 026's rollout note).
 - Note times, "started" dates and invite expiry are shown in the viewer's time zone.
 - "Today", "overdue" and "due this week" use the viewer's calendar day. Due dates stay `date`.
@@ -35,6 +35,6 @@ Write the ADR first, in its own `docs:` PR. Then the schema change and migration
 - Unit: `todayIn`, due state across a midnight boundary.
 
 ## Progress log
-- 2026-10-30 – Drafted from the task 010, 015 and 019 parking lots. Blocked on ADR-0006.
+- 2026-10-30 – Drafted from the task 010, 015 and 019 parking lots. Blocked on ADR-0007.
 
 ## Parking lot
