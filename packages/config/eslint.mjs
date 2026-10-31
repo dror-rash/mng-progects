@@ -1,6 +1,23 @@
 import js from "@eslint/js";
 import tseslint from "typescript-eslint";
 
+const zones = {
+  group: ["@repo/shell", "@repo/shell/*", "@repo/example-zone", "@repo/example-zone/*"],
+  message: "Zones must not import other zones. Use packages/*.",
+};
+const maintenance = {
+  group: ["@repo/db/maintenance"],
+  message: "App code uses getDb() inside withAccess. The maintenance connection bypasses row-level security: seeds, e2e fixtures and DB tests only.",
+};
+
+/**
+ * The `no-restricted-imports` rule. Seeds and fixtures (dashboard `scripts/**`, `e2e`) pass
+ * `{ allowMaintenance: true }` in their own eslint.config.mjs.
+ */
+export function restrictedImports({ allowMaintenance = false } = {}) {
+  return { "no-restricted-imports": ["error", { patterns: allowMaintenance ? [zones] : [zones, maintenance] }] };
+}
+
 /** Shared flat config. Apps/packages: `export { default } from "@repo/config/eslint.mjs"` */
 export default tseslint.config(
   { ignores: [
@@ -23,12 +40,8 @@ export default tseslint.config(
   },
   {
     // Zones must not import each other. Share code through packages/*.
+    // App code must not use the maintenance connection, which bypasses row-level security (ADR-0006).
     files: ["apps/**/*.{ts,tsx}", "**/*.{ts,tsx}"],
-    rules: {
-      "no-restricted-imports": [
-        "error",
-        { patterns: [{ group: ["@repo/shell", "@repo/shell/*", "@repo/example-zone", "@repo/example-zone/*"], message: "Zones must not import other zones. Use packages/*." }] },
-      ],
-    },
+    rules: restrictedImports(),
   },
 );

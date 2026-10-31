@@ -105,6 +105,10 @@ describe("row-level security", () => {
     expect(rows.map((r) => r.name)).toEqual(["Shared"]);
   });
 
+  it("refuses writes through customer_name", async () => {
+    expect(await writeAs(ids.pa, sql`update customer_name set name = 'x' where id = ${ids.shared}`)).toBe("refused");
+  });
+
   it("refuses a partner's update of another partner's project", async () => {
     expect(await writeAs(ids.pa, sql`update project set name = 'x' where id = ${ids.pb1}`)).toBe(0);
 

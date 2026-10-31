@@ -29,3 +29,15 @@ export async function requireSession(path: string) {
   });
   redirect(new URL(loginUrl(`${BASE_PATH}${path === "/" ? "" : path}`), origin).toString());
 }
+
+/**
+ * For server actions: the session, or throws. Read it before opening `withAccess` (`@repo/db`), so an
+ * action never holds a transaction's connection while it waits for another one.
+ */
+export async function requireActionSession() {
+  const session = await currentSession();
+  if (!session) {
+    throw new Error("Unauthorized");
+  }
+  return session;
+}

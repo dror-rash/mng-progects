@@ -42,8 +42,8 @@ export default async function CustomerPage({ params }: { params: Promise<{ custo
   // Starting a project for this customer: admins, like changing it (partners start their own with task 049).
   const canStartProjects = customer.canChange;
   const [contacts, notes, projects, projectCounts, openTasks] = await Promise.all([
-    listContacts(customer.id),
-    listNotes(customer.id),
+    listContacts(session.user.id, customer.id),
+    listNotes(session.user.id, customer.id),
     listCustomerProjects(session.user.id, customer.workspaceId, customer.id),
     countTasksByProjectAndStatus(session.user.id, customer.workspaceId),
     listCustomerOpenTasks(session.user.id, customer.workspaceId, customer.id),

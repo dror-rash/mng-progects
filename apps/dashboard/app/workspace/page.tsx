@@ -18,8 +18,8 @@ export default async function WorkspacePage() {
   const { session, workspace } = await requireWorkspace("/workspace");
   const isAdmin = workspace.role === "admin";
   const [members, invites] = await Promise.all([
-    listMembers(workspace.id),
-    isAdmin ? listOpenInvites(workspace.id) : Promise.resolve([]),
+    listMembers(session.user.id, workspace.id),
+    isAdmin ? listOpenInvites(session.user.id, workspace.id) : Promise.resolve([]),
   ]);
   const now = new Date();
 

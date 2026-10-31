@@ -12,6 +12,7 @@ import {
   foreignKey,
   index,
   pgTable,
+  pgView,
   primaryKey,
   text,
   timestamp,
@@ -327,3 +328,13 @@ export const organizationNote = pgTable(
     index("organization_note_author_idx").on(table.authorId),
   ],
 );
+
+/**
+ * Customer names a user may see (`can_see_customer_name`, ADR-0006): partners read the names of their
+ * assigned customers here, never `organization` itself. Created in migration 0020 (task 047).
+ */
+export const customerName = pgView("customer_name", {
+  id: text("id").notNull(),
+  workspaceId: text("workspace_id").notNull(),
+  name: text("name").notNull(),
+}).existing();

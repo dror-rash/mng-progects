@@ -1,6 +1,6 @@
 "use server";
 
-import { and, eq, getDb, schema } from "@repo/db";
+import { and, type Db, eq, getDb, schema, withAccess } from "@repo/db";
 import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
@@ -15,13 +15,11 @@ import { confirmsWorkspaceName, parseWorkspaceName } from "./workspace-name";
 const ADMINS_ONLY = "Only admins can manage this workspace";
 const WRONG_NAME = "Type the workspace name exactly to delete it";
 
-type Tx = Parameters<Parameters<ReturnType<typeof getDb>["transaction"]>[0]>[0];
-
 /**
  * Locks the workspace row (as `changeMembership` does) and returns its name if `userId` is still an
  * admin under that lock, so an admin demoted in another request can't rename or delete it.
  */
-async function lockAsAdmin(tx: Tx, workspaceId: string, userId: string): Promise<{ name: string } | null> {
+async function lockAsAdmin(tx: Db, workspaceId: string, userId: string): Promise<{ name: string } | null> {
   const [workspace] = await tx
     .select({ name: schema.workspace.name })
     .from(schema.workspace)
@@ -44,7 +42,8 @@ export async function renameWorkspaceAction(_prev: FormState, formData: FormData
   if (!name.ok) {
     return invalid(name.error, formData, "name");
   }
-  const renamed = await getDb().transaction(async (tx) => {
+  const renamed = await withAccess(session.user.id, async () => {
+    const tx = getDb();
     if (!(await lockAsAdmin(tx, workspace.id, session.user.id))) return false;
     await tx.update(schema.workspace).set({ name: name.value }).where(eq(schema.workspace.id, workspace.id));
     return true;
@@ -66,7 +65,8 @@ export async function deleteWorkspaceAction(_prev: FormState, formData: FormData
   if (!(await isAdmin(session.user.id, workspace.id))) {
     return { error: ADMINS_ONLY };
   }
-  const result = await getDb().transaction(async (tx) => {
+  const result = await withAccess(session.user.id, async () => {
+    const tx = getDb();
     const locked = await lockAsAdmin(tx, workspace.id, session.user.id);
     if (!locked) return "not-an-admin";
     // Checked against the name under the lock, not the one the page showed (it may have been renamed).

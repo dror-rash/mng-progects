@@ -1,4 +1,4 @@
-import { and, asc, eq, getDb, getTableColumns, isNull, schema, sql } from "@repo/db";
+import { and, asc, eq, getDb, getTableColumns, isNull, schema, sql, withAccess } from "@repo/db";
 
 import { canChangeCustomer, canSeeCustomer } from "@/features/access/predicates";
 
@@ -10,17 +10,19 @@ import { distinctTags } from "./tag-list";
  * see it (admins and auditors, ADR-0006).
  */
 export async function getOrganizationForUser(userId: string, id: string, kind: OrganizationKind) {
-  const [organization] = await getDb()
-    .select({ ...getTableColumns(schema.organization), canChange: canChangeCustomer(userId, schema.organization.id) })
-    .from(schema.organization)
-    .where(
-      and(
-        eq(schema.organization.id, id),
-        eq(schema.organization.kind, kind),
-        isNull(schema.organization.deletedAt),
-        canSeeCustomer(userId, schema.organization.id),
+  const [organization] = await withAccess(userId, () =>
+    getDb()
+      .select({ ...getTableColumns(schema.organization), canChange: canChangeCustomer(userId, schema.organization.id) })
+      .from(schema.organization)
+      .where(
+        and(
+          eq(schema.organization.id, id),
+          eq(schema.organization.kind, kind),
+          isNull(schema.organization.deletedAt),
+          canSeeCustomer(userId, schema.organization.id),
+        ),
       ),
-    );
+  );
   return organization ?? null;
 }
 
@@ -41,43 +43,47 @@ export async function listOrganizations(
   kind: OrganizationKind,
   filter: { status?: OrganizationStatus; tag?: string } = {},
 ) {
-  return getDb()
-    .select({ ...getTableColumns(schema.organization), primaryContactName: schema.organizationContact.name })
-    .from(schema.organization)
-    .leftJoin(
-      schema.organizationContact,
-      and(
-        eq(schema.organizationContact.id, schema.organization.primaryContactId),
-        isNull(schema.organizationContact.deletedAt),
-      ),
-    )
-    .where(
-      and(
-        visibleOrganizations(userId, workspaceId, kind),
-        filter.status ? eq(schema.organization.status, filter.status) : undefined,
-        // Tags match without regard to case, the same way the tag list merges them.
-        filter.tag
-          ? sql`exists (select 1 from unnest(${schema.organization.tags}) as t where lower(t) = lower(${filter.tag}))`
-          : undefined,
-      ),
-    )
-    .orderBy(asc(schema.organization.name));
+  return withAccess(userId, async () =>
+    getDb()
+      .select({ ...getTableColumns(schema.organization), primaryContactName: schema.organizationContact.name })
+      .from(schema.organization)
+      .leftJoin(
+        schema.organizationContact,
+        and(
+          eq(schema.organizationContact.id, schema.organization.primaryContactId),
+          isNull(schema.organizationContact.deletedAt),
+        ),
+      )
+      .where(
+        and(
+          visibleOrganizations(userId, workspaceId, kind),
+          filter.status ? eq(schema.organization.status, filter.status) : undefined,
+          // Tags match without regard to case, the same way the tag list merges them.
+          filter.tag
+            ? sql`exists (select 1 from unnest(${schema.organization.tags}) as t where lower(t) = lower(${filter.tag}))`
+            : undefined,
+        ),
+      )
+      .orderBy(asc(schema.organization.name)),
+  );
 }
 
 /** Every tag used by the organizations of `kind` that `userId` can see; see `distinctTags` (oldest spelling wins). */
 export async function listOrganizationTags(userId: string, workspaceId: string, kind: OrganizationKind) {
-  const rows = await getDb()
-    .select({ tags: schema.organization.tags })
-    .from(schema.organization)
-    .where(visibleOrganizations(userId, workspaceId, kind))
-    .orderBy(asc(schema.organization.createdAt));
+  const rows = await withAccess(userId, () =>
+    getDb()
+      .select({ tags: schema.organization.tags })
+      .from(schema.organization)
+      .where(visibleOrganizations(userId, workspaceId, kind))
+      .orderBy(asc(schema.organization.createdAt)),
+  );
   return distinctTags(rows.map((r) => r.tags));
 }
 
 /**
  * Whether a project or task in `workspaceId` may be linked to `organizationId`: "no customer"
  * (null/undefined) is always allowed; otherwise it must be a customer in the same workspace. The only
- * guard against linking another workspace's customer by tampering with the form.
+ * guard against linking another workspace's customer by tampering with the form. Inside an action's `withAccess`.
  */
 export async function customerInWorkspace(workspaceId: string, organizationId: string | null | undefined) {
   if (!organizationId) return true;
