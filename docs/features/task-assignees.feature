@@ -9,7 +9,7 @@ Feature: Task assignees and My tasks
     And I have a project named "Website Redesign"
 
   Scenario: Assign a task to a teammate
-    Given I create an invite link
+    Given I create an invite link for the role "Admin"
     And a teammate joins with the invite link
     And I am on the "Website Redesign" project page
     And the project has a task "Write copy"
@@ -33,7 +33,7 @@ Feature: Task assignees and My tasks
     Then the "My tasks" section does not show "Write copy"
 
   Scenario: Removing a member clears their assignments
-    Given I create an invite link
+    Given I create an invite link for the role "Admin"
     And a teammate joins with the invite link
     And I am on the "Website Redesign" project page
     And the project has a task "Write copy"
@@ -53,7 +53,7 @@ Feature: Task assignees and My tasks
 
   @task:031
   Scenario: A former member shows as unassigned even if an assignment survives
-    Given I create an invite link
+    Given I create an invite link for the role "Admin"
     And a teammate joins with the invite link
     And I am on the "Website Redesign" project page
     And the project has a task "Write copy"
