@@ -137,6 +137,11 @@ When("I open the edit page of {string}", async ({ page, state }, project: string
 });
 
 // The raw page, inline flight data included: props sent to client components must not carry the id either.
+// After a client navigation the DOM has no inline flight data, so the document is also fetched afresh.
 Then("the page source doesn't contain the id of {string}", async ({ page, state }, name: string) => {
-  expect(await page.content()).not.toContain(idOf(state, name));
+  const id = idOf(state, name);
+  expect(await page.content()).not.toContain(id);
+  const response = await page.request.get(page.url());
+  expect(response.ok()).toBeTruthy();
+  expect(await response.text()).not.toContain(id);
 });
