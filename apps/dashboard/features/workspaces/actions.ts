@@ -2,7 +2,7 @@
 
 import { resolvePublicOrigin } from "@repo/auth/redirect";
 import { getSession } from "@repo/auth/server";
-import { and, type Db, eq, getDb, inArray, isNull, schema, sql, withAccess } from "@repo/db";
+import { and, type Db, eq, getDb, isNull, schema, sql, withAccess } from "@repo/db";
 import { revalidatePath } from "next/cache";
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
@@ -41,13 +41,13 @@ async function adminContext(formData: FormData) {
   return (await isAdmin(context.session.user.id, context.workspace.id)) ? context : null;
 }
 
-/** Leaving a workspace drops your assignments in it (ADR-0005). Run while the leaver is still a member. */
+/**
+ * Leaving a workspace drops your assignments in it (ADR-0005), all of them: the database function runs as
+ * the owner, since the leaver (an auditor, say) may not be allowed to change those tasks. Run it while
+ * they are still a member, as themself or an admin.
+ */
 async function clearAssignments(tx: Db, workspaceId: string, userId: string) {
-  const projects = tx.select({ id: schema.project.id }).from(schema.project).where(eq(schema.project.workspaceId, workspaceId));
-  await tx
-    .update(schema.task)
-    .set({ assigneeId: null })
-    .where(and(eq(schema.task.assigneeId, userId), inArray(schema.task.projectId, projects)));
+  await tx.execute(sql`select clear_assignments(${workspaceId}, ${userId})`);
 }
 
 function memberOf(workspaceId: string, userId: string) {
@@ -99,7 +99,6 @@ async function changeMembership(
         .set({ role: change.role, partnerId: null })
         .where(memberOf(workspaceId, change.userId));
     } else {
-      // Before the membership goes: someone leaving can change tasks only while they are a member.
       await clearAssignments(tx, workspaceId, change.userId);
       await tx.delete(schema.workspaceMember).where(memberOf(workspaceId, change.userId));
       if (revokeInvites) {

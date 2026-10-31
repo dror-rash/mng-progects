@@ -15,6 +15,8 @@ const ids = {
   auditor: `${run}-auditor`,
   pa: `${run}-pa`,
   pb: `${run}-pb`,
+  leaver: `${run}-leaver`,
+  removed: `${run}-removed`,
   partnerA: `${run}-partner-a`,
   partnerB: `${run}-partner-b`,
   shared: `${run}-shared`,
@@ -23,7 +25,7 @@ const ids = {
   pb1: `${run}-pb1`,
   int: `${run}-int`,
 };
-const users = [ids.admin, ids.auditor, ids.pa, ids.pb];
+const users = [ids.admin, ids.auditor, ids.pa, ids.pb, ids.leaver, ids.removed];
 
 /** Runs `query` as `userId` and returns its rows. */
 async function as<T extends Record<string, unknown>>(userId: string, query: ReturnType<typeof sql>) {
@@ -39,6 +41,12 @@ async function writeAs(userId: string, query: ReturnType<typeof sql>): Promise<n
   } catch {
     return "refused";
   }
+}
+
+/** The tasks still assigned to `userId`, read past row-level security. */
+async function assignedTo(userId: string) {
+  const { rows } = await getMaintenanceDb().execute<{ id: string }>(sql`select id from task where assignee_id = ${userId}`);
+  return rows.map((r) => r.id);
 }
 
 /** The database's own message, under Drizzle's "Failed query" wrapper. */
@@ -60,6 +68,8 @@ beforeAll(async () => {
     { workspaceId: ids.workspace, userId: ids.auditor, role: "auditor" },
     { workspaceId: ids.workspace, userId: ids.pa, role: "partner", partnerId: ids.partnerA },
     { workspaceId: ids.workspace, userId: ids.pb, role: "partner", partnerId: ids.partnerB },
+    { workspaceId: ids.workspace, userId: ids.leaver, role: "auditor" },
+    { workspaceId: ids.workspace, userId: ids.removed, role: "partner", partnerId: ids.partnerB },
   ]);
   await db.insert(schema.organization).values([
     { id: ids.shared, workspaceId: ids.workspace, name: "Shared" },
@@ -78,6 +88,9 @@ beforeAll(async () => {
   await db.insert(schema.task).values([
     { id: `${run}-task-pa1`, projectId: ids.pa1, title: "A task" },
     { id: `${run}-task-int`, projectId: ids.int, title: "An internal task" },
+    { id: `${run}-task-leaver`, projectId: ids.int, title: "Assigned to the leaver", assigneeId: ids.leaver },
+    { id: `${run}-task-removed-int`, projectId: ids.int, title: "Assigned to the removed", assigneeId: ids.removed },
+    { id: `${run}-task-removed-pb1`, projectId: ids.pb1, title: "Also assigned to the removed", assigneeId: ids.removed },
   ]);
 });
 
@@ -200,6 +213,32 @@ describe("row-level security", () => {
     const [a, b] = await Promise.all([as<{ txid: string }>(ids.pa, txid), as<{ txid: string }>(ids.pa, txid)]);
 
     expect(a[0]?.txid).not.toBe(b[0]?.txid);
+  });
+
+  it("an auditor who leaves has their assignments cleared", async () => {
+    // As changeMembership does it: clear while still a member, then delete your own membership.
+    await withAccess(ids.leaver, async () => {
+      await getDb().execute(sql`select clear_assignments(${ids.workspace}, ${ids.leaver})`);
+      await getDb().execute(sql`delete from workspace_member where workspace_id = ${ids.workspace} and user_id = ${ids.leaver}`);
+    });
+
+    expect(await assignedTo(ids.leaver)).toEqual([]);
+  });
+
+  it("an admin removing a member clears all their assignments", async () => {
+    // The removed partner user's tasks include one on an internal project they could never change.
+    await withAccess(ids.admin, async () => {
+      await getDb().execute(sql`select clear_assignments(${ids.workspace}, ${ids.removed})`);
+      await getDb().execute(sql`delete from workspace_member where workspace_id = ${ids.workspace} and user_id = ${ids.removed}`);
+    });
+
+    expect(await assignedTo(ids.removed)).toEqual([]);
+  });
+
+  it("refuses to clear someone else's assignments unless you are an admin", async () => {
+    const clear = withAccess(ids.pa, () => getDb().execute(sql`select clear_assignments(${ids.workspace}, ${ids.pb})`));
+
+    await expect(clear.catch((error: unknown) => Promise.reject(new Error(cause(error))))).rejects.toThrow(/only yourself or an admin/);
   });
 
   it("handles 8 parallel scoped queries with a pool of 5", async () => {
