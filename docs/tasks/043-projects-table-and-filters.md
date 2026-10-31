@@ -1,6 +1,6 @@
 # Task 043: Projects table and filters
 
-- **Status:** todo
+- **Status:** in-review
 - **Milestone:** unscheduled (requested directly)
 - **Zone / package:** `packages/ui`, `apps/dashboard`, `e2e`
 - **Feature file:** `docs/features/project-list.feature`
@@ -27,11 +27,11 @@ All projects shows one tile per project. With dozens of projects (the demo seed 
 - An "assigned to me" filter (Parking lot).
 
 ## Acceptance criteria
-- [ ] All projects shows a table with each project's customer, status and progress.
-- [ ] Tiles shows the cards; the choice and the filters survive switching.
-- [ ] Filtering by customer, "No customer", status, overdue and search each shows only the matching projects.
-- [ ] Filters combine, and "Clear filters" shows everything again.
-- [ ] An unknown filter value in the URL is ignored (shows everything for that filter).
+- [x] All projects shows a table with each project's customer, status and progress.
+- [x] Tiles shows the cards; the choice and the filters survive switching.
+- [x] Filtering by customer, "No customer", status, overdue and search each shows only the matching projects.
+- [x] Filters combine, and "Clear filters" shows everything again.
+- [x] An unknown filter value in the URL is ignored (shows everything for that filter).
 
 ## Approach (brief)
 - `features/projects/project-status.ts`: `PROJECT_STATUSES` with parse/label helpers and `projectStatus(counts)` from the per-status task counts.
@@ -46,6 +46,11 @@ All projects shows one tile per project. With dozens of projects (the demo seed 
 
 ## Progress log
 - 2026-10-31 – Drafted from a direct request ("change the overview for projects to a table view (can be toggle between tiles and table) add filters for customer, status, and additional").
+
+- 2026-10-31 – Started. Feature change in its own commit: "A project card shows its customer" opens `?view=tiles`, since the table is the default.
+- 2026-10-31 – Red: the 7 `project-list.feature` scenarios fail; unit tests for `projectStatus` and the filters fail (no modules); `Table` component test fails (no `./table`).
+- 2026-10-31 – Green: `project-status.ts` (`PROJECT_STATUSES`; unknown task status counts as to do), `project-filters.ts` (`parseProjectFilters`, `filterParams`, `filterProjects`; a customer outside the workspace, an unknown status or view is ignored), `countOverdueTasksByProject`, `groupStatusCountsByProject` pulled out of `summarizeProjectStatusCounts`. `ProjectTable` (server) and `ProjectFilterForm` (client island, `next/form` GET form; selects and checkbox submit on change). `Table` in `@repo/ui` with test and stories (Default, Empty); Storybook builds.
+- 2026-10-31 – `pnpm lint`, `pnpm typecheck` clean; `pnpm test` 248 (dashboard 181, ui 49, auth 13, db 5); full e2e 153/153 (seed steps need `DATABASE_URL` exported in the shell).
 
 ## Parking lot
 - Sort by clicking a column header; pagination or infinite scroll.

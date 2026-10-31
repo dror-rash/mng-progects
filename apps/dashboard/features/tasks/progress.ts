@@ -20,13 +20,18 @@ export function summarizeStatusCounts(rows: StatusCount[]): TaskSummary {
   return { total, done, open: total - done, completionRate: total === 0 ? 0 : Math.round((done / total) * 100) };
 }
 
-/** One summary per project, from counts grouped by project and status. */
-export function summarizeProjectStatusCounts(rows: (StatusCount & { projectId: string })[]): Map<string, TaskSummary> {
+/** Counts grouped by project and status, as each project's list of status counts. */
+export function groupStatusCountsByProject(rows: (StatusCount & { projectId: string })[]): Map<string, StatusCount[]> {
   const grouped = new Map<string, StatusCount[]>();
   for (const row of rows) {
     const list = grouped.get(row.projectId);
     if (list) list.push(row);
     else grouped.set(row.projectId, [row]);
   }
-  return new Map([...grouped].map(([projectId, list]) => [projectId, summarizeStatusCounts(list)]));
+  return grouped;
+}
+
+/** One summary per project, from counts grouped by project and status. */
+export function summarizeProjectStatusCounts(rows: (StatusCount & { projectId: string })[]): Map<string, TaskSummary> {
+  return new Map([...groupStatusCountsByProject(rows)].map(([projectId, list]) => [projectId, summarizeStatusCounts(list)]));
 }

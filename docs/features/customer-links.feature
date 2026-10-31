@@ -57,7 +57,7 @@ Feature: Customer links
   @task:020
   Scenario: A project card shows its customer
     Given I have a project named "Website Redesign" for customer "Acme Ltd"
-    When I open "/dashboard/projects"
+    When I open "/dashboard/projects?view=tiles"
     Then the "Website Redesign" project card shows "For Acme Ltd"
 
   @task:020
