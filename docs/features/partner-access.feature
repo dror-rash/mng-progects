@@ -174,7 +174,7 @@ Feature: Partner access: a partner's user sees only their own partner's work
     And I open the address of the "GX App" project
     Then I see "Project not found", the same as for a made-up project address
 
-  @task:052 @wip
+  @task:052
   Scenario: A deleted partner's users can't be assigned
     When the admin deletes the partner "Globex"
     Then the admin's "Assignee" options for the task "Login" are "Unassigned, Admin"

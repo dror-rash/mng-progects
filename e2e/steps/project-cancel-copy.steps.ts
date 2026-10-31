@@ -143,5 +143,7 @@ Then("the page source doesn't contain the id of {string}", async ({ page, state 
   expect(await page.content()).not.toContain(id);
   const response = await page.request.get(page.url());
   expect(response.ok()).toBeTruthy();
+  // Not redirected (to the login page, say): the fetched document is the page itself.
+  expect(response.url()).toBe(page.url());
   expect(await response.text()).not.toContain(id);
 });

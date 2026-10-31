@@ -102,7 +102,7 @@ Feature: Task assignees and My tasks
     And I follow the "My tasks" link
     Then the "My tasks" section shows "Write copy"
 
-  @task:052 @wip
+  @task:052
   Scenario: Making an admin an auditor clears their assignments
     Given I create an invite link for the role "Admin"
     And a teammate joins with the invite link
@@ -113,7 +113,7 @@ Feature: Task assignees and My tasks
     And I am on the "Website Redesign" project page
     Then the task "Write copy" does not show "Teammate"
 
-  @task:052 @wip
+  @task:052
   Scenario: Saving a task keeps an assignee who isn't one of the choices
     Given I create an invite link for the role "Admin"
     And a teammate joins with the invite link
