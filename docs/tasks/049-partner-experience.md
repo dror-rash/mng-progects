@@ -1,6 +1,6 @@
 # Task 049: The partner experience, and the leak suite
 
-- **Status:** in-progress
+- **Status:** done
 - **Milestone:** M12 Partner Access
 - **Zone / package:** `apps/dashboard`, `packages/db`, `e2e`
 - **Feature file:** `docs/features/partner-access.feature`
@@ -25,20 +25,20 @@ Tasks 046–048 gave the database partners, customer assignments, access functio
 - Soft delete, the Deleted view, and the soft-deleted partner lockout (task 051).
 
 ## Acceptance criteria
-- [ ] Lists (table, tiles, filters) and Home show only my partner's projects; Home's totals count only them.
-- [ ] Another partner's project and task addresses show the same page as made-up ones.
-- [ ] Another partner's ids posted through the real forms (project id, customer id, assignee id, task customer id) get the same refusal as made-up ids, and nothing changes.
-- [ ] I see customer names as text, no Customers link, and customer pages are not found.
-- [ ] I create projects only for my assigned customers; an admin chooses the owner.
-- [ ] Taking a customer away hides its projects from the partner (admins still see them), and a save in flight is refused.
-- [ ] My tasks shows only tasks I can see.
-- [ ] Assignee options: the project's partner's users and admins; admins only for internal projects; never auditors.
-- [ ] An auditor sees both partners' projects.
+- [x] Lists (table, tiles, filters) and Home show only my partner's projects; Home's totals count only them.
+- [x] Another partner's project and task addresses show the same page as made-up ones.
+- [x] Another partner's ids posted through the real forms (project id, customer id, assignee id, task customer id) get the same refusal as made-up ids, and nothing changes.
+- [x] I see customer names as text, no Customers link, and customer pages are not found.
+- [x] I create projects only for my assigned customers; an admin chooses the owner.
+- [x] Taking a customer away hides its projects from the partner (admins still see them), and a save in flight is refused.
+- [x] My tasks shows only tasks I can see.
+- [x] Assignee options: the project's partner's users and admins; admins only for internal projects; never auditors.
+- [x] An auditor sees both partners' projects.
 
 ## Approach (brief)
-- `features/organizations/customer-names.ts`: `listCustomerNames(userId, workspaceId, partnerId?)` and `isCustomerChoice(...)` (the write check), both on `schema.customerName`, narrowed to a partner's customers with `partnerServesCustomer` (`features/access/predicates.ts`).
+- `features/organizations/customer-names.ts`: `listCustomerNames(userId, workspaceId, partnerId?)` and `isCustomerChoice(...)` (the write check; replaces `customerInWorkspace`), both on `schema.customerName`, narrowed to a partner's customers with `partnerServesCustomer` (`features/access/predicates.ts`).
 - `features/projects/project-owner.ts`: `parseProjectOwner` for the Owner select (`internal` or a partner id).
-- `features/workspaces/members.ts`: `listAssigneeOptions(userId, project)` and `isAssignable(userId, project)` share one SQL condition.
+- `features/workspaces/members.ts`: `listAssigneeOptions(userId, project)` (replaces `listMemberOptions`, whose only use was the assignee picker) and `isAssignable(assigneeId, project)` share one SQL condition.
 - `features/access/scope.ts`: `canSeeCustomers(role)` for the header and the customers pages.
 
 ## Test plan
@@ -48,5 +48,15 @@ Tasks 046–048 gave the database partners, customer assignments, access functio
 
 ## Progress log
 - 2026-10-31 – Drafted from the task 049 brief, the deferred review items (task customer names, `customer_name` everywhere, partner project creation, assignees, the move-project DB test) and the controller's rulings 7 (not found looks like a made-up id), 14 (background through the maintenance connection, checks through the UI) and 15 (tampered forms submit the real form).
+- 2026-10-31 – Red: 6 of 13 `@task:049` scenarios fail (no customer names or choices for partners, no partner project creation, no Owner select, auditors and other partners' users offered as assignees); the other 7 already hold through row-level security and stay as guards. DB: `customer_name` lists a deleted customer; the move-to-another-partner test already passes (`project_update`'s WITH CHECK requires the partner's own `partner_id`) and stays as a guard. Unit: `project-owner` (no module), `canSeeCustomers` (missing).
+- 2026-10-31 – Migration 0023 narrows `customer_name` to customers, not deleted (`CREATE OR REPLACE VIEW` keeps its grants). DB tests 21/21.
+- 2026-10-31 – Customer names and choices through `customer_name` (`customer-names.ts`, `partnerServesCustomer`), project owner on create (`project-owner.ts`; the Owner select only once the workspace has partners, and a form without it means internal), the customer and assignee checks on project and task writes, assignee options per project, text instead of customer links for partners, no Customers link, customers list not found for partners. Customer record pages stay not found through `getOrganizationForUser` (`can_see_customer`), per record rather than by the current workspace's role. `@task:049` 13/13.
+- 2026-10-31 – Feature changes: the lists scenario searches for one word (the shared search step matches `%20`, the form sends `+`); `task-assignees.feature` invites the teammate as an Admin, since an invite link makes an auditor by default and auditors are no longer assignable (rule 7).
+- 2026-10-31 – `pnpm lint`, `pnpm typecheck` clean; `pnpm test` 305 (dashboard 233, ui 51, auth 13, db 8); `pnpm --filter @repo/db test:db` 21/21; full e2e 186/186 at load average 14–20.
 
 ## Parking lot
+- An admin's new project form offers every customer whatever the chosen Owner; the server refuses a customer the partner doesn't serve ("Choose a customer assigned to this partner"). Narrowing the Customer choices to the chosen partner needs a client-side filter.
+- A partner with no assigned customers sees an empty Customer select and gets "Choose one of your customers" on create; a hint ("No customers are assigned to your partner yet") would be friendlier.
+- A task assigned to someone no longer assignable (e.g. an auditor assigned before task 049) shows their name, but the Assignee select can't show them, so the next save of that task clears the assignee.
+- The join page still says "You'll see its projects, tasks and customers" for every role (from task 048's parking lot).
+- The project and task forms have no Storybook stories, like the other dashboard feature forms.
