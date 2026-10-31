@@ -4,6 +4,7 @@ import { Card } from "@repo/ui/card";
 import { FilterChip } from "@repo/ui/filter-chip";
 import Link from "next/link";
 
+import { canChangeCustomers } from "@/features/access/scope";
 import { AppHeader } from "@/features/layout/app-header";
 import { firstParam, withParams } from "@/features/navigation/search-params";
 import { ORGANIZATION_STATUSES, organizationStatusLabel, parseOrganizationStatus } from "@/features/organizations/organization-kinds";
@@ -24,8 +25,8 @@ export default async function CustomersPage({ searchParams }: { searchParams: Se
   const { session, workspace } = await requireWorkspace(link({}));
 
   const [customers, tags] = await Promise.all([
-    listOrganizations(workspace.id, "customer", { status, tag }),
-    listOrganizationTags(workspace.id, "customer"),
+    listOrganizations(session.user.id, workspace.id, "customer", { status, tag }),
+    listOrganizationTags(session.user.id, workspace.id, "customer"),
   ]);
 
   return (
@@ -35,9 +36,11 @@ export default async function CustomersPage({ searchParams }: { searchParams: Se
       <main className="mx-auto w-full max-w-6xl space-y-6 p-6">
         <div className="flex items-center justify-between gap-4">
           <h1 className="text-2xl font-bold tracking-tight">Customers</h1>
-          <Button asChild>
-            <Link href="/customers/new">New customer</Link>
-          </Button>
+          {canChangeCustomers(workspace.role) && (
+            <Button asChild>
+              <Link href="/customers/new">New customer</Link>
+            </Button>
+          )}
         </div>
 
         <div className="space-y-3">
@@ -80,7 +83,7 @@ export default async function CustomersPage({ searchParams }: { searchParams: Se
                 <Link href="/customers" className="underline">Clear filters</Link>
               </>
             ) : (
-              "No customers yet. Add your first one with “New customer”."
+              canChangeCustomers(workspace.role) ? "No customers yet. Add your first one with “New customer”." : "No customers yet."
             )}
           </Card>
         ) : (

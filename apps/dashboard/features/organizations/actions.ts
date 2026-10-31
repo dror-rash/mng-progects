@@ -4,6 +4,7 @@ import { eq, getDb, schema } from "@repo/db";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
+import { requireAdmin } from "@/features/access/require-change";
 import { type FormState, invalid } from "@/features/forms/form-state";
 import { requireWorkspaceForAction } from "@/features/workspaces/require-workspace";
 
@@ -17,6 +18,7 @@ function revalidateCustomerNames() {
 
 export async function createCustomerAction(_prev: FormState, formData: FormData): Promise<FormState> {
   const { session, workspace } = await requireWorkspaceForAction(formData);
+  await requireAdmin(session.user.id, workspace.id);
   const input = parseOrganizationInput(formData);
   if (!input.ok) {
     return invalid(input.error, formData, input.field);

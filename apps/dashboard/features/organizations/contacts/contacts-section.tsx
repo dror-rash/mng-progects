@@ -10,14 +10,17 @@ import { MakePrimaryForm } from "./make-primary-form";
 
 type Contact = { id: string; name: string; role: string | null; phone: string | null; email: string | null };
 
+/** The customer's contacts; `readOnly` (auditors) lists them without the forms. */
 export function ContactsSection({
   customerId,
   contacts,
   primaryContactId,
+  readOnly = false,
 }: {
   customerId: string;
   contacts: Contact[];
   primaryContactId: string | null;
+  readOnly?: boolean;
 }) {
   return (
     <section aria-labelledby="contacts-heading">
@@ -39,30 +42,34 @@ export function ContactsSection({
                   phone={c.phone}
                   primary={c.id === primaryContactId}
                   actions={
-                    <>
-                      {c.id !== primaryContactId && <MakePrimaryForm customerId={customerId} contact={c} />}
-                      <Button asChild variant="ghost" size="sm">
-                        <Link href={`/customers/${customerId}/contacts/${c.id}/edit`}>
-                          Edit<span className="sr-only"> {c.name}</span>
-                        </Link>
-                      </Button>
-                      <form action={removeContactAction}>
-                        <input type="hidden" name="customerId" value={customerId} />
-                        <input type="hidden" name="contactId" value={c.id} />
-                        <Button type="submit" variant="ghost" size="sm">
-                          Remove<span className="sr-only"> {c.name}</span>
+                    readOnly ? undefined : (
+                      <>
+                        {c.id !== primaryContactId && <MakePrimaryForm customerId={customerId} contact={c} />}
+                        <Button asChild variant="ghost" size="sm">
+                          <Link href={`/customers/${customerId}/contacts/${c.id}/edit`}>
+                            Edit<span className="sr-only"> {c.name}</span>
+                          </Link>
                         </Button>
-                      </form>
-                    </>
+                        <form action={removeContactAction}>
+                          <input type="hidden" name="customerId" value={customerId} />
+                          <input type="hidden" name="contactId" value={c.id} />
+                          <Button type="submit" variant="ghost" size="sm">
+                            Remove<span className="sr-only"> {c.name}</span>
+                          </Button>
+                        </form>
+                      </>
+                    )
                   }
                 />
               ))}
             </ul>
           )}
-          <div className="space-y-2 border-t pt-4">
-            <h3 className="text-sm font-medium">Add a contact person</h3>
-            <ContactForm customerId={customerId} />
-          </div>
+          {!readOnly && (
+            <div className="space-y-2 border-t pt-4">
+              <h3 className="text-sm font-medium">Add a contact person</h3>
+              <ContactForm customerId={customerId} />
+            </div>
+          )}
         </CardContent>
       </Card>
     </section>

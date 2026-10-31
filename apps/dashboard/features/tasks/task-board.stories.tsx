@@ -55,3 +55,8 @@ export const MoveFailed: Story = {
     await expect(await canvas.findByRole("alert")).toHaveTextContent("Couldn't move Collect logos. It is back in To do.");
   },
 };
+
+/** For someone who can't change the project (an auditor): the cards without drag handles, Move to or Delete. */
+export const ReadOnly: Story = {
+  args: { readOnly: true },
+};

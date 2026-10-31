@@ -1,6 +1,14 @@
 import { describe, expect, it } from "vitest";
 
-import { keepsAnAdmin, parseWorkspaceRole, WORKSPACE_ROLES, workspaceRoleLabel } from "./roles";
+import {
+  ASSIGNABLE_ROLES,
+  keepsAnAdmin,
+  normalizeWorkspaceRole,
+  parseAssignableRole,
+  parseWorkspaceRole,
+  WORKSPACE_ROLES,
+  workspaceRoleLabel,
+} from "./roles";
 
 describe("WORKSPACE_ROLES", () => {
   it("has Admin, Auditor and Partner", () => {
@@ -17,6 +25,29 @@ describe("parseWorkspaceRole", () => {
 
   it("rejects the removed member role", () => {
     expect(parseWorkspaceRole("member")).toBeNull();
+  });
+});
+
+describe("parseAssignableRole", () => {
+  it("accepts the roles an admin gives on the members page or an invite link", () => {
+    expect(ASSIGNABLE_ROLES.map((r) => r.label)).toEqual(["Admin", "Auditor"]);
+    expect(parseAssignableRole("admin")).toBe("admin");
+    expect(parseAssignableRole("auditor")).toBe("auditor");
+  });
+
+  it("rejects partner, which needs a partner company, and unknown roles", () => {
+    expect(parseAssignableRole("partner")).toBeNull();
+    expect(parseAssignableRole("member")).toBeNull();
+  });
+});
+
+describe("normalizeWorkspaceRole", () => {
+  it("keeps a known stored role", () => {
+    expect(normalizeWorkspaceRole("admin")).toBe("admin");
+  });
+
+  it("treats an unknown stored role as the least privileged, auditor", () => {
+    expect(normalizeWorkspaceRole("member")).toBe("auditor");
   });
 });
 

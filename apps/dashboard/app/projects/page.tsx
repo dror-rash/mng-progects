@@ -3,6 +3,7 @@ import { Card } from "@repo/ui/card";
 import { FilterChip } from "@repo/ui/filter-chip";
 import Link from "next/link";
 
+import { canChange } from "@/features/access/scope";
 import { AppHeader } from "@/features/layout/app-header";
 import { firstParam, withParams } from "@/features/navigation/search-params";
 import { listOrganizations } from "@/features/organizations/queries";
@@ -32,10 +33,10 @@ export default async function AllProjectsPage({ searchParams }: { searchParams: 
   );
 
   const [projects, projectCounts, overdue, customers] = await Promise.all([
-    listProjects(workspace.id),
-    countTasksByProjectAndStatus(workspace.id),
-    countOverdueTasksByProject(workspace.id, todayUtc()),
-    listOrganizations(workspace.id, "customer"),
+    listProjects(session.user.id, workspace.id),
+    countTasksByProjectAndStatus(session.user.id, workspace.id),
+    countOverdueTasksByProject(session.user.id, workspace.id, todayUtc()),
+    listOrganizations(session.user.id, workspace.id, "customer"),
   ]);
   const filters = parseProjectFilters(params, customers.map((c) => c.id));
   const sort = parseProjectSort(params);
@@ -60,14 +61,16 @@ export default async function AllProjectsPage({ searchParams }: { searchParams: 
       <main className="mx-auto w-full max-w-6xl space-y-6 p-6">
         <div className="flex items-center justify-between gap-4">
           <h1 className="text-2xl font-bold tracking-tight">All projects</h1>
-          <Button asChild>
-            <Link href="/projects/new">New project</Link>
-          </Button>
+          {canChange(workspace.role) && (
+            <Button asChild>
+              <Link href="/projects/new">New project</Link>
+            </Button>
+          )}
         </div>
 
         {projects.length === 0 ? (
           <Card className="border-dashed p-8 text-center text-muted-foreground">
-            No projects yet. Add your first one with “New project”.
+            {canChange(workspace.role) ? "No projects yet. Add your first one with “New project”." : "No projects yet."}
           </Card>
         ) : (
           <>

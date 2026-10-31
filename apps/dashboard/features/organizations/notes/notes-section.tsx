@@ -9,7 +9,8 @@ type Note = { id: string; body: string; createdAt: Date; authorName: string | nu
 // UTC for now, like other dates in the app (time-zone item parked in task 010).
 const STAMP = new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeStyle: "short", timeZone: "UTC" });
 
-export function NotesSection({ customerId, notes }: { customerId: string; notes: Note[] }) {
+/** The customer's notes, newest first; `readOnly` (auditors) lists them without the forms. */
+export function NotesSection({ customerId, notes, readOnly = false }: { customerId: string; notes: Note[]; readOnly?: boolean }) {
   return (
     <section aria-labelledby="notes-heading">
       <Card>
@@ -17,7 +18,7 @@ export function NotesSection({ customerId, notes }: { customerId: string; notes:
           <CardTitle id="notes-heading" className="text-base">Notes</CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
-          <NoteForm customerId={customerId} />
+          {!readOnly && <NoteForm customerId={customerId} />}
           {notes.length === 0 ? (
             <p className="text-sm text-muted-foreground">No notes yet.</p>
           ) : (
@@ -31,13 +32,15 @@ export function NotesSection({ customerId, notes }: { customerId: string; notes:
                     {note.authorName && <span className="text-xs text-muted-foreground"> · by {note.authorName}</span>}
                     <p className="whitespace-pre-wrap text-sm">{note.body}</p>
                   </div>
-                  <form action={deleteNoteAction}>
-                    <input type="hidden" name="customerId" value={customerId} />
-                    <input type="hidden" name="noteId" value={note.id} />
-                    <Button type="submit" variant="ghost" size="sm">
-                      Delete note<span className="sr-only"> from {STAMP.format(note.createdAt)}</span>
-                    </Button>
-                  </form>
+                  {!readOnly && (
+                    <form action={deleteNoteAction}>
+                      <input type="hidden" name="customerId" value={customerId} />
+                      <input type="hidden" name="noteId" value={note.id} />
+                      <Button type="submit" variant="ghost" size="sm">
+                        Delete note<span className="sr-only"> from {STAMP.format(note.createdAt)}</span>
+                      </Button>
+                    </form>
+                  )}
                 </li>
               ))}
             </ol>

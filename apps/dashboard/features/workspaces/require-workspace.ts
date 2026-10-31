@@ -1,11 +1,23 @@
 import { cookies } from "next/headers";
 
+import { normalizeWorkspaceRole } from "@/features/access/roles";
 import { currentSession, requireSession } from "@/features/auth/require-session";
 
 import { currentWorkspaceId, WORKSPACE_COOKIE } from "./current-workspace";
 import { ensurePersonalWorkspace, listMemberships } from "./queries";
 
 type Session = NonNullable<Awaited<ReturnType<typeof currentSession>>>;
+type Membership = Awaited<ReturnType<typeof listMemberships>>[number];
+
+/** The workspace as pages and actions see it: with my role there and, for a partner, my partner company. */
+function workspaceOf(membership: Membership) {
+  return {
+    id: membership.workspaceId,
+    name: membership.name,
+    role: normalizeWorkspaceRole(membership.role),
+    partnerId: membership.partnerId,
+  };
+}
 
 /** The user's current workspace (ADR-0005), creating their personal workspace on first use. */
 async function currentWorkspace(session: Session) {
@@ -19,7 +31,7 @@ async function currentWorkspace(session: Session) {
   if (!membership) {
     throw new Error("No workspace");
   }
-  return { id: membership.workspaceId, name: membership.name, role: membership.role };
+  return workspaceOf(membership);
 }
 
 /** For pages: the session and the current workspace, or a redirect to login (back to `path`). */
@@ -42,5 +54,5 @@ export async function requireWorkspaceForAction(formData: FormData) {
   if (!membership) {
     throw new Error("Not a member of this workspace");
   }
-  return { session, workspace: { id: membership.workspaceId, name: membership.name, role: membership.role } };
+  return { session, workspace: workspaceOf(membership) };
 }
