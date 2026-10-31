@@ -6,7 +6,7 @@ import { cookies } from "next/headers";
 import Link from "next/link";
 
 import type { WorkspaceRole } from "@/features/access/roles";
-import { canSeePartners } from "@/features/access/scope";
+import { canSeeCustomers, canSeePartners } from "@/features/access/scope";
 
 const NAV = [
   { href: "/", label: "Overview" },
@@ -18,12 +18,18 @@ const NAV = [
 /** Shown to admins and auditors of the current workspace only. */
 const PARTNERS = { href: "/partners", label: "Partners" };
 
+/** The links for my role: partners get no Customers (names only); admins and auditors also get Partners. */
+function navFor(role: WorkspaceRole) {
+  const nav = canSeeCustomers(role) ? NAV : NAV.filter((item) => item.href !== "/customers");
+  return canSeePartners(role) ? [...nav.slice(0, 3), PARTNERS, ...nav.slice(3)] : nav;
+}
+
 /**
  * Zone header. Links inside the zone use next/link; "Home" is the shell, so it's a plain <a>.
  * Below `lg` the nav takes its own row and wraps, so nothing is pushed off-screen from 360px up.
  * `workspaceName` is the workspace of what the page shows: a record's own workspace on record pages,
  * with `otherWorkspace` set when that isn't the current one. `role` is mine in the current workspace (the
- * nav links go there): admins and auditors also get Partners.
+ * nav links go there): partners get no Customers, admins and auditors also get Partners.
  */
 export async function AppHeader({
   email,
@@ -37,7 +43,7 @@ export async function AppHeader({
   otherWorkspace?: boolean;
 }) {
   const theme = parseTheme((await cookies()).get(THEME_COOKIE)?.value);
-  const nav = canSeePartners(role) ? [...NAV.slice(0, 3), PARTNERS, ...NAV.slice(3)] : NAV;
+  const nav = navFor(role);
 
   return (
     <header className="border-b bg-card">

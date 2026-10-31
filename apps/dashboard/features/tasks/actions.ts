@@ -6,8 +6,8 @@ import { redirect } from "next/navigation";
 
 import { requireActionSession } from "@/features/auth/require-session";
 import { type FormState, invalid } from "@/features/forms/form-state";
-import { customerInWorkspace } from "@/features/organizations/queries";
-import { isMember } from "@/features/workspaces/queries";
+import { isCustomerChoice } from "@/features/organizations/customer-names";
+import { isAssignable } from "@/features/workspaces/members";
 import { revalidateOverviews } from "@/features/projects/revalidate";
 import { requireProjectAccess } from "@/features/projects/require-project-access";
 
@@ -29,8 +29,25 @@ function taskInProject(formData: FormData, projectId: string) {
   return and(eq(schema.task.id, String(formData.get("taskId") ?? "")), eq(schema.task.projectId, projectId));
 }
 
+type Project = Awaited<ReturnType<typeof requireProjectAccess>>;
+
+/**
+ * Why a task's customer or assignee can't be saved in `project`, or null when both can: the customer must
+ * be one of the user's choices, in a partner's project one of the partner's (rule 7a); the assignee must
+ * be assignable there (rule 7). A tampered id gets the same answer as a made-up one. Inside `withAccess`.
+ */
+async function refusal(project: Project, organizationId: string | null | undefined, assigneeId: string | null | undefined) {
+  if (organizationId && !(await isCustomerChoice(project.workspaceId, project.partnerId, organizationId))) {
+    return { error: "Choose one of your customers", field: "customerId" };
+  }
+  if (assigneeId && !(await isAssignable(assigneeId, project))) {
+    return { error: "Choose someone in this workspace", field: "assigneeId" };
+  }
+  return null;
+}
+
 /** Runs `fn` as the signed-in user with the project of the form, if they can change it. */
-async function withProject<T>(formData: FormData, fn: (project: Awaited<ReturnType<typeof requireProjectAccess>>) => Promise<T>) {
+async function withProject<T>(formData: FormData, fn: (project: Project) => Promise<T>) {
   const session = await requireActionSession();
   return withAccess(session.user.id, async () =>
     fn(await requireProjectAccess(session.user.id, String(formData.get("projectId") ?? ""))),
@@ -45,11 +62,9 @@ export async function createTaskAction(_prev: FormState, formData: FormData): Pr
     }
 
     const { organizationId, priority, dueDate, assigneeId, ...fields } = input.value;
-    if (!(await customerInWorkspace(project.workspaceId, organizationId))) {
-      return invalid("Choose one of your customers", formData, "customerId");
-    }
-    if (assigneeId && !(await isMember(assigneeId, project.workspaceId))) {
-      return invalid("Choose someone in this workspace", formData, "assigneeId");
+    const refused = await refusal(project, organizationId, assigneeId);
+    if (refused) {
+      return invalid(refused.error, formData, refused.field);
     }
 
     // A new task is about the project's customer unless the form chose otherwise.
@@ -115,11 +130,9 @@ export async function updateTaskAction(_prev: FormState, formData: FormData): Pr
     }
 
     const { organizationId, priority, dueDate, assigneeId, ...fields } = input.value;
-    if (!(await customerInWorkspace(project.workspaceId, organizationId))) {
-      return invalid("Choose one of your customers", formData, "customerId");
-    }
-    if (assigneeId && !(await isMember(assigneeId, project.workspaceId))) {
-      return invalid("Choose someone in this workspace", formData, "assigneeId");
+    const refused = await refusal(project, organizationId, assigneeId);
+    if (refused) {
+      return invalid(refused.error, formData, refused.field);
     }
 
     const updated = await getDb()

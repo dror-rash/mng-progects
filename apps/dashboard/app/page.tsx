@@ -3,6 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@repo
 import { StackedBar } from "@repo/ui/stacked-bar";
 import Link from "next/link";
 
+import { canSeeCustomers } from "@/features/access/scope";
 import { AppHeader } from "@/features/layout/app-header";
 import { ProjectList } from "@/features/projects/project-list";
 import { countProjects, listProjects } from "@/features/projects/queries";
@@ -103,7 +104,11 @@ export default async function DashboardPage() {
               No projects yet. <Link href="/projects" className="underline">Create your first project</Link>.
             </Card>
           ) : (
-            <ProjectList projects={recentProjects} progress={summarizeProjectStatusCounts(projectCounts)} />
+            <ProjectList
+              projects={recentProjects}
+              progress={summarizeProjectStatusCounts(projectCounts)}
+              linkCustomers={canSeeCustomers(workspace.role)}
+            />
           )}
         </section>
       </main>

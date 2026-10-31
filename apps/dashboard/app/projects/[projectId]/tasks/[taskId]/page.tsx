@@ -5,7 +5,8 @@ import { notFound } from "next/navigation";
 
 import { AppHeader } from "@/features/layout/app-header";
 import { recordWorkspace } from "@/features/layout/record-workspace";
-import { listOrganizations } from "@/features/organizations/queries";
+import { listCustomerNames } from "@/features/organizations/customer-names";
+import { getOrganizationForUser } from "@/features/organizations/queries";
 import { getProjectForUser } from "@/features/projects/queries";
 import { deleteTaskFromPageAction } from "@/features/tasks/actions";
 import { EditTaskForm } from "@/features/tasks/edit-task-form";
@@ -13,7 +14,7 @@ import { getProjectTask } from "@/features/tasks/queries";
 import { dueState, formatDueDate, todayUtc } from "@/features/tasks/due-dates";
 import { priorityLabel } from "@/features/tasks/task-priority";
 import { parseTaskStatus, TASK_STATUSES } from "@/features/tasks/task-status";
-import { listMemberOptions } from "@/features/workspaces/members";
+import { listAssigneeOptions } from "@/features/workspaces/members";
 import { requireWorkspace } from "@/features/workspaces/require-workspace";
 
 export const dynamic = "force-dynamic";
@@ -27,13 +28,13 @@ export default async function TaskPage({ params }: { params: Promise<{ projectId
     notFound();
   }
 
-  const [customers, members] = await Promise.all([
-    listOrganizations(session.user.id, project.workspaceId, "customer"),
-    listMemberOptions(session.user.id, project.workspaceId),
+  // A partner's project offers only the partner's customers (rule 7a) and assignees (rule 7). The task's
+  // customer is a link only for those who can open customer pages; partners see its name only.
+  const [customers, members, customerPage] = await Promise.all([
+    listCustomerNames(session.user.id, project.workspaceId, project.partnerId),
+    listAssigneeOptions(session.user.id, project),
+    task.organizationId && task.customerName ? getOrganizationForUser(session.user.id, task.organizationId, "customer") : null,
   ]);
-  // Only the project's own customers count, the same ones its dropdown offers.
-  const customer = customers.find((c) => c.id === task.organizationId);
-  const assigneeName = members.find((m) => m.userId === task.assigneeId)?.name;
   const status = TASK_STATUSES.find((s) => s.status === (parseTaskStatus(task.status) ?? "todo"))!;
 
   return (
@@ -54,7 +55,7 @@ export default async function TaskPage({ params }: { params: Promise<{ projectId
               {status.label}
             </span>
             <span>{priorityLabel(task.priority)} priority</span>
-            <span>{assigneeName ? `Assigned to ${assigneeName}` : "Unassigned"}</span>
+            <span>{task.assigneeName ? `Assigned to ${task.assigneeName}` : "Unassigned"}</span>
             {task.dueDate ? (
               <span>
                 Due <time dateTime={task.dueDate}>{formatDueDate(task.dueDate)}</time>{" "}
@@ -65,12 +66,16 @@ export default async function TaskPage({ params }: { params: Promise<{ projectId
             ) : (
               <span>No due date</span>
             )}
-            {customer ? (
+            {task.customerName ? (
               <span>
                 Customer:{" "}
-                <Link href={`/customers/${customer.id}`} className="font-medium text-foreground hover:underline">
-                  {customer.name}
-                </Link>
+                {customerPage ? (
+                  <Link href={`/customers/${customerPage.id}`} className="font-medium text-foreground hover:underline">
+                    {task.customerName}
+                  </Link>
+                ) : (
+                  <span className="font-medium text-foreground">{task.customerName}</span>
+                )}
               </span>
             ) : (
               <span>No customer</span>

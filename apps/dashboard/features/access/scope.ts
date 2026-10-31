@@ -17,3 +17,8 @@ export function canChangeCustomers(role: WorkspaceRole): boolean {
 export function canSeePartners(role: WorkspaceRole): boolean {
   return role !== "partner";
 }
+
+/** Whether someone with `role` sees customer pages (list, details, contacts, notes); partners see only names (`can_see_customer`). */
+export function canSeeCustomers(role: WorkspaceRole): boolean {
+  return role !== "partner";
+}

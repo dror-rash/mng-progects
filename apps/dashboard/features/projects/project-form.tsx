@@ -13,6 +13,7 @@ import { createProjectAction, updateProjectAction } from "./actions";
 
 type Project = { id: string; name: string; description: string | null; organizationId: string | null };
 type CustomerOption = { id: string; name: string };
+type OwnerOption = { value: string; label: string };
 
 /** Create a project, or edit one when `project` is given. Shows validation errors and keeps what was typed or chosen. */
 export function ProjectForm({
@@ -21,6 +22,8 @@ export function ProjectForm({
   customers,
   defaultCustomerId,
   cancelHref,
+  owners,
+  customerRequired = false,
 }: {
   project?: Project;
   /** For a new project: the workspace it goes in (the one this page shows). */
@@ -30,15 +33,21 @@ export function ProjectForm({
   defaultCustomerId?: string;
   /** Where Cancel goes; defaults to the project, or All projects for a new one. */
   cancelHref?: string;
+  /** For an admin's new project: the Owner choices, "Internal" first (see `project-owner.ts`). */
+  owners?: OwnerOption[];
+  /** A partner's project always has a customer: no "No customer" choice. */
+  customerRequired?: boolean;
 }) {
   const [state, formAction, pending] = useActionState<FormState, FormData>(
     project ? updateProjectAction : createProjectAction,
     {},
   );
-  const value = (field: "name" | "description" | "customerId", fallback: string) => state.values?.[field] ?? fallback;
+  const value = (field: "name" | "description" | "customerId" | "owner", fallback: string) => state.values?.[field] ?? fallback;
   // Errors without a field are about the name, the only other required input.
   const nameError = state.field ? undefined : state.error;
   const customerError = state.field === "customerId" ? state.error : undefined;
+  const ownerError = state.field === "owner" ? state.error : undefined;
+  const owner = value("owner", owners?.[0]?.value ?? "");
 
   return (
     <form action={formAction} className="space-y-4">
@@ -78,13 +87,32 @@ export function ProjectForm({
           aria-invalid={customerError ? true : undefined}
           aria-describedby={customerError ? "customerId-error" : undefined}
         >
-          <option value="">No customer</option>
+          {!customerRequired && <option value="">No customer</option>}
           {customers.map((c) => (
             <option key={c.id} value={c.id}>{c.name}</option>
           ))}
         </NativeSelect>
         <FieldError id="customerId-error" message={customerError} />
       </div>
+      {owners && (
+        <div className="space-y-1">
+          <label htmlFor="owner" className="text-sm font-medium">Owner</label>
+          {/* Keyed on the value: a select only applies defaultValue when it mounts. */}
+          <NativeSelect
+            key={owner}
+            id="owner"
+            name="owner"
+            defaultValue={owner}
+            aria-invalid={ownerError ? true : undefined}
+            aria-describedby={ownerError ? "owner-error" : undefined}
+          >
+            {owners.map((o) => (
+              <option key={o.value} value={o.value}>{o.label}</option>
+            ))}
+          </NativeSelect>
+          <FieldError id="owner-error" message={ownerError} />
+        </div>
+      )}
       <div className="flex gap-2">
         <Button type="submit" disabled={pending}>{project ? "Save changes" : "Create Project"}</Button>
         <Button asChild variant="ghost">

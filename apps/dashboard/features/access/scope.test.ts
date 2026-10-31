@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { canChange, canChangeCustomers, canSeePartners } from "./scope";
+import { canChange, canChangeCustomers, canSeeCustomers, canSeePartners } from "./scope";
 
 describe("canChange", () => {
   it("is false for an auditor, who sees everything and changes nothing", () => {
@@ -26,5 +26,13 @@ describe("canSeePartners", () => {
     expect(canSeePartners("admin")).toBe(true);
     expect(canSeePartners("auditor")).toBe(true);
     expect(canSeePartners("partner")).toBe(false);
+  });
+});
+
+describe("canSeeCustomers", () => {
+  it("lets admins and auditors see customer pages; partners see only names", () => {
+    expect(canSeeCustomers("admin")).toBe(true);
+    expect(canSeeCustomers("auditor")).toBe(true);
+    expect(canSeeCustomers("partner")).toBe(false);
   });
 });
