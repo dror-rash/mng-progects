@@ -38,4 +38,4 @@ New route `app/projects/new/page.tsx` like `customers/new`. `createProjectAction
 - 2026-10-31 – Merged to `main` in PR #15; CI `verify` and `e2e` green.
 
 ## Parking lot
-- "New project" on a customer's page that opens `/projects/new?customer=<id>` with the customer chosen.
+- ~~"New project" on a customer's page that opens `/projects/new?customer=<id>` with the customer chosen.~~ Done in task 044.

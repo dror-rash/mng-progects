@@ -19,11 +19,17 @@ export function ProjectForm({
   project,
   workspaceId,
   customers,
+  defaultCustomerId,
+  cancelHref,
 }: {
   project?: Project;
   /** For a new project: the workspace it goes in (the one this page shows). */
   workspaceId?: string;
   customers: CustomerOption[];
+  /** For a new project: the customer chosen to start with. */
+  defaultCustomerId?: string;
+  /** Where Cancel goes; defaults to the project, or All projects for a new one. */
+  cancelHref?: string;
 }) {
   const [state, formAction, pending] = useActionState<FormState, FormData>(
     project ? updateProjectAction : createProjectAction,
@@ -65,10 +71,10 @@ export function ProjectForm({
         {/* A select only applies defaultValue when it mounts, and React resets the form after every
             submit; keying on the value just submitted keeps the user's choice after an error. */}
         <NativeSelect
-          key={value("customerId", project?.organizationId ?? "")}
+          key={value("customerId", project?.organizationId ?? defaultCustomerId ?? "")}
           id="customerId"
           name="customerId"
-          defaultValue={value("customerId", project?.organizationId ?? "")}
+          defaultValue={value("customerId", project?.organizationId ?? defaultCustomerId ?? "")}
           aria-invalid={customerError ? true : undefined}
           aria-describedby={customerError ? "customerId-error" : undefined}
         >
@@ -82,7 +88,7 @@ export function ProjectForm({
       <div className="flex gap-2">
         <Button type="submit" disabled={pending}>{project ? "Save changes" : "Create Project"}</Button>
         <Button asChild variant="ghost">
-          <Link href={project ? `/projects/${project.id}` : "/projects"}>Cancel</Link>
+          <Link href={cancelHref ?? (project ? `/projects/${project.id}` : "/projects")}>Cancel</Link>
         </Button>
       </div>
     </form>
