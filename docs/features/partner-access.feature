@@ -23,7 +23,7 @@ Feature: Partner access: a partner's user sees only their own partner's work
     And the page shows none of "GX App, Login, HQ Plan, Budget, Globex, Initech"
     When I select "Acme Ltd" from "Customer"
     Then the projects shown are "NW Site"
-    When I search projects for "GX App"
+    When I search projects for "GX"
     Then I see the text "No projects match these filters."
     When I open "/dashboard/projects?view=tiles"
     Then the project cards are "NW Site"
