@@ -29,9 +29,10 @@ Build a modern, full-stack Project Management application on a Next.js multi-zon
 | M7 | Task Details | Task priority (018) and due dates with overdue / due-this-week on the home page (019) | done |
 | M8 | Workspaces & Sharing | Workspaces own projects, tasks and customers; Admin/Member roles; invite links; workspace switcher; task assignees and "My tasks" (ADR-0005) | done |
 | M9 | Polish & Hardening | Open parking-lot items: members-page errors, invite hygiene, workspace settings, header, cross-workspace reads, request caching, indexes, test cleanup, SQL counts, dark mode, drag-and-drop, primary contact, chart tooltips (tasks 027–039) | done |
+| M12 | Partner Access | Admin / Auditor / Partner roles; partner companies with assigned customers; partners see only their own projects and customer names; enforced by SQL access functions and row-level security; project cancel/copy; soft delete everywhere (ADR-0006, tasks 046–051, plan `docs/superpowers/plans/2026-10-31-partner-access.md`) | planned |
 
 ## Current milestone
-None. M9 is done; the next milestone isn't chosen yet. Candidates: M10 accounts and email (incl. user deletion), M11 deploy to GCP, and two drafted but blocked tasks moved out of M9: 040 other organization kinds (needs product answers) and 041 time zones (needs ADR-0006).
+M12 Partner Access (planned, starts with task 046). M9 is done. Candidates: M10 accounts and email (incl. user deletion), M11 deploy to GCP, and two drafted but blocked tasks moved out of M9: 040 other organization kinds (needs product answers) and 041 time zones (needs ADR-0007).
 
 ## Risks & open questions
 - Invite tokens will appear in Cloud Run / load balancer request logs until a log exclusion is added in `infra/` (task 028 parking lot; do it with M11).
@@ -56,3 +57,4 @@ None. M9 is done; the next milestone isn't chosen yet. Candidates: M10 accounts 
 - 2026-10-31 – Outside a milestone, at the user's request: projects get their own create page (task 042, PR #15) and All projects becomes a filterable table with a Tiles toggle (task 043, PR #16). Demo seed for local dev (PR #17).
 - 2026-10-31 – "New project" on a customer's page, with that customer chosen (task 044, PR #19).
 - 2026-10-31 – The projects table sorts by any column, kept in the URL with the filters (task 045).
+- 2026-10-31 – ADR-0006 accepted at the user's request: admins, auditors and partner companies; access defined once as SQL functions, enforced in code and by row-level security. Planned as M12 (tasks 046–051). Time zones move to ADR-0007.
