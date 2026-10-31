@@ -22,6 +22,7 @@ const ids = {
   partnerB: `${run}-partner-b`,
   shared: `${run}-shared`,
   onlyB: `${run}-only-b`,
+  gone: `${run}-gone`,
   pa1: `${run}-pa1`,
   pb1: `${run}-pb1`,
   int: `${run}-int`,
@@ -76,6 +77,7 @@ beforeAll(async () => {
   await db.insert(schema.organization).values([
     { id: ids.shared, workspaceId: ids.workspace, name: "Shared" },
     { id: ids.onlyB, workspaceId: ids.workspace, name: "OnlyB" },
+    { id: ids.gone, workspaceId: ids.workspace, name: "Gone", deletedAt: new Date() },
   ]);
   await db.insert(schema.customerPartner).values([
     { organizationId: ids.shared, partnerId: ids.partnerA, workspaceId: ids.workspace },
@@ -123,6 +125,12 @@ describe("row-level security", () => {
     expect(rows.map((r) => r.name)).toEqual(["Shared"]);
   });
 
+  it("leaves deleted customers out of customer_name, for admins too", async () => {
+    const rows = await as<{ name: string }>(ids.admin, sql`select name from customer_name where workspace_id = ${ids.workspace} order by name`);
+
+    expect(rows.map((r) => r.name)).toEqual(["OnlyB", "Shared"]);
+  });
+
   it("refuses writes through customer_name", async () => {
     expect(await writeAs(ids.pa, sql`update customer_name set name = 'x' where id = ${ids.shared}`)).toBe("refused");
   });
@@ -135,6 +143,19 @@ describe("row-level security", () => {
       .from(schema.project)
       .where(inArray(schema.project.id, [ids.pb1]));
     expect(project?.name).toBe("PB1");
+  });
+
+  it("refuses a partner's move of its own project to another partner", async () => {
+    // Both partners serve the project's customer: only the owner rule stops it (rule 4a).
+    const move = withAccess(ids.pa, () => getDb().execute(sql`update project set partner_id = ${ids.partnerB} where id = ${ids.pa1}`));
+
+    await expect(move.catch((error: unknown) => Promise.reject(new Error(cause(error))))).rejects.toThrow(/row-level security/);
+
+    const [project] = await getMaintenanceDb()
+      .select({ partnerId: schema.project.partnerId })
+      .from(schema.project)
+      .where(inArray(schema.project.id, [ids.pa1]));
+    expect(project?.partnerId).toBe(ids.partnerA);
   });
 
   it("refuses a partner's insert into another partner", async () => {
