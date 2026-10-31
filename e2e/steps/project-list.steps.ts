@@ -22,3 +22,16 @@ When("I search projects for {string}", async ({ page }, text: string) => {
   await page.getByLabel("Search projects", { exact: true }).press("Enter");
   await expect(page).toHaveURL(new RegExp(`[?&]q=${encodeURIComponent(text)}`));
 });
+
+// Column headers are links that sort; wait for the new order's URL so the next step can't pass against the old page.
+When("I sort projects by {string}", async ({ page }, column: string) => {
+  const header = page.getByRole("table", { name: "Projects" }).getByRole("columnheader", { name: column });
+  const before = page.url();
+  await header.getByRole("link").click();
+  await expect(page).not.toHaveURL(before);
+});
+
+Then("the {string} column is sorted {string}", async ({ page }, column: string, direction: string) => {
+  const header = page.getByRole("table", { name: "Projects" }).getByRole("columnheader", { name: column });
+  await expect(header).toHaveAttribute("aria-sort", direction);
+});

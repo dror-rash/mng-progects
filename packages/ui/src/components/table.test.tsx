@@ -1,7 +1,7 @@
 import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "./table";
+import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow, TableSortIndicator } from "./table";
 
 function Example() {
   return (
@@ -40,5 +40,28 @@ describe("Table", () => {
   it("scrolls sideways inside its wrapper on narrow screens", () => {
     render(<Example />);
     expect(screen.getByRole("table").parentElement).toHaveClass("overflow-x-auto");
+  });
+});
+
+describe("TableSortIndicator", () => {
+  it("shows which way a column is sorted without adding to the header's name", () => {
+    render(
+      <table>
+        <thead>
+          <tr>
+            <TableHead aria-sort="ascending">
+              Name <TableSortIndicator direction="ascending" />
+            </TableHead>
+          </tr>
+        </thead>
+      </table>,
+    );
+    const header = screen.getByRole("columnheader", { name: "Name" });
+    expect(header.querySelector("[data-direction='ascending']")).toHaveAttribute("aria-hidden", "true");
+  });
+
+  it("shows a faint marker on a column that isn't sorted", () => {
+    const { container } = render(<TableSortIndicator />);
+    expect(container.querySelector("[data-direction='none']")).toBeInTheDocument();
   });
 });
