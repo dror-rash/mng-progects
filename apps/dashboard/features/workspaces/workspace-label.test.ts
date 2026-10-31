@@ -8,7 +8,7 @@ describe("workspaceDetails", () => {
   });
 
   it("uses the singular for one member", () => {
-    expect(workspaceDetails({ role: "member", memberCount: 1 })).toBe("Member · 1 member");
+    expect(workspaceDetails({ role: "auditor", memberCount: 1 })).toBe("Auditor · 1 member");
   });
 
   it("shows an unknown stored role as it is", () => {

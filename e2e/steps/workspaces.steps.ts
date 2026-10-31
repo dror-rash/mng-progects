@@ -9,9 +9,12 @@ export async function pressAndWait(page: Page, name: string) {
   ]);
 }
 
-/** Creates an invite link for the current workspace and returns it. */
-async function createInviteLink(page: Page) {
+/** Creates an invite link for the current workspace and returns it; `role` is the Role select's label (default as the form chooses). */
+export async function createInviteLink(page: Page, role?: string) {
   await page.goto("/dashboard/workspace");
+  if (role) {
+    await page.getByLabel("Role", { exact: true }).selectOption({ label: role });
+  }
   await pressAndWait(page, "Create invite link");
   const field = page.getByLabel("Invite link", { exact: true });
   await expect(field).toHaveValue(/\/dashboard\/invite\/.+/);
@@ -20,6 +23,10 @@ async function createInviteLink(page: Page) {
 
 Given("I create an invite link", async ({ page, state }) => {
   state.inviteLink = await createInviteLink(page);
+});
+
+Given("I create an invite link for the role {string}", async ({ page, state }, role: string) => {
+  state.inviteLink = await createInviteLink(page, role);
 });
 
 Given("a teammate joins with the invite link", async ({ people, state }) => {
@@ -170,8 +177,9 @@ Given("the teammate joins with the invite link", async ({ state }) => {
 
 Given("I make the teammate an admin", async ({ page }) => {
   await page.goto("/dashboard/workspace");
-  await pressAndWait(page, "Make admin Teammate");
-  await expect(page.getByRole("button", { name: "Make member Teammate" })).toBeVisible();
+  await page.getByLabel("Role for Teammate", { exact: true }).selectOption({ label: "Admin" });
+  await pressAndWait(page, "Change role Teammate");
+  await expect(roleBadge(page, "Teammate", "Admin")).toBeVisible();
 });
 
 When("the teammate removes {string} from the workspace", async ({ state }, name: string) => {
@@ -273,11 +281,11 @@ When("I open the kept project link", async ({ page, state }) => {
   await page.goto(state.keptUrl!);
 });
 
-/** Simulates a tampered form: sets the hidden fields of the form that holds `button`. */
+/** Simulates a tampered form: sets the fields (hidden inputs or selects) of the form that holds `button`. */
 async function setHiddenFields(page: Page, button: string, fields: Record<string, string>) {
   await page.locator("form", { has: page.getByRole("button", { name: button, exact: true }) }).evaluate((form, values) => {
     for (const [name, value] of Object.entries(values)) {
-      form.querySelector<HTMLInputElement>(`input[name="${name}"]`)!.value = value;
+      form.querySelector<HTMLInputElement | HTMLSelectElement>(`[name="${name}"]`)!.value = value;
     }
   }, fields);
 }
@@ -286,13 +294,22 @@ When("the {string} form is changed to remove me", async ({ page }, button: strin
   await setHiddenFields(page, button, { userId: await userId(page) });
 });
 
-When("the {string} form is changed to make me a member", async ({ page }, button: string) => {
-  await setHiddenFields(page, button, { userId: await userId(page), role: "member" });
+When("the {string} form is changed to make me an auditor", async ({ page }, button: string) => {
+  await setHiddenFields(page, button, { userId: await userId(page), role: "auditor" });
 });
 
-function membersRow(page: Page, name: string) {
+export function membersRow(page: Page, name: string) {
   return page.getByRole("region", { name: "Members", exact: true }).getByRole("listitem").filter({ hasText: name });
 }
+
+/** The role shown on a member's row (not an option of its Role select). */
+function roleBadge(page: Page, name: string, role: string) {
+  return membersRow(page, name).getByText(role, { exact: true }).and(page.locator(":not(option)"));
+}
+
+Then("the {string} row shows the role {string}", async ({ page }, name: string, role: string) => {
+  await expect(roleBadge(page, name, role)).toBeVisible();
+});
 
 Then("the {string} row shows the error {string}", async ({ page }, name: string, message: string) => {
   await expect(membersRow(page, name).getByRole("alert").filter({ hasText: message })).toBeVisible();
