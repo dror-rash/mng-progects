@@ -1,6 +1,6 @@
 # Task 047: Row-level security as the second lock
 
-- **Status:** in-progress
+- **Status:** done
 - **Milestone:** M12 Partner Access
 - **Zone / package:** `packages/db`, `apps/dashboard`, `packages/auth`, `e2e`
 - **Feature file:** none (no behaviour change; database tests in `packages/db/src/access.db.test.ts`)
@@ -24,17 +24,17 @@ Task 046 defined who can see and change what once, as SQL functions, and the app
 
 ## Out of scope
 - Partner companies, assignments and invites in the UI (task 048); the partner experience, including showing partners customer names through `customer_name` (task 049).
-- Splitting the production Cloud SQL `app` user into owner and runtime users in Terraform (the runtime pool switches to `app_user` with `SET ROLE` semantics; see ADR-0006).
+- Splitting the production Cloud SQL `app` user into separate owner and runtime login users in Terraform (an open question in the design): the one `app` user migrates as owner and its runtime pool switches to `app_user` on connect.
 - Soft delete (task 051).
 
 ## Acceptance criteria
-- [ ] Partner A sees only its own project; partners see no `organization` rows, and only the names of assigned customers through `customer_name`.
-- [ ] A partner can't update or insert another partner's project; an auditor can't write anything.
-- [ ] Without `withAccess` the runtime pool sees nothing.
-- [ ] Unassigning a customer hides the partner's project at once.
-- [ ] A partner sees the members of their own partner and the admins only.
-- [ ] Eight parallel `withAccess` queries finish with a pool of five.
-- [ ] Every existing acceptance scenario still passes (no behaviour change).
+- [x] Partner A sees only its own project; partners see no `organization` rows, and only the names of assigned customers through `customer_name`.
+- [x] A partner can't update or insert another partner's project; an auditor can't write anything.
+- [x] Without `withAccess` the runtime pool sees nothing.
+- [x] Unassigning a customer hides the partner's project at once.
+- [x] A partner sees the members of their own partner and the admins only.
+- [x] Eight parallel `withAccess` queries finish with a pool of five.
+- [x] Every existing acceptance scenario still passes (no behaviour change).
 
 ## Approach (brief)
 - `withAccess` keeps the transaction in an `AsyncLocalStorage`; a nested call for the same user reuses it, a nested call for another user throws. Actions read the session before opening the transaction (so a request never holds two connections) and redirect after it commits (`redirect()` throws, which would roll it back).
@@ -43,11 +43,20 @@ Task 046 defined who can see and change what once, as SQL functions, and the app
 - Better Auth keeps the pool it was created with (`getPoolDb()`), never a `withAccess` transaction; its tables have grants and no RLS.
 
 ## Test plan
-- Database: `packages/db/src/access.db.test.ts` (the ten cases of the brief) against the migrated local database, as the runtime pool.
-- Unit: `pool-config.test.ts` covers the role option on both branches (DATABASE_URL and Cloud SQL) and the maintenance config without it; `withAccess` nesting.
+- Database: `packages/db/src/access.db.test.ts` (the ten cases of the brief, plus: no writes through `customer_name`; nested `withAccess` reuses the transaction, refuses another user; parallel calls get their own) against the migrated database, as the runtime pool.
+- Unit: `pool-config.test.ts` covers the role option on both branches (DATABASE_URL and Cloud SQL) and the maintenance config without it.
 - Acceptance: the full suite, unchanged.
 
 ## Progress log
 - 2026-10-31 – Drafted from the M12 plan (task 047 brief) and the controller's rulings 2 (create/join through `SECURITY DEFINER` functions), 9 (enable, don't force), 10 (revoke `EXECUTE` from `PUBLIC`), 11 (Better Auth unaffected).
+- 2026-10-31 – Red: `pnpm --filter @repo/db test:db` fails (no `./maintenance`, no `withAccess`); `pool-config.test.ts` fails on both branches (no `options`).
+- 2026-10-31 – Migration 0020 (custom: role, grants, policies, `customer_name`, `has_workspace_role`, `create_workspace`, `find_invite`, `join_workspace`, `EXECUTE` grants). `withAccess`, `getPoolDb`, `@repo/db/maintenance`; DB tests 14/14 green. Insert/update checks on `project` and `organization` use the new row inline (the functions can't see it); `customer_name` is read only for `app_user` (default privileges would grant writes, which would bypass `organization`'s policies).
+- 2026-10-31 – Switch-over: every query takes the acting user and runs in `withAccess`; actions read the session first (`requireActionSession`), do their work in one transaction and redirect after it; `requireProjectAccess` / `requireOrganizationAccess` take the user id. Personal workspaces are created once per user under an advisory lock (`create_workspace` makes random ids). Leaving clears your assignments before the membership goes (afterwards the task policy refuses). Better Auth uses `getPoolDb()`; seeds and e2e fixtures use `getMaintenanceDb()`; lint rule for the rest.
+- 2026-10-31 – `pnpm lint`, `pnpm typecheck` clean; `pnpm test` 287 (dashboard 215, ui 51, auth 13, db 8); `pnpm --filter @repo/db test:db` 14/14; full e2e 166/166 (no behaviour change).
 
 ## Parking lot
+- Partners get `null` customer names in project lists: `selectWithCustomer` and `listProjectTasks` join `organization`, which partners can't read. Switch them to `customer_name` with the partner experience (task 049).
+- An auditor leaving keeps their task assignments (they can't update tasks; the assignee shows as none once they're gone). Moot once auditors can't be assigned (task 049); otherwise clear them in a `SECURITY DEFINER` function.
+- A partner's member counts on `/workspaces` count only the members they can see.
+- `ALTER DEFAULT PRIVILEGES … REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC`, so a future access function can't be forgotten.
+- Policies and predicates both call the access functions per row; check the largest lists with `EXPLAIN` (ADR-0006).
