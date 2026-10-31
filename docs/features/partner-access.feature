@@ -157,3 +157,7 @@ Feature: Partner access: a partner's user sees only their own partner's work
     And I am on the "NW Login" project page
     Then I see the text "Login"
     And the page shows none of "GX App, Copied from"
+    When I open the edit page of "NW Login"
+    Then the page source doesn't contain the id of "GX App"
+    When I open the copy page of "NW Login"
+    Then the page source doesn't contain the id of "GX App"
