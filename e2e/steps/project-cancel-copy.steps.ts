@@ -130,3 +130,13 @@ When(
     await state.replay(idOf(state, other));
   },
 );
+
+When("I open the edit page of {string}", async ({ page, state }, project: string) => {
+  await page.goto(`${projectPath(state, project)}/edit`);
+  await expect(page.getByLabel("Project name")).toBeVisible();
+});
+
+// The raw page, inline flight data included: props sent to client components must not carry the id either.
+Then("the page source doesn't contain the id of {string}", async ({ page, state }, name: string) => {
+  expect(await page.content()).not.toContain(idOf(state, name));
+});
