@@ -17,7 +17,8 @@ export default async function InvitePage() {
   const session = await requireSession("/invite");
   const token = readInviteToken(await cookies());
   const invite = token ? await findInvite(token) : null;
-  const valid = invite !== null && inviteState(invite, new Date()) === "valid";
+  const state = invite ? inviteState(invite, new Date()) : null;
+  const valid = invite !== null && state === "valid";
   // A link never changes the role of someone already in the workspace (design rule 8d).
   const alreadyMember = valid && (await listMemberships(session.user.id)).some((m) => m.workspaceId === invite.workspaceId);
 
@@ -49,7 +50,10 @@ export default async function InvitePage() {
         ) : (
           <>
             <CardHeader>
-              <CardTitle>This invite link is invalid or has expired</CardTitle>
+              <CardTitle>
+                {/* A deleted partner company's link (design rule 8c). */}
+                {state === "partner-deleted" ? "This invite link is no longer valid" : "This invite link is invalid or has expired"}
+              </CardTitle>
               <CardDescription>Ask a workspace admin for a new link.</CardDescription>
             </CardHeader>
             <CardContent>

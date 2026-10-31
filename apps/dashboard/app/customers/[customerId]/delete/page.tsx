@@ -24,7 +24,8 @@ export default async function DeleteCustomerPage({ params }: { params: Promise<{
         <CardHeader>
           <CardTitle>Delete &ldquo;{customer.name}&rdquo;?</CardTitle>
           <CardDescription>
-            This deletes the customer and its details. Projects and tasks linked to it are kept. It can&apos;t be undone.
+            This deletes the customer with its contacts and notes. Projects and tasks linked to it are kept, but
+            partners no longer see them. An admin can restore it from Deleted.
           </CardDescription>
         </CardHeader>
         <CardContent>

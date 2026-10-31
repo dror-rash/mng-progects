@@ -259,6 +259,8 @@ export async function leaveWorkspaceAction(_prev: FormState, formData: FormData)
 }
 
 const INVALID_INVITE = "This invite link is invalid or has expired";
+/** A link of a deleted partner company (design rule 8c). */
+const NO_LONGER_VALID_INVITE = "This invite link is no longer valid";
 const ALREADY_A_MEMBER = "You're already a member of this workspace";
 
 /**
@@ -273,9 +275,10 @@ export async function joinWorkspaceAction(_prev: FormState, _formData: FormData)
   const jar = await cookies();
   const token = readInviteToken(jar);
   const invite = token ? await findInvite(token) : null;
-  if (!token || !invite || inviteState(invite, new Date()) !== "valid") {
+  const state = invite ? inviteState(invite, new Date()) : null;
+  if (!token || !invite || state !== "valid") {
     // The cookie is left to expire: changing it here would re-render the page and drop this message.
-    return { error: INVALID_INVITE };
+    return { error: state === "partner-deleted" ? NO_LONGER_VALID_INVITE : INVALID_INVITE };
   }
   // Someone joining before ever opening the dashboard gets their own workspace too, to switch back to.
   if ((await listMemberships(session.user.id)).length === 0) {
@@ -286,6 +289,7 @@ export async function joinWorkspaceAction(_prev: FormState, _formData: FormData)
     getDb().execute<{ result: string }>(sql`select join_workspace(${session.user.id}, ${hashInviteToken(token)}) as result`),
   );
   if (rows[0]?.result === "invalid") {
+    // Revoked, expired or its partner deleted since the check above.
     return { error: INVALID_INVITE };
   }
   // Nothing changes for someone already in the workspace: a link never changes a role (design rule 8d).

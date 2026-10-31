@@ -63,11 +63,18 @@ export async function updateCustomerAction(_prev: FormState, formData: FormData)
   redirect(`/customers/${result.id}`);
 }
 
+/**
+ * Soft delete (design rule 8b): the customer, its contacts and notes disappear (they stay as they are and
+ * come back when it is restored); its projects stay, hidden from partners. Admins only.
+ */
 export async function deleteCustomerAction(formData: FormData) {
   const session = await requireActionSession();
   await withAccess(session.user.id, async () => {
     const customer = await requireOrganizationAccess(session.user.id, String(formData.get("customerId") ?? ""), "customer");
-    await getDb().delete(schema.organization).where(eq(schema.organization.id, customer.id));
+    await getDb()
+      .update(schema.organization)
+      .set({ deletedAt: new Date(), deletedBy: session.user.id })
+      .where(eq(schema.organization.id, customer.id));
   });
   revalidateCustomerNames();
   redirect("/customers");

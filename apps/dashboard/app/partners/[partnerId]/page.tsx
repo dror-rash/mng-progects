@@ -1,9 +1,11 @@
+import { Button } from "@repo/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@repo/ui/card";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { AppHeader } from "@/features/layout/app-header";
 import { recordWorkspace } from "@/features/layout/record-workspace";
+import { deletePartnerAction } from "@/features/partners/actions";
 import { AssignCustomerForm, UnassignCustomerForm } from "@/features/partners/assign-customer-form";
 import { getPartnerForUser } from "@/features/partners/queries";
 import { requireWorkspace } from "@/features/workspaces/require-workspace";
@@ -86,6 +88,20 @@ export default async function PartnerPage({ params }: { params: Promise<{ partne
             </CardContent>
           </Card>
         </section>
+
+        {partner.canChange && (
+          <section aria-labelledby="delete-heading" className="space-y-2">
+            <h2 id="delete-heading" className="text-base font-semibold">Delete partner</h2>
+            <p className="text-sm text-muted-foreground">
+              Its users lose access to this workspace and its invite links stop working. Its projects are kept for
+              admins and auditors. You can restore it from Deleted.
+            </p>
+            <form action={deletePartnerAction}>
+              <input type="hidden" name="partnerId" value={partner.id} />
+              <Button type="submit" variant="destructive">Delete partner</Button>
+            </form>
+          </section>
+        )}
       </main>
     </div>
   );

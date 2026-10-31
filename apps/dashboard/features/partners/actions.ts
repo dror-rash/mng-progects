@@ -109,3 +109,22 @@ export async function unassignCustomerAction(_prev: FormState, formData: FormDat
   revalidatePartner(partnerId);
   return {};
 }
+
+/**
+ * Soft-deletes the partner company (admins only, design rule 8c): its users lose access to the workspace
+ * and its invite links stop working; its projects stay, for admins and auditors. An admin restores it
+ * from the Deleted page, which gives everything back.
+ */
+export async function deletePartnerAction(formData: FormData) {
+  const session = await requireActionSession();
+  await withAccess(session.user.id, async () => {
+    const partner = await requirePartnerChange(session.user.id, formData);
+    await getDb()
+      .update(schema.partner)
+      .set({ deletedAt: new Date(), deletedBy: session.user.id })
+      .where(eq(schema.partner.id, partner.id));
+  });
+  // Partner names show on the members page and in role choices; projects lose their partner's users.
+  revalidatePath("/", "layout");
+  redirect("/partners");
+}

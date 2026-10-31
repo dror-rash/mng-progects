@@ -1,6 +1,6 @@
 "use server";
 
-import { and, eq, exists, getDb, schema, withAccess } from "@repo/db";
+import { and, eq, exists, getDb, isNull, schema, withAccess } from "@repo/db";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
@@ -12,10 +12,12 @@ import { parseContactInput } from "./contact-input";
 
 // Each action does its reads and writes in one `withAccess` transaction, and redirects after it commits.
 
+/** The form's contact of the customer, not deleted. */
 function contactOf(formData: FormData, organizationId: string) {
   return and(
     eq(schema.organizationContact.id, String(formData.get("contactId") ?? "")),
     eq(schema.organizationContact.organizationId, organizationId),
+    isNull(schema.organizationContact.deletedAt),
   );
 }
 
@@ -24,11 +26,11 @@ function revalidateCustomer(customerId: string) {
   revalidatePath("/customers");
 }
 
-/** Runs `fn` as the signed-in user with the customer of the form, if they can change it. */
-async function withCustomer<T>(formData: FormData, fn: (customer: { id: string }) => Promise<T>) {
+/** Runs `fn` as the signed-in user (`userId`) with the customer of the form, if they can change it. */
+async function withCustomer<T>(formData: FormData, fn: (customer: { id: string }, userId: string) => Promise<T>) {
   const session = await requireActionSession();
   return withAccess(session.user.id, async () =>
-    fn(await requireOrganizationAccess(session.user.id, String(formData.get("customerId") ?? ""), "customer")),
+    fn(await requireOrganizationAccess(session.user.id, String(formData.get("customerId") ?? ""), "customer"), session.user.id),
   );
 }
 
@@ -75,9 +77,13 @@ export async function updateContactAction(_prev: FormState, formData: FormData):
   redirect(`/customers/${result.customerId}`);
 }
 
+/** Soft delete: an admin restores the contact from the Deleted page (still the primary one if it was). */
 export async function removeContactAction(formData: FormData) {
-  const customerId = await withCustomer(formData, async (customer) => {
-    await getDb().delete(schema.organizationContact).where(contactOf(formData, customer.id));
+  const customerId = await withCustomer(formData, async (customer, userId) => {
+    await getDb()
+      .update(schema.organizationContact)
+      .set({ deletedAt: new Date(), deletedBy: userId })
+      .where(contactOf(formData, customer.id));
     return customer.id;
   });
   revalidateCustomer(customerId);

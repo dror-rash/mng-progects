@@ -93,12 +93,18 @@ export async function setProjectLifecycleAction(formData: FormData) {
   redirect(`/projects/${id}`);
 }
 
-/** Tasks go with the project (`onDelete: "cascade"`). */
+/**
+ * Soft delete (design rule 8a): the project disappears, and its tasks with it (`can_see_project` and the
+ * list filters); an admin restores it from the Deleted page. Whoever can change the project.
+ */
 export async function deleteProjectAction(formData: FormData) {
   const session = await requireActionSession();
   await withAccess(session.user.id, async () => {
     const project = await requireProjectAccess(session.user.id, String(formData.get("projectId") ?? ""));
-    await getDb().delete(schema.project).where(eq(schema.project.id, project.id));
+    await getDb()
+      .update(schema.project)
+      .set({ deletedAt: new Date(), deletedBy: session.user.id })
+      .where(eq(schema.project.id, project.id));
   });
   revalidateOverviews();
   redirect("/");

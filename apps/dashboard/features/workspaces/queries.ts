@@ -53,7 +53,9 @@ export async function createWorkspace(userId: string, name: string): Promise<str
 
 /**
  * Creates a personal workspace (as admin) for a user who belongs to none. A per-user lock makes two
- * concurrent first requests create it only once: the second finds the first one's membership.
+ * concurrent first requests create it only once: the second finds the first one's membership. Only
+ * memberships that give access count (`access_role`): a user of a deleted partner company (design rule 8c)
+ * belongs to nothing they can open, so they get a personal workspace like someone new.
  */
 export async function ensurePersonalWorkspace(user: { id: string; name: string }) {
   await withAccess(user.id, async () => {
@@ -61,7 +63,11 @@ export async function ensurePersonalWorkspace(user: { id: string; name: string }
     await db.execute(sql`select pg_advisory_xact_lock(hashtext(${`personal-workspace:${user.id}`}))`);
     await db.execute(
       sql`select create_workspace(${user.id}, ${personalWorkspaceName(user.name)})
-          where not exists (select 1 from workspace_member where user_id = ${user.id})`,
+          where not exists (
+            select 1 from workspace_member m
+            cross join lateral access_role(${user.id}, m.workspace_id) a
+            where m.user_id = ${user.id}
+          )`,
     );
   });
   requestMemberships().delete(user.id);
