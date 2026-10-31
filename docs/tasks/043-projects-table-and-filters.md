@@ -53,6 +53,6 @@ All projects shows one tile per project. With dozens of projects (the demo seed 
 - 2026-10-31 – Merged to `main` in PR #16; CI `verify` and `e2e` green.
 
 ## Parking lot
-- Sort by clicking a column header; pagination or infinite scroll.
+- ~~Sort by clicking a column header~~ (done in task 045); pagination or infinite scroll.
 - "Assigned to me" filter (projects with open tasks assigned to me).
 - Remember the chosen view per user (cookie) instead of only in the URL.

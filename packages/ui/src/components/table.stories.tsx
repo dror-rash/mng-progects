@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 
 import { Badge } from "./badge";
 import { Meter } from "./meter";
-import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "./table";
+import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow, TableSortIndicator } from "./table";
 
 const meta = {
   title: "Components/Table",
@@ -67,3 +67,41 @@ export const Empty: Story = {
     </Table>
   ),
 };
+
+const sortLink = "inline-flex items-center gap-1 hover:text-foreground";
+
+/** Column headers that sort: the sorted one shows its direction (and has `aria-sort`), the others a faint marker. */
+function SortableTable({ direction }: { direction: "ascending" | "descending" }) {
+  const sorted = direction === "ascending" ? rows : [...rows].reverse();
+  return (
+    <Table>
+      <TableCaption>Projects</TableCaption>
+      <TableHeader>
+        <TableRow>
+          <TableHead aria-sort={direction}>
+            <a href="#name" className={sortLink}>Name <TableSortIndicator direction={direction} /></a>
+          </TableHead>
+          <TableHead>
+            <a href="#customer" className={sortLink}>Customer <TableSortIndicator /></a>
+          </TableHead>
+          <TableHead>
+            <a href="#overdue" className={sortLink}>Overdue <TableSortIndicator /></a>
+          </TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {sorted.map((r) => (
+          <TableRow key={r.name}>
+            <TableHead scope="row">{r.name}</TableHead>
+            <TableCell>{r.customer}</TableCell>
+            <TableCell>{r.overdue > 0 ? `${r.overdue} overdue` : "—"}</TableCell>
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
+  );
+}
+
+export const SortedAscending: Story = { render: () => <SortableTable direction="ascending" /> };
+
+export const SortedDescending: Story = { render: () => <SortableTable direction="descending" /> };
