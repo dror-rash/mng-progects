@@ -107,10 +107,18 @@ describe("soft delete", () => {
   });
 
   it("lets a partner soft-delete its own partner's task", async () => {
-    const changed = await writeAs(ids.pa, sql`update task set deleted_at = now(), deleted_by = ${ids.pa} where id = ${ids.task}`);
+    // Through delete_task: the task select policy hides deleted tasks from partners, so a plain update is refused.
+    const [result] = await as<{ deleted: boolean }>(ids.pa, sql`select delete_task(${ids.task}) as deleted`);
 
-    expect(changed).toBe(1);
+    expect(result?.deleted).toBe(true);
     expect(await deletedAt("task", ids.task)).not.toBeNull();
+  });
+
+  it("refuses delete_task to an auditor", async () => {
+    const [result] = await as<{ deleted: boolean }>(ids.auditor, sql`select delete_task(${ids.task}) as deleted`);
+
+    expect(result?.deleted).toBe(false);
+    expect(await deletedAt("task", ids.task)).toBeNull();
   });
 
   it("lets a partner soft-delete its own partner's project", async () => {
