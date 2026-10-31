@@ -45,6 +45,13 @@ describe("EditTaskForm", () => {
     expect(posted().has("customerId")).toBe(false);
   });
 
+  it("doesn't post the customer when it is hidden from me, without being given its id", () => {
+    render(<EditTaskForm projectId="p" task={{ ...task(null), customerHidden: true }} customers={customers} members={[]} />);
+
+    expect(screen.getByLabelText("Customer")).toHaveProperty("value", "");
+    expect(posted().has("customerId")).toBe(false);
+  });
+
   it("posts a customer chosen in place of one I can't see", async () => {
     render(<EditTaskForm projectId="p" task={task("initech")} customers={customers} members={[]} />);
 

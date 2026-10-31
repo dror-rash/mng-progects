@@ -14,7 +14,17 @@ import { normalizeTaskPriority, parseTaskPriority, TASK_PRIORITIES } from "./tas
 
 import { updateTaskAction } from "./actions";
 
-type Task = { id: string; title: string; description: string | null; organizationId: string | null; priority: string; dueDate: string | null; assigneeId: string | null };
+type Task = {
+  id: string;
+  title: string;
+  description: string | null;
+  organizationId: string | null;
+  /** The task has a customer the user can't see (rule 7a); `organizationId` is then null, never its id. */
+  customerHidden?: boolean;
+  priority: string;
+  dueDate: string | null;
+  assigneeId: string | null;
+};
 type MemberOption = { userId: string; name: string };
 type CustomerOption = { id: string; name: string };
 
@@ -43,7 +53,8 @@ export function EditTaskForm({
   const priority = parseTaskPriority(state.values?.priority) ?? normalizeTaskPriority(task.priority);
   // A customer that isn't one of my choices (a partner can't see it, rule 7a) shows as "No customer". Until
   // I choose another, the form doesn't post the field, so the server keeps it rather than clearing it.
-  const customerHidden = task.organizationId !== null && !customers.some((c) => c.id === task.organizationId);
+  const customerHidden =
+    task.customerHidden === true || (task.organizationId !== null && !customers.some((c) => c.id === task.organizationId));
   const [customerChosen, setCustomerChosen] = useState(false);
   const customerValue = state.values?.customerId ?? (customerHidden ? "" : (task.organizationId ?? ""));
 

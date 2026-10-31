@@ -44,8 +44,10 @@ export default async function CopyProjectPage({ params }: { params: Promise<{ pr
           <p className="text-sm text-muted-foreground">
             The new project gets this project&apos;s description and tasks, without assignees. This project stays as it is.
           </p>
+          {/* Only the fields the form uses cross to the client (copied_from_id may name a project the viewer
+              can't see). */}
           <ProjectForm
-            copyOf={project}
+            copyOf={{ id: project.id, name: project.name, organizationId: project.organizationId }}
             workspaceId={project.workspaceId}
             customers={customers}
             owners={owners}
