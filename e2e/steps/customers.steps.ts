@@ -71,11 +71,11 @@ Then("each note shows today's date", async ({ page }) => {
 });
 
 Given("I have a project named {string} for customer {string}", async ({ page }, name: string, customer: string) => {
-  await page.goto("/dashboard/projects");
+  await page.goto("/dashboard/projects/new");
   await page.getByLabel("Project name", { exact: true }).fill(name);
   await page.getByLabel("Customer", { exact: true }).selectOption({ label: customer });
   await page.getByRole("button", { name: "Create Project" }).click();
-  await expect(page.getByRole("link", { name, exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name, level: 1 })).toBeVisible();
 });
 
 When("I delete the customer {string}", async ({ page }, name: string) => {
