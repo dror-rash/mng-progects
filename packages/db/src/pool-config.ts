@@ -8,13 +8,31 @@ type Env = Record<string, string | undefined>;
  */
 export const RUNTIME_ROLE = "app_user";
 
+/** The part of a pg client `assertRole` needs. */
+type Queryable = { query(text: string): Promise<{ rows: Array<Record<string, unknown>> }> };
+
+/**
+ * Throws unless the connection runs as `role`. Row-level security isn't forced (ADR-0006): the login user
+ * owns the tables and bypasses it, so a connection where the startup option didn't switch the role must
+ * never serve a query. The pool calls it on every new connection (`onConnect`); when it throws, the
+ * connection is closed and the checkout fails (fail closed).
+ */
+export async function assertRole(client: Queryable, role: string): Promise<void> {
+  const { rows } = await client.query("select current_user as role");
+  const actual = rows[0]?.role;
+  if (actual !== role) {
+    throw new Error(`Refusing a database connection running as ${JSON.stringify(actual)}, not ${role} (ADR-0006).`);
+  }
+}
+
 /**
  * Cloud Run: Cloud SQL is mounted as a unix socket at /cloudsql/<connection-name>.
  * Local/CI: a plain DATABASE_URL.
- * Every connection switches to `role` on connect; `null` keeps the login user (the maintenance connection).
+ * Every connection switches to `role` on connect and is checked before its first query (`assertRole`);
+ * `null` keeps the login user (the maintenance connection), unchecked.
  */
 export function buildPoolConfig(env: Env, role: string | null = RUNTIME_ROLE): PoolConfig {
-  const asRole = role ? { options: `-c role=${role}` } : {};
+  const asRole: PoolConfig = role ? { options: `-c role=${role}`, onConnect: (client) => assertRole(client, role) } : {};
   const connectionName = env.CLOUD_SQL_CONNECTION_NAME;
 
   if (connectionName) {
