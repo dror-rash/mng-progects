@@ -162,3 +162,14 @@ Feature: Partner access: a partner's user sees only their own partner's work
     Then the page source doesn't contain the id of "GX App"
     When I open the copy page of "NW Login"
     Then the page source doesn't contain the id of "GX App"
+
+  @task:051
+  Scenario: A deleted project of another partner stays not found
+    Given the project "GX App" was deleted by the admin
+    When I open the address of the "GX App" project
+    Then I see "Project not found", the same as for a made-up project address
+    When I open the address of the "Login" task
+    Then I see "Task not found", the same as for a made-up task address
+    When the admin restores "GX App"
+    And I open the address of the "GX App" project
+    Then I see "Project not found", the same as for a made-up project address
