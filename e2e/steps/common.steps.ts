@@ -64,7 +64,15 @@ Then("the {string} field contains {string}", async ({ page }, label: string, val
 });
 
 When("I select {string} from {string}", async ({ page }, option: string, label: string) => {
-  await page.getByLabel(label, { exact: true }).selectOption({ label: option });
+  const select = page.getByLabel(label, { exact: true });
+  const [value] = await select.selectOption({ label: option });
+  // A filter select (in a search form, like All projects') applies on change: a client navigation that
+  // remounts the form when it lands. Wait for it, so the next step can't type into a form about to reset.
+  if (await select.evaluate((element) => element.closest("form[role=search]") !== null)) {
+    const name = (await select.getAttribute("name"))!;
+    const pattern = `[?&]${name}=${encodeURIComponent(value!).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?:&|$)`;
+    await expect(page).toHaveURL(new RegExp(pattern));
+  }
 });
 
 Then("the {string} section shows {string}", async ({ page }, section: string, text: string) => {

@@ -19,6 +19,7 @@ When("I check {string}", async ({ page }, label: string) => {
 
 When("I search projects for {string}", async ({ page }, text: string) => {
   await page.getByLabel("Search projects", { exact: true }).fill(text);
+  await expect(page.getByLabel("Search projects", { exact: true })).toHaveValue(text);
   await page.getByLabel("Search projects", { exact: true }).press("Enter");
   // A GET form encodes a space as "+", encodeURIComponent as "%20": accept either.
   const query = encodeURIComponent(text).replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/%20/g, "(?:%20|\\+)");
