@@ -21,11 +21,12 @@ export async function createProjectAction(_prev: FormState, formData: FormData):
     return invalid("Choose one of your customers", formData, "customerId");
   }
 
+  const id = crypto.randomUUID();
   await getDb()
     .insert(schema.project)
-    .values({ id: crypto.randomUUID(), ...input.value, ownerId: session.user.id, workspaceId: workspace.id });
+    .values({ id, ...input.value, ownerId: session.user.id, workspaceId: workspace.id });
   revalidateOverviews();
-  return {};
+  redirect(`/projects/${id}`);
 }
 
 export async function updateProjectAction(_prev: FormState, formData: FormData): Promise<FormState> {
