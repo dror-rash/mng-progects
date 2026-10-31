@@ -36,6 +36,19 @@ export default async function TaskPage({ params }: { params: Promise<{ projectId
     task.organizationId && task.customerName ? getOrganizationForUser(session.user.id, task.organizationId, "customer") : null,
   ]);
   const status = TASK_STATUSES.find((s) => s.status === (parseTaskStatus(task.status) ?? "todo"))!;
+  // Only the fields the edit form uses cross to the client. A customer that isn't one of the choices (a
+  // partner can't see it, rule 7a) goes as hidden, never its id; the form then leaves it as it is.
+  const customerHidden = task.organizationId !== null && !customers.some((c) => c.id === task.organizationId);
+  const editableTask = {
+    id: task.id,
+    title: task.title,
+    description: task.description,
+    organizationId: customerHidden ? null : task.organizationId,
+    customerHidden,
+    priority: task.priority,
+    dueDate: task.dueDate,
+    assigneeId: task.assigneeId,
+  };
 
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
@@ -100,7 +113,7 @@ export default async function TaskPage({ params }: { params: Promise<{ projectId
                 <EditTaskForm
                   key={task.updatedAt.toISOString()}
                   projectId={project.id}
-                  task={task}
+                  task={editableTask}
                   customers={customers}
                   members={members}
                 />

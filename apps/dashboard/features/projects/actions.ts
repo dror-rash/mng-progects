@@ -1,50 +1,19 @@
 "use server";
 
-import { and, eq, getDb, isNull, schema, withAccess } from "@repo/db";
+import { eq, getDb, schema, withAccess } from "@repo/db";
 import { redirect } from "next/navigation";
 
-import { requireAdmin } from "@/features/access/require-change";
 import { requireActionSession } from "@/features/auth/require-session";
 import { type FormState, invalid } from "@/features/forms/form-state";
-import { isCustomerChoice } from "@/features/organizations/customer-names";
 import { requireWorkspaceForAction } from "@/features/workspaces/require-workspace";
 
 import { parseProjectInput } from "./project-input";
-import { parseProjectOwner, type ProjectOwner } from "./project-owner";
+import { parseProjectLifecycle } from "./project-lifecycle";
+import { customerAllowed, newProjectOwner } from "./project-owner-check";
 import { requireProjectAccess } from "./require-project-access";
 import { revalidateOverviews } from "./revalidate";
 
 // Each action does its reads and writes in one `withAccess` transaction, and redirects after it commits.
-
-type Workspace = Awaited<ReturnType<typeof requireWorkspaceForAction>>["workspace"];
-
-/**
- * The new project's owner (rule 4): a partner's users always create their own partner's projects; admins
- * choose Internal or one of the workspace's partners. Auditors get the not-found refusal. Inside `withAccess`.
- */
-async function newProjectOwner(userId: string, workspace: Workspace, formData: FormData): Promise<ProjectOwner | null> {
-  if (workspace.role === "partner" && workspace.partnerId) {
-    return { visibility: "partner", partnerId: workspace.partnerId };
-  }
-  await requireAdmin(userId, workspace.id);
-  const owner = parseProjectOwner(formData.get("owner"));
-  if (owner?.visibility !== "partner") return owner;
-  const [partner] = await getDb()
-    .select({ id: schema.partner.id })
-    .from(schema.partner)
-    .where(and(eq(schema.partner.id, owner.partnerId), eq(schema.partner.workspaceId, workspace.id), isNull(schema.partner.deletedAt)));
-  return partner ? owner : null;
-}
-
-/**
- * Whether a project owned by `partnerId` (null: internal) may have the customer `organizationId`: one of
- * the acting user's customer choices, and for a partner's project one of the partner's (rule 4), which
- * it must have. Inside `withAccess`.
- */
-async function customerAllowed(workspaceId: string, partnerId: string | null, organizationId: string | null) {
-  if (!organizationId) return partnerId === null;
-  return isCustomerChoice(workspaceId, partnerId, organizationId);
-}
 
 export async function createProjectAction(_prev: FormState, formData: FormData): Promise<FormState> {
   const { session, workspace } = await requireWorkspaceForAction(formData);
@@ -100,6 +69,28 @@ export async function updateProjectAction(_prev: FormState, formData: FormData):
   }
   revalidateOverviews();
   redirect(`/projects/${result.id}`);
+}
+
+/**
+ * Cancel or reopen a project (rule 4b): the Cancel / Reopen buttons post the lifecycle to set. Anyone who
+ * can change the project (`can_change_project`); others get the same refusal as for a missing one.
+ */
+export async function setProjectLifecycleAction(formData: FormData) {
+  const session = await requireActionSession();
+  const lifecycle = parseProjectLifecycle(formData.get("lifecycle"));
+  if (!lifecycle) {
+    throw new Error("Invalid lifecycle");
+  }
+  const id = await withAccess(session.user.id, async () => {
+    const project = await requireProjectAccess(session.user.id, String(formData.get("projectId") ?? ""));
+    await getDb()
+      .update(schema.project)
+      .set({ lifecycle, updatedAt: new Date() })
+      .where(eq(schema.project.id, project.id));
+    return project.id;
+  });
+  revalidateOverviews();
+  redirect(`/projects/${id}`);
 }
 
 /** Tasks go with the project (`onDelete: "cascade"`). */

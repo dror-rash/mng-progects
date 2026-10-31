@@ -29,10 +29,10 @@ Build a modern, full-stack Project Management application on a Next.js multi-zon
 | M7 | Task Details | Task priority (018) and due dates with overdue / due-this-week on the home page (019) | done |
 | M8 | Workspaces & Sharing | Workspaces own projects, tasks and customers; Admin/Member roles; invite links; workspace switcher; task assignees and "My tasks" (ADR-0005) | done |
 | M9 | Polish & Hardening | Open parking-lot items: members-page errors, invite hygiene, workspace settings, header, cross-workspace reads, request caching, indexes, test cleanup, SQL counts, dark mode, drag-and-drop, primary contact, chart tooltips (tasks 027–039) | done |
-| M12 | Partner Access | Admin / Auditor / Partner roles; partner companies with assigned customers; partners see only their own projects and customer names; enforced by SQL access functions and row-level security; project cancel/copy; soft delete everywhere (ADR-0006, tasks 046–051, plan `docs/superpowers/plans/2026-10-31-partner-access.md`) | in progress (046–049 done) |
+| M12 | Partner Access | Admin / Auditor / Partner roles; partner companies with assigned customers; partners see only their own projects and customer names; enforced by SQL access functions and row-level security; project cancel/copy; soft delete everywhere (ADR-0006, tasks 046–051, plan `docs/superpowers/plans/2026-10-31-partner-access.md`) | in progress (046–050 done) |
 
 ## Current milestone
-M12 Partner Access (in progress: 046–049 done, 050 next). M9 is done. Candidates: M10 accounts and email (incl. user deletion), M11 deploy to GCP, and two drafted but blocked tasks moved out of M9: 040 other organization kinds (needs product answers) and 041 time zones (needs ADR-0007).
+M12 Partner Access (in progress: 046–050 done, 051 next). M9 is done. Candidates: M10 accounts and email (incl. user deletion), M11 deploy to GCP, and two drafted but blocked tasks moved out of M9: 040 other organization kinds (needs product answers) and 041 time zones (needs ADR-0007).
 
 ## Risks & open questions
 - Invite tokens will appear in Cloud Run / load balancer request logs until a log exclusion is added in `infra/` (task 028 parking lot; do it with M11).

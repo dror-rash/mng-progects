@@ -1,5 +1,7 @@
 import { getDb, sql, withAccess } from "@repo/db";
 
+import { normalizeWorkspaceRole, type WorkspaceRole } from "./roles";
+
 /** One access function's answer for this user and record (see `predicates.ts`). */
 async function allowed(check: "can_change_project" | "can_change_customer", userId: string, id: string) {
   const { rows } = await withAccess(userId, () =>
@@ -25,12 +27,27 @@ export async function requireCustomerChange(userId: string, orgId: string): Prom
   }
 }
 
+/**
+ * `userId`'s role in the workspace and, for a partner's user, their partner, by `access_role`; null for
+ * someone who isn't a member (or whose partner is deleted). For a record's workspace, which may not be the
+ * current one.
+ */
+export async function workspaceAccess(
+  userId: string,
+  workspaceId: string,
+): Promise<{ role: WorkspaceRole; partnerId: string | null } | null> {
+  const { rows } = await withAccess(userId, () =>
+    getDb().execute<{ role: string; partner_id: string | null }>(
+      sql`select role, partner_id from access_role(${userId}, ${workspaceId})`,
+    ),
+  );
+  const row = rows[0];
+  return row ? { role: normalizeWorkspaceRole(row.role), partnerId: row.partner_id } : null;
+}
+
 /** Whether `userId` is an admin of the workspace, by `access_role` (members, invites, settings). */
 export async function isAdmin(userId: string, workspaceId: string): Promise<boolean> {
-  const { rows } = await withAccess(userId, () =>
-    getDb().execute<{ role: string }>(sql`select role from access_role(${userId}, ${workspaceId})`),
-  );
-  return rows[0]?.role === "admin";
+  return (await workspaceAccess(userId, workspaceId))?.role === "admin";
 }
 
 /** For admin-only actions without a form error to show: throws unless `userId` is an admin of the workspace. */

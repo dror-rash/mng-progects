@@ -30,11 +30,22 @@ describe("projectStatus", () => {
   it("ignores statuses with no tasks", () => {
     expect(projectStatus([{ status: "done", count: 2 }, { status: "todo", count: 0 }])).toBe("done");
   });
+
+  it("is canceled for a canceled project, whatever its tasks", () => {
+    expect(projectStatus([{ status: "done", count: 2 }], "canceled")).toBe("canceled");
+    expect(projectStatus([], "canceled")).toBe("canceled");
+  });
+
+  it("is derived from the tasks for an active project, or an unknown stored lifecycle", () => {
+    expect(projectStatus([{ status: "done", count: 2 }], "active")).toBe("done");
+    expect(projectStatus([{ status: "done", count: 2 }], "archived")).toBe("done");
+  });
 });
 
 describe("parseProjectStatus", () => {
   it("accepts a known status and rejects anything else", () => {
     expect(parseProjectStatus("in_progress")).toBe("in_progress");
+    expect(parseProjectStatus("canceled")).toBe("canceled");
     expect(parseProjectStatus("archived")).toBeNull();
     expect(parseProjectStatus(undefined)).toBeNull();
   });
@@ -43,5 +54,6 @@ describe("parseProjectStatus", () => {
 describe("projectStatusLabel", () => {
   it("gives the label for a status", () => {
     expect(projectStatusLabel("not_started")).toBe("Not started");
+    expect(projectStatusLabel("canceled")).toBe("Canceled");
   });
 });

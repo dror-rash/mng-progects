@@ -25,9 +25,11 @@ export default async function EditProjectPage({ params }: { params: Promise<{ pr
           <CardTitle>Edit project</CardTitle>
         </CardHeader>
         <CardContent>
-          {/* The owner never changes (rule 4a); a partner's project keeps one of the partner's customers. */}
+          {/* The owner never changes (rule 4a); a partner's project keeps one of the partner's customers. Only
+              the fields the form uses cross to the client: the row also holds ids the viewer mustn't get
+              (copied_from_id may name another partner's project). */}
           <ProjectForm
-            project={project}
+            project={{ id: project.id, name: project.name, description: project.description, organizationId: project.organizationId }}
             customers={await listCustomerNames(session.user.id, project.workspaceId, project.partnerId)}
             customerRequired={project.partnerId !== null}
           />

@@ -78,6 +78,7 @@ Feature: Partner access: a partner's user sees only their own partner's work
     When I am on the "Copy" task page
     Then I see the text "No customer"
     And the page shows none of "Initech"
+    And the page source doesn't contain the id of "Initech"
     When I fill in "Description" with "Shorter copy"
     And I press "Save changes"
     Then the admin sees the task "Copy" for the customer "Initech", with the description "Shorter copy"
@@ -136,3 +137,28 @@ Feature: Partner access: a partner's user sees only their own partner's work
   Scenario: An auditor sees both partners' projects
     When the auditor opens "/dashboard/projects"
     Then the auditor's projects are "GX App, NW Site, HQ Plan"
+
+  @task:050
+  Scenario: Another partner's project can't be copied
+    When I copy the project "NW Site" as "Sneaky" with the project id of "GX App"
+    Then I see "Something went wrong", the same as with a made-up id
+    When I open the copy page of "GX App"
+    Then I see "Project not found", the same as for a made-up project address
+    And the admin sees no project "Sneaky"
+
+  @task:050
+  Scenario: Another partner's project can't be canceled
+    When I cancel the project "NW Site" with the project id of "GX App"
+    Then I see "Something went wrong", the same as with a made-up id
+    And the admin sees the "GX App" row shows "Not started"
+
+  @task:050
+  Scenario: A copy doesn't show a project I can't see
+    When the admin copies "GX App" to "NW Login" owned by "Northwind" for "Acme Ltd"
+    And I am on the "NW Login" project page
+    Then I see the text "Login"
+    And the page shows none of "GX App, Copied from"
+    When I open the edit page of "NW Login"
+    Then the page source doesn't contain the id of "GX App"
+    When I open the copy page of "NW Login"
+    Then the page source doesn't contain the id of "GX App"

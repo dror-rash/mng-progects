@@ -16,19 +16,19 @@ function nextTime() {
   return new Date(clock);
 }
 
-function ids(state: ScenarioState) {
+export function ids(state: ScenarioState) {
   state.ids ??= {};
   return state.ids;
 }
 
 /** The id of a record this scenario wrote, by its name. */
-function idOf(state: ScenarioState, name: string) {
+export function idOf(state: ScenarioState, name: string) {
   const id = state.ids?.[name];
   expect(id, `no record named "${name}"`).toBeDefined();
   return id!;
 }
 
-const projectPath = (state: ScenarioState, project: string) => `/dashboard/projects/${idOf(state, project)}`;
+export const projectPath = (state: ScenarioState, project: string) => `/dashboard/projects/${idOf(state, project)}`;
 const taskPath = (state: ScenarioState, task: string) =>
   `/dashboard/projects/${idOf(state, `${task}:project`)}/tasks/${idOf(state, task)}`;
 
@@ -41,7 +41,7 @@ async function newAccount(request: APIRequestContext, name: string) {
 }
 
 /** The page of the admin or the auditor, signed in on first use. */
-async function pageOf(state: ScenarioState, people: People, who: "admin" | "auditor") {
+export async function pageOf(state: ScenarioState, people: People, who: "admin" | "auditor") {
   const entry = state.accounts?.[who];
   expect(entry, `no ${who} in this scenario`).toBeDefined();
   if (!entry!.page) {
@@ -64,7 +64,7 @@ async function chooseValue(select: Locator, value: string) {
 }
 
 /** Text the page shows, not values sitting in form fields or options. */
-function shownText(page: Page, text: string) {
+export function shownText(page: Page, text: string) {
   return page.getByText(text, { exact: true }).and(page.locator(":not(textarea):not(input):not(option)")).first();
 }
 
