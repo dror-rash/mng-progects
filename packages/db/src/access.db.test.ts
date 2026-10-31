@@ -17,6 +17,7 @@ const ids = {
   pb: `${run}-pb`,
   leaver: `${run}-leaver`,
   removed: `${run}-removed`,
+  mover: `${run}-mover`,
   partnerA: `${run}-partner-a`,
   partnerB: `${run}-partner-b`,
   shared: `${run}-shared`,
@@ -25,7 +26,7 @@ const ids = {
   pb1: `${run}-pb1`,
   int: `${run}-int`,
 };
-const users = [ids.admin, ids.auditor, ids.pa, ids.pb, ids.leaver, ids.removed];
+const users = [ids.admin, ids.auditor, ids.pa, ids.pb, ids.leaver, ids.removed, ids.mover];
 
 /** Runs `query` as `userId` and returns its rows. */
 async function as<T extends Record<string, unknown>>(userId: string, query: ReturnType<typeof sql>) {
@@ -70,6 +71,7 @@ beforeAll(async () => {
     { workspaceId: ids.workspace, userId: ids.pb, role: "partner", partnerId: ids.partnerB },
     { workspaceId: ids.workspace, userId: ids.leaver, role: "auditor" },
     { workspaceId: ids.workspace, userId: ids.removed, role: "partner", partnerId: ids.partnerB },
+    { workspaceId: ids.workspace, userId: ids.mover, role: "auditor" },
   ]);
   await db.insert(schema.organization).values([
     { id: ids.shared, workspaceId: ids.workspace, name: "Shared" },
@@ -91,6 +93,9 @@ beforeAll(async () => {
     { id: `${run}-task-leaver`, projectId: ids.int, title: "Assigned to the leaver", assigneeId: ids.leaver },
     { id: `${run}-task-removed-int`, projectId: ids.int, title: "Assigned to the removed", assigneeId: ids.removed },
     { id: `${run}-task-removed-pb1`, projectId: ids.pb1, title: "Also assigned to the removed", assigneeId: ids.removed },
+    { id: `${run}-task-mover-pa1`, projectId: ids.pa1, title: "The mover's on A", assigneeId: ids.mover },
+    { id: `${run}-task-mover-pb1`, projectId: ids.pb1, title: "The mover's on B", assigneeId: ids.mover },
+    { id: `${run}-task-mover-int`, projectId: ids.int, title: "The mover's internal", assigneeId: ids.mover },
   ]);
 });
 
@@ -239,6 +244,24 @@ describe("row-level security", () => {
     const clear = withAccess(ids.pa, () => getDb().execute(sql`select clear_assignments(${ids.workspace}, ${ids.pb})`));
 
     await expect(clear.catch((error: unknown) => Promise.reject(new Error(cause(error))))).rejects.toThrow(/only yourself or an admin/);
+  });
+
+  it("a role change clears only the assignments the user can no longer see", async () => {
+    // An admin makes the mover (an auditor) a user of partner B: B's project stays visible to them.
+    await withAccess(ids.admin, async () => {
+      await getDb().execute(
+        sql`update workspace_member set role = 'partner', partner_id = ${ids.partnerB} where workspace_id = ${ids.workspace} and user_id = ${ids.mover}`,
+      );
+      await getDb().execute(sql`select clear_unseen_assignments(${ids.workspace}, ${ids.mover})`);
+    });
+
+    expect(await assignedTo(ids.mover)).toEqual([`${run}-task-mover-pb1`]);
+  });
+
+  it("refuses to clear unseen assignments unless you are an admin", async () => {
+    const clear = withAccess(ids.auditor, () => getDb().execute(sql`select clear_unseen_assignments(${ids.workspace}, ${ids.auditor})`));
+
+    await expect(clear.catch((error: unknown) => Promise.reject(new Error(cause(error))))).rejects.toThrow(/only an admin/);
   });
 
   it("handles 8 parallel scoped queries with a pool of 5", async () => {

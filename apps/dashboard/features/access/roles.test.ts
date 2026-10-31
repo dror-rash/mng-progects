@@ -5,6 +5,9 @@ import {
   keepsAnAdmin,
   normalizeWorkspaceRole,
   parseAssignableRole,
+  parseRoleChoice,
+  roleChoiceLabel,
+  roleChoiceValue,
   parseWorkspaceRole,
   WORKSPACE_ROLES,
   workspaceRoleLabel,
@@ -77,5 +80,35 @@ describe("keepsAnAdmin", () => {
   it("allows changes to people who aren't admins", () => {
     expect(keepsAnAdmin(members, { userId: "b", role: null })).toBe(true);
     expect(keepsAnAdmin(members, { userId: "b", role: "admin" })).toBe(true);
+  });
+});
+
+describe("role choices (invite links and the members page)", () => {
+  it("reads admin and auditor without a partner", () => {
+    expect(parseRoleChoice("admin")).toEqual({ role: "admin", partnerId: null });
+    expect(parseRoleChoice("auditor")).toEqual({ role: "auditor", partnerId: null });
+  });
+
+  it("reads a partner choice with its partner company", () => {
+    expect(parseRoleChoice("partner:p-1")).toEqual({ role: "partner", partnerId: "p-1" });
+  });
+
+  it("rejects a partner without a company, unknown roles and missing values", () => {
+    expect(parseRoleChoice("partner")).toBeNull();
+    expect(parseRoleChoice("partner:")).toBeNull();
+    expect(parseRoleChoice("member")).toBeNull();
+    expect(parseRoleChoice(null)).toBeNull();
+  });
+
+  it("writes the value a select option carries", () => {
+    expect(roleChoiceValue("admin", null)).toBe("admin");
+    expect(roleChoiceValue("partner", "p-1")).toBe("partner:p-1");
+    expect(parseRoleChoice(roleChoiceValue("partner", "p-1"))).toEqual({ role: "partner", partnerId: "p-1" });
+  });
+
+  it("labels a partner choice with the partner's name", () => {
+    expect(roleChoiceLabel("auditor", null)).toBe("Auditor");
+    expect(roleChoiceLabel("partner", "Northwind")).toBe("Partner: Northwind");
+    expect(roleChoiceLabel("partner", null)).toBe("Partner");
   });
 });
