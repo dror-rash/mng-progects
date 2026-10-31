@@ -1,19 +1,53 @@
 import { Button } from "@repo/ui/button";
 import { Card } from "@repo/ui/card";
+import { FilterChip } from "@repo/ui/filter-chip";
 import Link from "next/link";
 
 import { AppHeader } from "@/features/layout/app-header";
+import { firstParam, withParams } from "@/features/navigation/search-params";
+import { listOrganizations } from "@/features/organizations/queries";
+import { ProjectFilterForm } from "@/features/projects/project-filter-form";
+import { filterParams, filterProjects, parseProjectFilters, type ProjectFilters } from "@/features/projects/project-filters";
 import { ProjectList } from "@/features/projects/project-list";
+import { projectStatus } from "@/features/projects/project-status";
+import { ProjectTable } from "@/features/projects/project-table";
 import { listProjects } from "@/features/projects/queries";
-import { summarizeProjectStatusCounts } from "@/features/tasks/progress";
-import { countTasksByProjectAndStatus } from "@/features/tasks/queries";
+import { todayUtc } from "@/features/tasks/due-dates";
+import { groupStatusCountsByProject, summarizeProjectStatusCounts } from "@/features/tasks/progress";
+import { countOverdueTasksByProject, countTasksByProjectAndStatus } from "@/features/tasks/queries";
 import { requireWorkspace } from "@/features/workspaces/require-workspace";
 
 export const dynamic = "force-dynamic";
 
-export default async function AllProjectsPage() {
-  const { session, workspace } = await requireWorkspace("/projects");
-  const [projects, projectCounts] = await Promise.all([listProjects(workspace.id), countTasksByProjectAndStatus(workspace.id)]);
+type SearchParams = Promise<Record<string, string | string[] | undefined>>;
+
+const FILTER_KEYS = ["customer", "status", "overdue", "q", "view"] as const;
+
+export default async function AllProjectsPage({ searchParams }: { searchParams: SearchParams }) {
+  const params = await searchParams;
+  // Customers are checked once the workspace is known; come back to the same filters after login.
+  const { session, workspace } = await requireWorkspace(
+    withParams("/projects", Object.fromEntries(FILTER_KEYS.map((key) => [key, firstParam(params[key])]))),
+  );
+
+  const [projects, projectCounts, overdue, customers] = await Promise.all([
+    listProjects(workspace.id),
+    countTasksByProjectAndStatus(workspace.id),
+    countOverdueTasksByProject(workspace.id, todayUtc()),
+    listOrganizations(workspace.id, "customer"),
+  ]);
+  const filters = parseProjectFilters(params, customers.map((c) => c.id));
+  const countsByProject = groupStatusCountsByProject(projectCounts);
+  const rows = projects.map((p) => ({
+    ...p,
+    status: projectStatus(countsByProject.get(p.id) ?? []),
+    overdue: overdue.get(p.id) ?? 0,
+  }));
+  const shown = filterProjects(rows, filters);
+  const progress = summarizeProjectStatusCounts(projectCounts);
+  // Each link changes one thing and keeps the rest.
+  const link = (next: Partial<ProjectFilters>) => withParams("/projects", filterParams({ ...filters, ...next }));
+  const clearFilters = link({ customer: undefined, status: undefined, overdue: false, q: undefined });
 
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
@@ -32,7 +66,39 @@ export default async function AllProjectsPage() {
             No projects yet. Add your first one with “New project”.
           </Card>
         ) : (
-          <ProjectList projects={projects} progress={summarizeProjectStatusCounts(projectCounts)} />
+          <>
+            <div className="flex flex-wrap items-end justify-between gap-4">
+              <ProjectFilterForm key={JSON.stringify(filters)} filters={filters} customers={customers} />
+              <nav aria-label="View" className="flex gap-2">
+                <FilterChip selected={filters.view === "table"}>
+                  <Link href={link({ view: "table" })}>Table</Link>
+                </FilterChip>
+                <FilterChip selected={filters.view === "tiles"}>
+                  <Link href={link({ view: "tiles" })}>Tiles</Link>
+                </FilterChip>
+              </nav>
+            </div>
+
+            <p className="text-sm text-muted-foreground" aria-live="polite">
+              {shown.length === projects.length
+                ? `${projects.length} ${projects.length === 1 ? "project" : "projects"}`
+                : `${shown.length} of ${projects.length} projects`}
+              {shown.length !== projects.length && (
+                <>
+                  {" · "}
+                  <Link href={clearFilters} className="underline">Clear filters</Link>
+                </>
+              )}
+            </p>
+
+            {shown.length === 0 ? (
+              <Card className="border-dashed p-8 text-center text-muted-foreground">No projects match these filters.</Card>
+            ) : filters.view === "tiles" ? (
+              <ProjectList projects={shown} progress={progress} />
+            ) : (
+              <ProjectTable projects={shown} progress={progress} />
+            )}
+          </>
         )}
       </main>
     </div>

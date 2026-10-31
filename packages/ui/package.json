@@ -21,7 +21,8 @@
     "./theme": "./src/lib/theme.ts",
     "./theme-toggle": "./src/components/theme-toggle.tsx",
     "./confirm-by-name": "./src/components/confirm-by-name.tsx",
-    "./contact-row": "./src/components/contact-row.tsx"
+    "./contact-row": "./src/components/contact-row.tsx",
+    "./table": "./src/components/table.tsx"
   },
   "scripts": {
     "lint": "eslint .",

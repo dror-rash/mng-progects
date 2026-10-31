@@ -1,0 +1,81 @@
+import { Badge } from "@repo/ui/badge";
+import { Meter } from "@repo/ui/meter";
+import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "@repo/ui/table";
+import Link from "next/link";
+
+import type { TaskSummary } from "@/features/tasks/progress";
+
+import { type ProjectStatus, projectStatusLabel } from "./project-status";
+
+type Project = {
+  id: string;
+  name: string;
+  createdAt: Date;
+  organizationId: string | null;
+  customerName: string | null;
+  status: ProjectStatus;
+  overdue: number;
+};
+
+const NO_TASKS: TaskSummary = { total: 0, done: 0, open: 0, completionRate: 0 };
+
+/** All projects as rows: one line each, so many projects can be scanned and compared. */
+export function ProjectTable({ projects, progress }: { projects: Project[]; progress: Map<string, TaskSummary> }) {
+  return (
+    <Table>
+      <TableCaption className="sr-only">Projects</TableCaption>
+      <TableHeader>
+        <TableRow>
+          <TableHead>Project</TableHead>
+          <TableHead>Customer</TableHead>
+          <TableHead>Status</TableHead>
+          <TableHead>Progress</TableHead>
+          <TableHead>Overdue</TableHead>
+          <TableHead>Started</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {projects.map((project) => {
+          const summary = progress.get(project.id) ?? NO_TASKS;
+          return (
+            <TableRow key={project.id}>
+              <TableHead scope="row">
+                <Link href={`/projects/${project.id}`} className="hover:underline">
+                  {project.name}
+                </Link>
+              </TableHead>
+              <TableCell>
+                {project.organizationId && project.customerName ? (
+                  <Link href={`/customers/${project.organizationId}`} className="hover:underline">
+                    {project.customerName}
+                  </Link>
+                ) : (
+                  <span className="text-muted-foreground">—</span>
+                )}
+              </TableCell>
+              <TableCell>
+                <Badge variant="outline">{projectStatusLabel(project.status)}</Badge>
+              </TableCell>
+              <TableCell className="min-w-40 space-y-1">
+                <Meter label={`${project.name} progress`} value={summary.completionRate} />
+                <div className="text-xs text-muted-foreground">
+                  {summary.total === 0 ? "No tasks yet" : `${summary.done} of ${summary.total} done`}
+                </div>
+              </TableCell>
+              <TableCell className="whitespace-nowrap">
+                {project.overdue > 0 ? (
+                  <span className="font-medium text-destructive">{project.overdue} overdue</span>
+                ) : (
+                  <span className="text-muted-foreground">—</span>
+                )}
+              </TableCell>
+              <TableCell className="whitespace-nowrap text-muted-foreground">
+                {new Date(project.createdAt).toLocaleDateString()}
+              </TableCell>
+            </TableRow>
+          );
+        })}
+      </TableBody>
+    </Table>
+  );
+}

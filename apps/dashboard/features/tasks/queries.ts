@@ -1,5 +1,6 @@
 import { alias, and, asc, desc, eq, getDb, getTableColumns, gte, lt, lte, ne, schema, type SQL, sql } from "@repo/db";
 
+import type { CalendarDate } from "@/features/tasks/due-dates";
 import type { OverviewCount, OverviewWindow } from "@/features/tasks/overview";
 import { visibleTo } from "@/features/workspaces/access";
 
@@ -113,6 +114,17 @@ export async function countTasksByProjectAndStatus(workspaceId: string) {
     .innerJoin(schema.project, eq(schema.task.projectId, schema.project.id))
     .where(eq(schema.project.workspaceId, workspaceId))
     .groupBy(schema.task.projectId, schema.task.status);
+}
+
+/** Open tasks due before `today`, per project in the workspace (projects with none are left out). */
+export async function countOverdueTasksByProject(workspaceId: string, today: CalendarDate) {
+  const rows = await getDb()
+    .select({ projectId: schema.task.projectId, count: countAll() })
+    .from(schema.task)
+    .innerJoin(schema.project, eq(schema.task.projectId, schema.project.id))
+    .where(and(eq(schema.project.workspaceId, workspaceId), ne(schema.task.status, "done"), lt(schema.task.dueDate, today)))
+    .groupBy(schema.task.projectId);
+  return new Map(rows.map((r) => [r.projectId, r.count]));
 }
 
 /**

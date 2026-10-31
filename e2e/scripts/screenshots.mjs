@@ -285,7 +285,7 @@ await step("22-project-delete", async () => {
 });
 await step("23-all-projects", async () => {
   await dana.goto("/dashboard/projects");
-  await shot(dana, "23-all-projects", "Projects", "All projects", "Every project in the current workspace with progress and customer; “New project” opens the create page.");
+  await shot(dana, "23-all-projects", "Projects", "All projects", "Every project in the current workspace as a table with customer, status, progress and overdue tasks, with filters and a Tiles view; “New project” opens the create page.");
 });
 
 // Customers pages
