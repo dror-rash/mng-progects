@@ -20,7 +20,7 @@ export default async function WorkspacesPage() {
 
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
-      <AppHeader email={session.user.email} workspaceName={workspace.name} />
+      <AppHeader email={session.user.email} role={workspace.role} workspaceName={workspace.name} />
 
       <main className="mx-auto w-full max-w-3xl space-y-6 p-6">
         <h1 className="text-2xl font-bold tracking-tight">Workspaces</h1>

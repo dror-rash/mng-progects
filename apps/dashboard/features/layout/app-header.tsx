@@ -5,8 +5,8 @@ import { ThemeToggle } from "@repo/ui/theme-toggle";
 import { cookies } from "next/headers";
 import Link from "next/link";
 
+import type { WorkspaceRole } from "@/features/access/roles";
 import { canSeePartners } from "@/features/access/scope";
-import { requireWorkspace } from "@/features/workspaces/require-workspace";
 
 const NAV = [
   { href: "/", label: "Overview" },
@@ -22,21 +22,22 @@ const PARTNERS = { href: "/partners", label: "Partners" };
  * Zone header. Links inside the zone use next/link; "Home" is the shell, so it's a plain <a>.
  * Below `lg` the nav takes its own row and wraps, so nothing is pushed off-screen from 360px up.
  * `workspaceName` is the workspace of what the page shows: a record's own workspace on record pages,
- * with `otherWorkspace` set when that isn't the current one.
+ * with `otherWorkspace` set when that isn't the current one. `role` is mine in the current workspace (the
+ * nav links go there): admins and auditors also get Partners.
  */
 export async function AppHeader({
   email,
+  role,
   workspaceName,
   otherWorkspace = false,
 }: {
   email: string;
+  role: WorkspaceRole;
   workspaceName: string;
   otherWorkspace?: boolean;
 }) {
   const theme = parseTheme((await cookies()).get(THEME_COOKIE)?.value);
-  // The page has looked up the current workspace already; the session and memberships are cached per request.
-  const { workspace } = await requireWorkspace("/");
-  const nav = canSeePartners(workspace.role) ? [...NAV.slice(0, 3), PARTNERS, ...NAV.slice(3)] : NAV;
+  const nav = canSeePartners(role) ? [...NAV.slice(0, 3), PARTNERS, ...NAV.slice(3)] : NAV;
 
   return (
     <header className="border-b bg-card">

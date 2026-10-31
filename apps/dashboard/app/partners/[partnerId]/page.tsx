@@ -21,7 +21,7 @@ export default async function PartnerPage({ params }: { params: Promise<{ partne
 
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
-      <AppHeader email={session.user.email} {...await recordWorkspace(session.user.id, workspace, partner.workspaceId)} />
+      <AppHeader email={session.user.email} role={workspace.role} {...await recordWorkspace(session.user.id, workspace, partner.workspaceId)} />
 
       <main className="mx-auto w-full max-w-3xl space-y-6 p-6">
         <nav aria-label="Breadcrumb" className="text-sm text-muted-foreground">

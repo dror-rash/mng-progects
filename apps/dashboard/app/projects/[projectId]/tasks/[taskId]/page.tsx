@@ -38,7 +38,7 @@ export default async function TaskPage({ params }: { params: Promise<{ projectId
 
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
-      <AppHeader email={session.user.email} {...await recordWorkspace(session.user.id, workspace, project.workspaceId)} />
+      <AppHeader email={session.user.email} role={workspace.role} {...await recordWorkspace(session.user.id, workspace, project.workspaceId)} />
 
       <main className="mx-auto w-full max-w-3xl space-y-6 p-6">
         <nav aria-label="Breadcrumb" className="text-sm text-muted-foreground">

@@ -15,7 +15,7 @@ export default async function WorkspaceSettingsPage() {
 
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
-      <AppHeader email={session.user.email} workspaceName={workspace.name} />
+      <AppHeader email={session.user.email} role={workspace.role} workspaceName={workspace.name} />
 
       <main className="mx-auto w-full max-w-3xl space-y-6 p-6">
         <div className="flex flex-wrap items-center justify-between gap-3">

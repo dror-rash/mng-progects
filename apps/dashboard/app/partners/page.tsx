@@ -25,7 +25,7 @@ export default async function PartnersPage() {
 
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
-      <AppHeader email={session.user.email} workspaceName={workspace.name} />
+      <AppHeader email={session.user.email} role={workspace.role} workspaceName={workspace.name} />
 
       <main className="mx-auto w-full max-w-4xl space-y-6 p-6">
         <div className="flex items-center justify-between gap-4">

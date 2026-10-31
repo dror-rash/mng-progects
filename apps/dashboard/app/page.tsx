@@ -39,7 +39,7 @@ export default async function DashboardPage() {
 
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
-      <AppHeader email={session.user.email} workspaceName={workspace.name} />
+      <AppHeader email={session.user.email} role={workspace.role} workspaceName={workspace.name} />
 
       <main className="mx-auto w-full max-w-6xl space-y-8 p-6">
         <h1 className="text-2xl font-bold tracking-tight">Project Dashboard</h1>

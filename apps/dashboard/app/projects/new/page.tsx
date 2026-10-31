@@ -24,7 +24,7 @@ export default async function NewProjectPage({ searchParams }: { searchParams: S
 
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
-      <AppHeader email={session.user.email} workspaceName={workspace.name} />
+      <AppHeader email={session.user.email} role={workspace.role} workspaceName={workspace.name} />
       <main className="mx-auto w-full max-w-3xl p-6">
         <Card>
           <CardHeader>

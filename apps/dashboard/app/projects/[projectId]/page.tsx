@@ -37,7 +37,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ projec
 
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
-      <AppHeader email={session.user.email} {...await recordWorkspace(session.user.id, workspace, project.workspaceId)} />
+      <AppHeader email={session.user.email} role={workspace.role} {...await recordWorkspace(session.user.id, workspace, project.workspaceId)} />
 
       <main className="mx-auto w-full max-w-6xl space-y-8 p-6">
         <section className="flex flex-wrap items-start justify-between gap-4">
