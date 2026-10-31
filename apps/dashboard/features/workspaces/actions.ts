@@ -2,7 +2,7 @@
 
 import { resolvePublicOrigin } from "@repo/auth/redirect";
 import { getSession } from "@repo/auth/server";
-import { and, eq, getDb, inArray, isNull, schema } from "@repo/db";
+import { and, type Db, eq, getDb, isNull, schema, sql, withAccess } from "@repo/db";
 import { revalidatePath } from "next/cache";
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
@@ -22,11 +22,9 @@ import {
 } from "./invite-token";
 import { findInvite } from "./members";
 import { ADMINS_ONLY, membershipError, type MembershipResult } from "./membership-errors";
-import { ensurePersonalWorkspace, isMember, listMemberships } from "./queries";
+import { createWorkspace, ensurePersonalWorkspace, isMember, listMemberships } from "./queries";
 import { requireWorkspaceForAction } from "./require-workspace";
 import { parseWorkspaceName } from "./workspace-name";
-
-type Tx = Parameters<Parameters<ReturnType<typeof getDb>["transaction"]>[0]>[0];
 
 async function useWorkspace(workspaceId: string) {
   (await cookies()).set(WORKSPACE_COOKIE, workspaceId, {
@@ -43,13 +41,13 @@ async function adminContext(formData: FormData) {
   return (await isAdmin(context.session.user.id, context.workspace.id)) ? context : null;
 }
 
-/** Leaving a workspace drops your assignments in it (ADR-0005). */
-async function clearAssignments(tx: Tx, workspaceId: string, userId: string) {
-  const projects = tx.select({ id: schema.project.id }).from(schema.project).where(eq(schema.project.workspaceId, workspaceId));
-  await tx
-    .update(schema.task)
-    .set({ assigneeId: null })
-    .where(and(eq(schema.task.assigneeId, userId), inArray(schema.task.projectId, projects)));
+/**
+ * Leaving a workspace drops your assignments in it (ADR-0005), all of them: the database function runs as
+ * the owner, since the leaver (an auditor, say) may not be allowed to change those tasks. Run it while
+ * they are still a member, as themself or an admin.
+ */
+async function clearAssignments(tx: Db, workspaceId: string, userId: string) {
+  await tx.execute(sql`select clear_assignments(${workspaceId}, ${userId})`);
 }
 
 function memberOf(workspaceId: string, userId: string) {
@@ -57,7 +55,7 @@ function memberOf(workspaceId: string, userId: string) {
 }
 
 /** Revokes every open invite link of a workspace (ADR-0005: optional when removing a member). */
-async function revokeOpenInvites(tx: Tx, workspaceId: string) {
+async function revokeOpenInvites(tx: Db, workspaceId: string) {
   await tx
     .update(schema.workspaceInvite)
     .set({ revokedAt: new Date() })
@@ -68,7 +66,8 @@ async function revokeOpenInvites(tx: Tx, workspaceId: string) {
  * Gives `userId` a new role, or removes them (`role: null`) and clears their assignments, keeping at
  * least one admin (ADR-0005). The workspace row is locked first, so two admins changing each other at
  * once can't both pass the check; `adminId` (who is acting) must still be an admin under that lock.
- * `revokeInvites` also revokes the workspace's open invite links when someone is removed.
+ * `revokeInvites` also revokes the workspace's open invite links when someone is removed. Runs as
+ * `adminId`, or as the member themself when they leave.
  */
 async function changeMembership(
   workspaceId: string,
@@ -76,7 +75,9 @@ async function changeMembership(
   adminId?: string,
   { revokeInvites = false }: { revokeInvites?: boolean } = {},
 ): Promise<MembershipResult> {
-  return getDb().transaction(async (tx) => {
+  return withAccess(adminId ?? change.userId, async () => {
+    const tx = getDb();
+    // Row-level security returns (and locks) the row only for admins; a non-admin leaving can't remove the last admin anyway.
     await tx.select({ id: schema.workspace.id }).from(schema.workspace).where(eq(schema.workspace.id, workspaceId)).for("update");
     const members = await tx
       .select({ userId: schema.workspaceMember.userId, role: schema.workspaceMember.role })
@@ -98,8 +99,8 @@ async function changeMembership(
         .set({ role: change.role, partnerId: null })
         .where(memberOf(workspaceId, change.userId));
     } else {
-      await tx.delete(schema.workspaceMember).where(memberOf(workspaceId, change.userId));
       await clearAssignments(tx, workspaceId, change.userId);
+      await tx.delete(schema.workspaceMember).where(memberOf(workspaceId, change.userId));
       if (revokeInvites) {
         await revokeOpenInvites(tx, workspaceId);
       }
@@ -133,16 +134,18 @@ export async function createInviteAction(_prev: InviteState, formData: FormData)
     return invalid("Choose a role", formData, "role");
   }
   const token = newInviteToken();
-  await getDb()
-    .insert(schema.workspaceInvite)
-    .values({
-      id: crypto.randomUUID(),
-      workspaceId: workspace.id,
-      tokenHash: hashInviteToken(token),
-      createdBy: session.user.id,
-      expiresAt: inviteExpiresAt(new Date()),
-      role,
-    });
+  await withAccess(session.user.id, () =>
+    getDb()
+      .insert(schema.workspaceInvite)
+      .values({
+        id: crypto.randomUUID(),
+        workspaceId: workspace.id,
+        tokenHash: hashInviteToken(token),
+        createdBy: session.user.id,
+        expiresAt: inviteExpiresAt(new Date()),
+        role,
+      }),
+  );
   revalidatePath("/workspace");
   return { link: new URL(`/dashboard/invite/${token}`, await publicOrigin()).toString(), role };
 }
@@ -152,17 +155,19 @@ export async function revokeInviteAction(_prev: FormState, formData: FormData): 
   if (!context) {
     return { error: ADMINS_ONLY };
   }
-  const revoked = await getDb()
-    .update(schema.workspaceInvite)
-    .set({ revokedAt: new Date() })
-    .where(
-      and(
-        eq(schema.workspaceInvite.id, String(formData.get("inviteId") ?? "")),
-        eq(schema.workspaceInvite.workspaceId, context.workspace.id),
-        isNull(schema.workspaceInvite.revokedAt),
-      ),
-    )
-    .returning({ id: schema.workspaceInvite.id });
+  const revoked = await withAccess(context.session.user.id, () =>
+    getDb()
+      .update(schema.workspaceInvite)
+      .set({ revokedAt: new Date() })
+      .where(
+        and(
+          eq(schema.workspaceInvite.id, String(formData.get("inviteId") ?? "")),
+          eq(schema.workspaceInvite.workspaceId, context.workspace.id),
+          isNull(schema.workspaceInvite.revokedAt),
+        ),
+      )
+      .returning({ id: schema.workspaceInvite.id }),
+  );
   if (revoked.length === 0) {
     return { error: "This invite link was already revoked" };
   }
@@ -215,6 +220,8 @@ export async function leaveWorkspaceAction(_prev: FormState, formData: FormData)
   redirect("/");
 }
 
+const INVALID_INVITE = "This invite link is invalid or has expired";
+
 /**
  * Joins the invite's workspace and switches to it. The token comes from the invite cookie (not the form),
  * and the link is checked again here, not just on the page: it may have been revoked since.
@@ -227,19 +234,22 @@ export async function joinWorkspaceAction(_prev: FormState, _formData: FormData)
   const jar = await cookies();
   const token = readInviteToken(jar);
   const invite = token ? await findInvite(token) : null;
-  if (!invite || inviteState(invite, new Date()) !== "valid") {
+  if (!token || !invite || inviteState(invite, new Date()) !== "valid") {
     // The cookie is left to expire: changing it here would re-render the page and drop this message.
-    return { error: "This invite link is invalid or has expired" };
+    return { error: INVALID_INVITE };
   }
-  clearInviteToken(jar);
   // Someone joining before ever opening the dashboard gets their own workspace too, to switch back to.
   if ((await listMemberships(session.user.id)).length === 0) {
     await ensurePersonalWorkspace(session.user);
   }
-  await getDb()
-    .insert(schema.workspaceMember)
-    .values({ workspaceId: invite.workspaceId, userId: session.user.id, role: invite.role, partnerId: invite.partnerId })
-    .onConflictDoNothing();
+  // Checked again in the database, which adds the membership (row-level security lets only admins).
+  const { rows } = await withAccess(session.user.id, () =>
+    getDb().execute<{ result: string }>(sql`select join_workspace(${session.user.id}, ${hashInviteToken(token)}) as result`),
+  );
+  if (rows[0]?.result === "invalid") {
+    return { error: INVALID_INVITE };
+  }
+  clearInviteToken(jar);
   await useWorkspace(invite.workspaceId);
   redirect("/");
 }
@@ -251,7 +261,7 @@ export async function switchWorkspaceAction(formData: FormData) {
     throw new Error("Unauthorized");
   }
   const workspaceId = String(formData.get("workspaceId") ?? "");
-  if (!(await isMember(session.user.id, workspaceId))) {
+  if (!(await withAccess(session.user.id, () => isMember(session.user.id, workspaceId)))) {
     throw new Error("Not a member of that workspace");
   }
   await useWorkspace(workspaceId);
@@ -268,11 +278,7 @@ export async function createWorkspaceAction(_prev: FormState, formData: FormData
   if (!name.ok) {
     return invalid(name.error, formData, "name");
   }
-  const id = crypto.randomUUID();
-  await getDb().transaction(async (tx) => {
-    await tx.insert(schema.workspace).values({ id, name: name.value });
-    await tx.insert(schema.workspaceMember).values({ workspaceId: id, userId: session.user.id, role: "admin" });
-  });
+  const id = await createWorkspace(session.user.id, name.value);
   await useWorkspace(id);
   redirect("/");
 }

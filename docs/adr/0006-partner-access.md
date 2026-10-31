@@ -31,4 +31,5 @@ Under ADR-0005 every workspace member sees and changes everything in the workspa
   - Policies call functions per row, which is fine at this scale; watch the cost with EXPLAIN on the largest lists.
   - Seeds and e2e fixtures must use the maintenance connection.
   - The access functions are a single point: a wrong rule is wrong in both locks. The leak test suite exists to catch that.
+- **Amended in task 047 (2026-10-31):** row-level security is enabled but not forced. `app_user` owns nothing, so the policies apply to it; the owner (migrations, the maintenance connection and the `SECURITY DEFINER` access functions it owns) bypasses them, so a data migration run without `app.user_id` can't silently change nothing, and the functions see every row they need. Creating and joining a workspace go through `SECURITY DEFINER` functions (`create_workspace`, `join_workspace`, `find_invite`), and `EXECUTE` on every access function is granted to `app_user` only.
 - **Follow-ups:** an audit log for auditors; purging soft-deleted rows; pagination of the projects table once partners have many projects.

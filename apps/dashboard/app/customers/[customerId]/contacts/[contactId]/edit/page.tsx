@@ -18,7 +18,7 @@ export default async function EditContactPage({
   const { customerId, contactId } = await params;
   const { session, workspace } = await requireWorkspace(`/customers/${customerId}/contacts/${contactId}/edit`);
   const customer = await getOrganizationForUser(session.user.id, customerId, "customer");
-  const contact = customer?.canChange ? await getOrganizationContact(customer.id, contactId) : null;
+  const contact = customer?.canChange ? await getOrganizationContact(session.user.id, customer.id, contactId) : null;
   // Someone who can't change the customer gets the same page as for a missing contact.
   if (!customer || !contact) {
     notFound();

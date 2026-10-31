@@ -63,10 +63,10 @@ vi.mock("@repo/db", async (importOriginal) => {
         // Answers in turn, then keeps answering with the last one.
         return (db.membershipRows.length > 1 ? db.membershipRows.shift() : db.membershipRows[0]) ?? [];
       }),
-    insert: () => chain(() => [{ id: "created" }]),
-    transaction: async (fn: (tx: unknown) => Promise<unknown>) => fn(fake),
+    execute: async () => ({ rows: [] }),
   };
-  return { ...actual, getDb: () => fake };
+  // No transaction to open: `withAccess` just runs its function against the stand-in.
+  return { ...actual, getDb: () => fake, withAccess: (_userId: string, fn: () => Promise<unknown>) => fn() };
 });
 
 const { listMemberships } = await import("./queries");

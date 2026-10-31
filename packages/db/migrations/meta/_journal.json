@@ -141,6 +141,20 @@
       "when": 1793472312858,
       "tag": "0019_access_partner_helper",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1793473315362,
+      "tag": "0020_row_level_security",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1793474539990,
+      "tag": "0021_clear_assignments",
+      "breakpoints": true
     }
   ]
 }

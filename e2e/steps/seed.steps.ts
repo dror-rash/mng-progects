@@ -1,14 +1,16 @@
 import { expect } from "@playwright/test";
-import { and, eq, getDb, inArray, schema } from "@repo/db";
+import { and, eq, inArray, schema } from "@repo/db";
+import { getMaintenanceDb } from "@repo/db/maintenance";
 
 import { Given, origin, userId, When } from "./fixtures";
 
-// Data the app's forms can't produce, written straight to the test database (DATABASE_URL), to check
-// that pages don't trust it. Only rows belonging to this scenario's own people are touched.
+// Data the app's forms can't produce, written straight to the test database (DATABASE_URL) through the
+// maintenance connection (row-level security doesn't apply), to check that pages don't trust it. Only
+// rows belonging to this scenario's own people are touched.
 
 /** The ids of the workspaces `memberId` belongs to, as a subquery. */
 function workspacesOf(memberId: string) {
-  return getDb()
+  return getMaintenanceDb()
     .select({ id: schema.workspaceMember.workspaceId })
     .from(schema.workspaceMember)
     .where(eq(schema.workspaceMember.userId, memberId));
@@ -18,7 +20,7 @@ function workspacesOf(memberId: string) {
 When("the teammate's membership is removed directly, keeping the assignment", async ({ page, state }) => {
   const me = await userId(page);
   const teammate = await userId(state.teammate!);
-  const removed = await getDb()
+  const removed = await getMaintenanceDb()
     .delete(schema.workspaceMember)
     .where(and(eq(schema.workspaceMember.userId, teammate), inArray(schema.workspaceMember.workspaceId, workspacesOf(me))))
     .returning({ workspaceId: schema.workspaceMember.workspaceId });
@@ -31,11 +33,11 @@ Given(
   async ({ page, state }, title: string) => {
     expect(state.foreignCustomerUrl).toBeDefined();
     const customerId = new URL(state.foreignCustomerUrl!, origin).pathname.split("/").pop()!;
-    const myProjects = getDb()
+    const myProjects = getMaintenanceDb()
       .select({ id: schema.project.id })
       .from(schema.project)
       .where(inArray(schema.project.workspaceId, workspacesOf(await userId(page))));
-    const [task] = await getDb()
+    const [task] = await getMaintenanceDb()
       .update(schema.task)
       .set({ organizationId: customerId })
       .where(and(eq(schema.task.title, title), inArray(schema.task.projectId, myProjects)))

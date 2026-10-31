@@ -16,7 +16,7 @@ export const dynamic = "force-dynamic";
 export default async function WorkspacesPage() {
   const { session, workspace } = await requireWorkspace("/workspaces");
   const memberships = await listMemberships(session.user.id);
-  const counts = await memberCounts(memberships.map((m) => m.workspaceId));
+  const counts = await memberCounts(session.user.id, memberships.map((m) => m.workspaceId));
 
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">

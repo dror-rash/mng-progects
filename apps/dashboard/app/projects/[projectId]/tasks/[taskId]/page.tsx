@@ -22,14 +22,14 @@ export default async function TaskPage({ params }: { params: Promise<{ projectId
   const { projectId, taskId } = await params;
   const { session, workspace } = await requireWorkspace(`/projects/${projectId}/tasks/${taskId}`);
   const project = await getProjectForUser(session.user.id, projectId);
-  const task = project ? await getProjectTask(project.id, taskId) : null;
+  const task = project ? await getProjectTask(session.user.id, project.id, taskId) : null;
   if (!project || !task) {
     notFound();
   }
 
   const [customers, members] = await Promise.all([
     listOrganizations(session.user.id, project.workspaceId, "customer"),
-    listMemberOptions(project.workspaceId),
+    listMemberOptions(session.user.id, project.workspaceId),
   ]);
   // Only the project's own customers count, the same ones its dropdown offers.
   const customer = customers.find((c) => c.id === task.organizationId);

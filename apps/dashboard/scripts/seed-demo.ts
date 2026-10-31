@@ -7,7 +7,8 @@ import path from "node:path";
 import { parseArgs } from "node:util";
 
 import { loadEnvConfig } from "@next/env";
-import { and, asc, eq, getDb, inArray, schema, sql } from "@repo/db";
+import { and, asc, eq, inArray, schema, sql } from "@repo/db";
+import { getMaintenanceDb } from "@repo/db/maintenance";
 
 import { buildDemoPlan, DEMO_TAG } from "@/features/demo/seed-plan";
 import { currentWorkspaceId } from "@/features/workspaces/current-workspace";
@@ -22,7 +23,8 @@ async function main(): Promise<number> {
     return 1;
   }
 
-  const db = getDb();
+  // The maintenance connection: seeding writes past row-level security, as the owner.
+  const db = getMaintenanceDb();
   const [user] = await db.select({ id: schema.user.id }).from(schema.user).where(eq(schema.user.email, values.email));
   if (!user) {
     console.error(`No user with email ${values.email}. Sign up first.`);

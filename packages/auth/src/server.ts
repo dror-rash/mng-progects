@@ -1,4 +1,4 @@
-import { schema, getDb } from "@repo/db";
+import { getPoolDb, schema } from "@repo/db";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { nextCookies, toNextJsHandler } from "better-auth/next-js";
@@ -11,7 +11,9 @@ function createAuth() {
   const allowPreviewOrigins = process.env.ALLOW_PREVIEW_ORIGINS === "true";
 
   return betterAuth({
-    database: drizzleAdapter(getDb(), { provider: "pg", schema }),
+    // The pool, never a request's `withAccess` transaction: the adapter keeps what it is given, and
+    // getAuth() may first run inside one. Auth tables have grants and no row-level security.
+    database: drizzleAdapter(getPoolDb(), { provider: "pg", schema }),
     secret: process.env.BETTER_AUTH_SECRET,
     baseURL: process.env.BETTER_AUTH_URL,
     trustedOrigins: allowPreviewOrigins ? ["https://*.run.app", "https://*.a.run.app"] : [],

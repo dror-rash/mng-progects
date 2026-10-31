@@ -26,7 +26,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ projec
   }
 
   const [tasks, customer] = await Promise.all([
-    listProjectTasks(project.id),
+    listProjectTasks(session.user.id, project.id),
     project.organizationId ? getOrganizationForUser(session.user.id, project.organizationId, "customer") : null,
   ]);
   // Most urgent first in each column; tasks arrive oldest first, and the sort keeps that within a priority.

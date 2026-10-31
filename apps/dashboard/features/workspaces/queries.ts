@@ -1,21 +1,23 @@
-import { and, asc, eq, getDb, schema } from "@repo/db";
+import { and, asc, eq, getDb, schema, sql, withAccess } from "@repo/db";
 import { cache } from "react";
 
 import { personalWorkspaceName } from "./current-workspace";
 
 async function queryMemberships(userId: string) {
-  return getDb()
-    .select({
-      workspaceId: schema.workspaceMember.workspaceId,
-      role: schema.workspaceMember.role,
-      partnerId: schema.workspaceMember.partnerId,
-      joinedAt: schema.workspaceMember.joinedAt,
-      name: schema.workspace.name,
-    })
-    .from(schema.workspaceMember)
-    .innerJoin(schema.workspace, eq(schema.workspaceMember.workspaceId, schema.workspace.id))
-    .where(eq(schema.workspaceMember.userId, userId))
-    .orderBy(asc(schema.workspaceMember.joinedAt), asc(schema.workspaceMember.workspaceId));
+  return withAccess(userId, async () =>
+    getDb()
+      .select({
+        workspaceId: schema.workspaceMember.workspaceId,
+        role: schema.workspaceMember.role,
+        partnerId: schema.workspaceMember.partnerId,
+        joinedAt: schema.workspaceMember.joinedAt,
+        name: schema.workspace.name,
+      })
+      .from(schema.workspaceMember)
+      .innerJoin(schema.workspace, eq(schema.workspaceMember.workspaceId, schema.workspace.id))
+      .where(eq(schema.workspaceMember.userId, userId))
+      .orderBy(asc(schema.workspaceMember.joinedAt), asc(schema.workspaceMember.workspaceId)),
+  );
 }
 
 /**
@@ -39,37 +41,33 @@ export function listMemberships(userId: string) {
 }
 
 /**
- * Creates a personal workspace (as admin) for a user who belongs to none. The first one's id is derived
- * from the user id, as in migration 0012, so two concurrent first requests create it only once. If that
- * workspace already exists without them (they left or were removed), they get a new one: never rejoin it.
+ * Creates a workspace named `name` with `userId` as its admin and returns its id, through the database
+ * function `create_workspace` (row-level security lets only admins add memberships). Only for yourself.
+ */
+export async function createWorkspace(userId: string, name: string): Promise<string> {
+  const { rows } = await withAccess(userId, () =>
+    getDb().execute<{ id: string }>(sql`select create_workspace(${userId}, ${name}) as id`),
+  );
+  return rows[0]!.id;
+}
+
+/**
+ * Creates a personal workspace (as admin) for a user who belongs to none. A per-user lock makes two
+ * concurrent first requests create it only once: the second finds the first one's membership.
  */
 export async function ensurePersonalWorkspace(user: { id: string; name: string }) {
-  const personalId = `personal-${user.id}`;
-  const name = personalWorkspaceName(user.name);
-  await getDb().transaction(async (tx) => {
-    const created = await tx
-      .insert(schema.workspace)
-      .values({ id: personalId, name })
-      .onConflictDoNothing()
-      .returning({ id: schema.workspace.id });
-    let workspaceId = personalId;
-    if (created.length === 0) {
-      // The insert waited for any concurrent first request, so its membership is visible by now.
-      const [member] = await tx
-        .select({ userId: schema.workspaceMember.userId })
-        .from(schema.workspaceMember)
-        .where(and(eq(schema.workspaceMember.workspaceId, personalId), eq(schema.workspaceMember.userId, user.id)));
-      if (member) {
-        return;
-      }
-      workspaceId = crypto.randomUUID();
-      await tx.insert(schema.workspace).values({ id: workspaceId, name });
-    }
-    await tx.insert(schema.workspaceMember).values({ workspaceId, userId: user.id, role: "admin" }).onConflictDoNothing();
+  await withAccess(user.id, async () => {
+    const db = getDb();
+    await db.execute(sql`select pg_advisory_xact_lock(hashtext(${`personal-workspace:${user.id}`}))`);
+    await db.execute(
+      sql`select create_workspace(${user.id}, ${personalWorkspaceName(user.name)})
+          where not exists (select 1 from workspace_member where user_id = ${user.id})`,
+    );
   });
   requestMemberships().delete(user.id);
 }
 
+/** Whether `userId` belongs to the workspace, as the acting user sees it: call it inside their `withAccess`. */
 export async function isMember(userId: string, workspaceId: string) {
   const [row] = await getDb()
     .select({ userId: schema.workspaceMember.userId })

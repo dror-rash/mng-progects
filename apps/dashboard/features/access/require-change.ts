@@ -1,9 +1,9 @@
-import { getDb, sql } from "@repo/db";
+import { getDb, sql, withAccess } from "@repo/db";
 
 /** One access function's answer for this user and record (see `predicates.ts`). */
 async function allowed(check: "can_change_project" | "can_change_customer", userId: string, id: string) {
-  const { rows } = await getDb().execute<{ allowed: boolean }>(
-    sql`select ${sql.raw(check)}(${userId}, ${id}) as allowed`,
+  const { rows } = await withAccess(userId, () =>
+    getDb().execute<{ allowed: boolean }>(sql`select ${sql.raw(check)}(${userId}, ${id}) as allowed`),
   );
   return rows[0]?.allowed === true;
 }
@@ -27,7 +27,9 @@ export async function requireCustomerChange(userId: string, orgId: string): Prom
 
 /** Whether `userId` is an admin of the workspace, by `access_role` (members, invites, settings). */
 export async function isAdmin(userId: string, workspaceId: string): Promise<boolean> {
-  const { rows } = await getDb().execute<{ role: string }>(sql`select role from access_role(${userId}, ${workspaceId})`);
+  const { rows } = await withAccess(userId, () =>
+    getDb().execute<{ role: string }>(sql`select role from access_role(${userId}, ${workspaceId})`),
+  );
   return rows[0]?.role === "admin";
 }
 
