@@ -101,3 +101,29 @@ Feature: Task assignees and My tasks
     And I press "Save changes"
     And I follow the "My tasks" link
     Then the "My tasks" section shows "Write copy"
+
+  @task:052 @wip
+  Scenario: Making an admin an auditor clears their assignments
+    Given I create an invite link for the role "Admin"
+    And a teammate joins with the invite link
+    And I am on the "Website Redesign" project page
+    And the project has a task "Write copy"
+    And the task "Write copy" is assigned to "Teammate"
+    When I change the role of "Teammate" to "Auditor"
+    And I am on the "Website Redesign" project page
+    Then the task "Write copy" does not show "Teammate"
+
+  @task:052 @wip
+  Scenario: Saving a task keeps an assignee who isn't one of the choices
+    Given I create an invite link for the role "Admin"
+    And a teammate joins with the invite link
+    And I am on the "Website Redesign" project page
+    And the project has a task "Write copy"
+    And the task "Write copy" is assigned to "Teammate"
+    And the teammate is made an auditor directly, keeping the assignment
+    And I am on the "Write copy" task page
+    When I fill in "Description" with "Shorter copy"
+    And I press "Save changes"
+    And I reload the page
+    Then I see the text "Shorter copy"
+    And I see the text "Assigned to Teammate"
