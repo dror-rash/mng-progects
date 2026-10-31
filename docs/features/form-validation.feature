@@ -8,7 +8,7 @@ Feature: Form validation
     Given I am signed in with an existing account
 
   Scenario: Blank project name when creating a project
-    When I open "/dashboard/projects"
+    When I open "/dashboard/projects/new"
     And I fill in "Project name" with "   "
     And I fill in "Description" with "Keep this text"
     And I press "Create Project"
@@ -33,7 +33,7 @@ Feature: Form validation
   @task:020
   Scenario: A blank project name keeps the chosen customer
     Given I have a customer "Acme Ltd" with status "Active" and tags "retail"
-    When I open "/dashboard/projects"
+    When I open "/dashboard/projects/new"
     And I select "Acme Ltd" from "Customer"
     And I fill in "Project name" with "   "
     And I press "Create Project"

@@ -45,9 +45,10 @@ Feature: Dashboard home
     And I follow the "View all projects" link
     Then I see the heading "All projects"
     And I see the "Alpha" link
-    When I fill in "Project name" with "Golf"
+    When I follow the "New project" link
+    And I fill in "Project name" with "Golf"
     And I press "Create Project"
-    Then I see the "Golf" link
+    Then I see the heading "Golf"
 
   @task:010
   Scenario: Home shows tasks created this week

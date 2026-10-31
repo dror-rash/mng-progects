@@ -81,11 +81,9 @@ export function ProjectForm({
       </div>
       <div className="flex gap-2">
         <Button type="submit" disabled={pending}>{project ? "Save changes" : "Create Project"}</Button>
-        {project && (
-          <Button asChild variant="ghost">
-            <Link href={`/projects/${project.id}`}>Cancel</Link>
-          </Button>
-        )}
+        <Button asChild variant="ghost">
+          <Link href={project ? `/projects/${project.id}` : "/projects"}>Cancel</Link>
+        </Button>
       </div>
     </form>
   );

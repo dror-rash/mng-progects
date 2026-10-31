@@ -2,11 +2,13 @@ import { expect, type Page } from "@playwright/test";
 
 import { Given, signUp, Then, userId, When } from "./fixtures";
 
+// Ends on the new project's page.
 async function createProject(page: Page, name: string) {
-  await page.goto("/dashboard/projects");
+  await page.goto("/dashboard/projects/new");
   await page.getByLabel("Project name").fill(name);
   await page.getByRole("button", { name: "Create Project" }).click();
-  await expect(page.getByRole("link", { name })).toBeVisible();
+  await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+$/);
+  await expect(page.getByRole("heading", { name, level: 1 })).toBeVisible();
 }
 
 // Dashboard card titles are headings too, so wait for the project URL before checking the page.
@@ -49,7 +51,6 @@ Given("another user has a project named {string}", async ({ people, state }, nam
   const other = await people.newPerson();
   await signUp(other, "Other User");
   await createProject(other, name);
-  await openProjectFromDashboard(other, name);
   state.otherUsersProjectUrl = other.url();
 });
 
@@ -237,7 +238,6 @@ Given(
     const other = await people.newPerson();
     await signUp(other, "Other User");
     await createProject(other, project);
-    await openProjectFromDashboard(other, project);
     await other.getByLabel("Task title").fill(title);
     await other.getByRole("button", { name: "Add task" }).click();
     await expect(taskCard(other, title)).toBeVisible();

@@ -153,7 +153,7 @@ await step("customer-globex", async () => {
 // Projects
 const projectUrls = {};
 await step("11-project-create-error", async () => {
-  await dana.goto("/dashboard/projects");
+  await dana.goto("/dashboard/projects/new");
   await dana.getByLabel("Project name").fill("   ");
   await dana.getByLabel("Customer", { exact: true }).selectOption({ label: "Acme Ltd" });
   await press(dana, "Create Project");
@@ -162,12 +162,12 @@ await step("11-project-create-error", async () => {
 });
 await step("projects", async () => {
   for (const [name, customer] of [["Website Redesign", "Acme Ltd"], ["Mobile App", "Globex"], ["Q4 Marketing", "Acme Ltd"], ["Internal Ops", null]]) {
-    await dana.goto("/dashboard/projects");
+    await dana.goto("/dashboard/projects/new");
     await dana.getByLabel("Project name").fill(name);
     if (customer) await dana.getByLabel("Customer", { exact: true }).selectOption({ label: customer });
     await press(dana, "Create Project");
-    await dana.getByRole("link", { name, exact: true }).first().waitFor();
-    projectUrls[name] = BASE + (await dana.getByRole("link", { name, exact: true }).first().getAttribute("href"));
+    await dana.waitForURL(/\/dashboard\/projects\/[^/]+$/);
+    projectUrls[name] = dana.url();
   }
 });
 
@@ -285,7 +285,7 @@ await step("22-project-delete", async () => {
 });
 await step("23-all-projects", async () => {
   await dana.goto("/dashboard/projects");
-  await shot(dana, "23-all-projects", "Projects", "All projects", "Every project in the current workspace with progress and customer, plus the create form.");
+  await shot(dana, "23-all-projects", "Projects", "All projects", "Every project in the current workspace with progress and customer; “New project” opens the create page.");
 });
 
 // Customers pages
