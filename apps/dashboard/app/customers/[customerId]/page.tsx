@@ -51,7 +51,7 @@ export default async function CustomerPage({ params }: { params: Promise<{ custo
 
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
-      <AppHeader email={session.user.email} {...await recordWorkspace(session.user.id, workspace, customer.workspaceId)} />
+      <AppHeader email={session.user.email} role={workspace.role} {...await recordWorkspace(session.user.id, workspace, customer.workspaceId)} />
 
       <main className="mx-auto w-full max-w-4xl space-y-6 p-6">
         <nav aria-label="Breadcrumb" className="text-sm text-muted-foreground">

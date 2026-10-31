@@ -5,6 +5,9 @@ import { ThemeToggle } from "@repo/ui/theme-toggle";
 import { cookies } from "next/headers";
 import Link from "next/link";
 
+import type { WorkspaceRole } from "@/features/access/roles";
+import { canSeePartners } from "@/features/access/scope";
+
 const NAV = [
   { href: "/", label: "Overview" },
   { href: "/projects", label: "All projects" },
@@ -12,22 +15,29 @@ const NAV = [
   { href: "/my-tasks", label: "My tasks" },
 ];
 
+/** Shown to admins and auditors of the current workspace only. */
+const PARTNERS = { href: "/partners", label: "Partners" };
+
 /**
  * Zone header. Links inside the zone use next/link; "Home" is the shell, so it's a plain <a>.
  * Below `lg` the nav takes its own row and wraps, so nothing is pushed off-screen from 360px up.
  * `workspaceName` is the workspace of what the page shows: a record's own workspace on record pages,
- * with `otherWorkspace` set when that isn't the current one.
+ * with `otherWorkspace` set when that isn't the current one. `role` is mine in the current workspace (the
+ * nav links go there): admins and auditors also get Partners.
  */
 export async function AppHeader({
   email,
+  role,
   workspaceName,
   otherWorkspace = false,
 }: {
   email: string;
+  role: WorkspaceRole;
   workspaceName: string;
   otherWorkspace?: boolean;
 }) {
   const theme = parseTheme((await cookies()).get(THEME_COOKIE)?.value);
+  const nav = canSeePartners(role) ? [...NAV.slice(0, 3), PARTNERS, ...NAV.slice(3)] : NAV;
 
   return (
     <header className="border-b bg-card">
@@ -39,7 +49,7 @@ export async function AppHeader({
           <span className="sr-only">Dashboard home</span>
           <span aria-hidden="true">W</span>
         </Link>
-        <div className="flex min-w-0 flex-1 flex-col lg:max-w-48 lg:flex-none">
+        <div className="flex min-w-0 flex-1 flex-col lg:max-w-48 lg:flex-initial">
           <Link
             href="/workspaces"
             className="truncate text-sm font-semibold hover:underline"
@@ -54,7 +64,7 @@ export async function AppHeader({
           aria-label="Dashboard"
           className="order-last -ml-3 flex w-full flex-wrap items-center gap-1 lg:order-none lg:ml-0 lg:w-auto lg:flex-nowrap"
         >
-          {NAV.map((item) => (
+          {nav.map((item) => (
             <Button key={item.href} asChild variant="ghost" size="sm">
               <Link href={item.href}>{item.label}</Link>
             </Button>

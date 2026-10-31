@@ -51,3 +51,30 @@ When("I open the {string} task", async ({ page, state }, title: string) => {
   await page.goto(state.keptUrl!);
   await expect(page.getByRole("heading", { name: title, level: 1 })).toBeVisible();
 });
+
+// Partners create their own projects with task 049; until then a partner's project is written directly.
+Given(
+  "{string} has a project {string} for the customer {string}",
+  async ({ page }, partnerName: string, name: string, customer: string) => {
+    const db = getMaintenanceDb();
+    const mine = workspacesOf(await userId(page));
+    const [partner] = await db
+      .select({ id: schema.partner.id, workspaceId: schema.partner.workspaceId })
+      .from(schema.partner)
+      .where(and(eq(schema.partner.name, partnerName), inArray(schema.partner.workspaceId, mine)));
+    expect(partner).toBeDefined();
+    const [organization] = await db
+      .select({ id: schema.organization.id })
+      .from(schema.organization)
+      .where(and(eq(schema.organization.name, customer), eq(schema.organization.workspaceId, partner!.workspaceId)));
+    expect(organization).toBeDefined();
+    await db.insert(schema.project).values({
+      id: crypto.randomUUID(),
+      name,
+      workspaceId: partner!.workspaceId,
+      organizationId: organization!.id,
+      visibility: "partner",
+      partnerId: partner!.id,
+    });
+  },
+);

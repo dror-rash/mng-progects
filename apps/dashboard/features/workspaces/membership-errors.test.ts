@@ -21,4 +21,8 @@ describe("membershipError", () => {
     expect(membershipError("not-an-admin")).toBe("Only admins can manage this workspace");
     expect(ADMINS_ONLY).toBe("Only admins can manage this workspace");
   });
+
+  it("explains that the partner isn't one of the workspace's", () => {
+    expect(membershipError("unknown-partner")).toBe("Choose a partner of this workspace");
+  });
 });

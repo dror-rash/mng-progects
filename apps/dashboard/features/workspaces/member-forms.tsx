@@ -5,19 +5,26 @@ import { FieldError } from "@repo/ui/field-error";
 import { NativeSelect } from "@repo/ui/native-select";
 import { useActionState } from "react";
 
-import { ASSIGNABLE_ROLES, workspaceRoleLabel } from "@/features/access/roles";
+import { ASSIGNABLE_ROLES, roleChoiceLabel, roleChoiceValue } from "@/features/access/roles";
 import type { FormState } from "@/features/forms/form-state";
 
 import { changeRoleAction, removeMemberAction, revokeInviteAction } from "./actions";
 
 /** What the members page's forms get about a member: no email (it stays server-rendered). */
-type Member = { userId: string; name: string; role: string };
+type Member = { userId: string; name: string; role: string; partnerId?: string | null; partnerName?: string | null };
 
-/** Changes a member's role (Admin or Auditor). Errors (e.g. the last admin) show on the row. */
-export function ChangeRoleForm({ workspaceId, member }: { workspaceId: string; member: Member }) {
+type Partner = { id: string; name: string };
+
+/** Changes a member's role: Admin, Auditor or a user of one of `partners`. Errors (e.g. the last admin) show on the row. */
+export function ChangeRoleForm({ workspaceId, member, partners }: { workspaceId: string; member: Member; partners: Partner[] }) {
   const [state, formAction, pending] = useActionState<FormState, FormData>(changeRoleAction, {});
   const selectId = `role-${member.userId}`;
-  const assignable = ASSIGNABLE_ROLES.some((r) => r.role === member.role);
+  const current = roleChoiceValue(member.role, member.partnerId ?? null);
+  const options = [
+    ...ASSIGNABLE_ROLES.map((r) => ({ value: r.role as string, label: r.label as string })),
+    ...partners.map((p) => ({ value: roleChoiceValue("partner", p.id), label: roleChoiceLabel("partner", p.name) })),
+  ];
+  const listed = options.some((o) => o.value === current);
 
   return (
     <form action={formAction} className="flex flex-col items-end gap-1">
@@ -27,16 +34,16 @@ export function ChangeRoleForm({ workspaceId, member }: { workspaceId: string; m
         <label htmlFor={selectId} className="sr-only">Role for {member.name}</label>
         {/* Keyed on the saved role: React resets the form after a submit, and a select only applies
             defaultValue when it mounts. */}
-        <NativeSelect key={member.role} id={selectId} name="role" defaultValue={member.role} className="h-8 w-auto">
-          {/* A role that can't be given here (a partner's) still shows as what it is. */}
-          {!assignable && (
-            <option value={member.role} disabled>
-              {workspaceRoleLabel(member.role)}
+        <NativeSelect key={current} id={selectId} name="role" defaultValue={current} className="h-8 w-auto">
+          {/* A role that can't be given here (an unknown one) still shows as what it is. */}
+          {!listed && (
+            <option value={current} disabled>
+              {roleChoiceLabel(member.role, member.partnerName ?? null)}
             </option>
           )}
-          {ASSIGNABLE_ROLES.map((r) => (
-            <option key={r.role} value={r.role}>
-              {r.label}
+          {options.map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
             </option>
           ))}
         </NativeSelect>
