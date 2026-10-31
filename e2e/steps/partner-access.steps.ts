@@ -399,6 +399,16 @@ Then(
   },
 );
 
+Then(
+  "the admin sees the task {string} for the customer {string}, with the description {string}",
+  async ({ people, state }, task: string, customer: string, description: string) => {
+    const admin = await pageOf(state, people, "admin");
+    await openTask(admin, state, task);
+    await expect(shownText(admin, description)).toBeVisible();
+    await expect(admin.getByRole("link", { name: customer, exact: true })).toBeVisible();
+  },
+);
+
 When("the auditor opens {string}", async ({ people, state }, path: string) => {
   await (await pageOf(state, people, "auditor")).goto(path);
 });

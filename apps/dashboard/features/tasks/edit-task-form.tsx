@@ -5,7 +5,7 @@ import { FieldError } from "@repo/ui/field-error";
 import { Input } from "@repo/ui/input";
 import { NativeSelect } from "@repo/ui/native-select";
 import { Textarea } from "@repo/ui/textarea";
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 
 import type { FormState } from "@/features/forms/form-state";
 
@@ -41,6 +41,11 @@ export function EditTaskForm({
   const assigneeValue = state.values?.assigneeId ?? task.assigneeId ?? "";
   // A submitted value is restored only if it is a real option, so the select never shows an unrelated one.
   const priority = parseTaskPriority(state.values?.priority) ?? normalizeTaskPriority(task.priority);
+  // A customer that isn't one of my choices (a partner can't see it, rule 7a) shows as "No customer". Until
+  // I choose another, the form doesn't post the field, so the server keeps it rather than clearing it.
+  const customerHidden = task.organizationId !== null && !customers.some((c) => c.id === task.organizationId);
+  const [customerChosen, setCustomerChosen] = useState(false);
+  const customerValue = state.values?.customerId ?? (customerHidden ? "" : (task.organizationId ?? ""));
 
   return (
     <form action={formAction} className="space-y-4">
@@ -118,10 +123,11 @@ export function EditTaskForm({
         {/* A select only applies defaultValue when it mounts, and React resets the form after every
             submit; keying on the value just submitted keeps the user's choice after an error. */}
         <NativeSelect
-          key={state.values?.customerId ?? task.organizationId ?? ""}
+          key={customerValue}
           id="customerId"
-          name="customerId"
-          defaultValue={state.values?.customerId ?? task.organizationId ?? ""}
+          name={customerHidden && !customerChosen ? undefined : "customerId"}
+          defaultValue={customerValue}
+          onChange={() => setCustomerChosen(true)}
           aria-invalid={customerError ? true : undefined}
           aria-describedby={customerError ? "customerId-error" : undefined}
         >
