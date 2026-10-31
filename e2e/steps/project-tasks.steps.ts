@@ -238,7 +238,6 @@ Given(
     const other = await people.newPerson();
     await signUp(other, "Other User");
     await createProject(other, project);
-    await openProjectFromDashboard(other, project);
     await other.getByLabel("Task title").fill(title);
     await other.getByRole("button", { name: "Add task" }).click();
     await expect(taskCard(other, title)).toBeVisible();
