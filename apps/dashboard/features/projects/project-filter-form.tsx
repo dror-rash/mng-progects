@@ -13,14 +13,26 @@ type CustomerOption = { id: string; name: string };
 /**
  * The All projects filters as a GET form, so they live in the URL. Selects and the checkbox apply on
  * change; search applies on Enter. Apply submits everything (and is all there is without JavaScript).
- * The page keys this form on the filters, so its fields reset when a link changes them.
+ * The page keys this form on the filters, so its fields reset when a link changes them. The view and
+ * the sort (`sortParams`, from the column headers) ride along as hidden fields.
  */
-export function ProjectFilterForm({ filters, customers }: { filters: ProjectFilters; customers: CustomerOption[] }) {
+export function ProjectFilterForm({
+  filters,
+  sortParams,
+  customers,
+}: {
+  filters: ProjectFilters;
+  sortParams: Record<string, string>;
+  customers: CustomerOption[];
+}) {
   const applyNow = (event: React.ChangeEvent<HTMLSelectElement | HTMLInputElement>) => event.currentTarget.form?.requestSubmit();
 
   return (
     <Form action="/projects" role="search" aria-label="Filter projects" className="flex flex-wrap items-end gap-3">
       {filters.view === "tiles" && <input type="hidden" name="view" value="tiles" />}
+      {Object.entries(sortParams).map(([name, value]) => (
+        <input key={name} type="hidden" name={name} value={value} />
+      ))}
       <div className="space-y-1">
         <label htmlFor="q" className="text-sm font-medium">Search projects</label>
         <Input id="q" name="q" type="search" placeholder="Project name" defaultValue={filters.q ?? ""} className="w-56" />

@@ -1,10 +1,11 @@
 import { Badge } from "@repo/ui/badge";
 import { Meter } from "@repo/ui/meter";
-import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "@repo/ui/table";
+import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow, TableSortIndicator } from "@repo/ui/table";
 import Link from "next/link";
 
 import type { TaskSummary } from "@/features/tasks/progress";
 
+import { nextSort, PROJECT_SORTS, type ProjectSort } from "./project-sort";
 import { type ProjectStatus, projectStatusLabel } from "./project-status";
 
 type Project = {
@@ -19,19 +20,38 @@ type Project = {
 
 const NO_TASKS: TaskSummary = { total: 0, done: 0, open: 0, completionRate: 0 };
 
-/** All projects as rows: one line each, so many projects can be scanned and compared. */
-export function ProjectTable({ projects, progress }: { projects: Project[]; progress: Map<string, TaskSummary> }) {
+/** All projects as rows: one line each, so many projects can be scanned and compared. Headers sort by their column. */
+export function ProjectTable({
+  projects,
+  progress,
+  sort,
+  sortHref,
+}: {
+  projects: Project[];
+  progress: Map<string, TaskSummary>;
+  sort: ProjectSort;
+  /** The page's URL with this sort, keeping the filters. */
+  sortHref: (sort: ProjectSort) => string;
+}) {
   return (
     <Table>
       <TableCaption className="sr-only">Projects</TableCaption>
       <TableHeader>
         <TableRow>
-          <TableHead>Project</TableHead>
-          <TableHead>Customer</TableHead>
-          <TableHead>Status</TableHead>
-          <TableHead>Progress</TableHead>
-          <TableHead>Overdue</TableHead>
-          <TableHead>Started</TableHead>
+          {PROJECT_SORTS.map(({ column, label }) => {
+            const direction = sort.column === column ? (sort.dir === "asc" ? "ascending" : "descending") : undefined;
+            return (
+              <TableHead key={column} aria-sort={direction}>
+                <Link
+                  href={sortHref(nextSort(sort, column))}
+                  className="inline-flex items-center gap-1 hover:text-foreground"
+                >
+                  {label}
+                  <TableSortIndicator direction={direction} />
+                </Link>
+              </TableHead>
+            );
+          })}
         </TableRow>
       </TableHeader>
       <TableBody>

@@ -54,4 +54,5 @@ None. M9 is done; the next milestone isn't chosen yet. Candidates: M10 accounts 
 - 2026-10-30 – Tasks 027–039 ran in parallel (one agent and worktree each, own database and ports) and were merged into `feat/m9-polish`. Task 038's migration was regenerated as `0017` after task 033's `0016`. Task 036's dashboard header toggle was added after task 030 merged. Validated on the combined branch: 146/146 e2e on a quiet machine (the multi-person timeouts seen during parallel runs were load), 223 unit, lint, typecheck, 18 migrations on a fresh database.
 - 2026-10-30 – M9 Polish & Hardening merged (PR #12, tasks 027–039). CI on `main` then failed at `pnpm build-storybook` on Node 22 (`import.meta.dirname` in the Storybook config); fixed in PR #13. Tasks 040 and 041 move out of M9, still blocked on decisions.
 - 2026-10-31 – Outside a milestone, at the user's request: projects get their own create page (task 042, PR #15) and All projects becomes a filterable table with a Tiles toggle (task 043, PR #16). Demo seed for local dev (PR #17).
-- 2026-10-31 – "New project" on a customer's page, with that customer chosen (task 044).
+- 2026-10-31 – "New project" on a customer's page, with that customer chosen (task 044, PR #19).
+- 2026-10-31 – The projects table sorts by any column, kept in the URL with the filters (task 045).

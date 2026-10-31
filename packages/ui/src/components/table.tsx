@@ -38,6 +38,32 @@ function TableHead({ className, scope = "col", ...props }: React.ComponentProps<
   );
 }
 
+/** The arrow beside a sortable column's label. Decorative: the header's `aria-sort` tells screen readers. */
+function TableSortIndicator({
+  direction = "none",
+  className,
+}: {
+  direction?: "ascending" | "descending" | "none";
+  className?: string;
+}) {
+  return (
+    <svg
+      aria-hidden="true"
+      data-direction={direction}
+      viewBox="0 0 16 16"
+      className={cn("inline-block size-3.5 shrink-0", direction === "none" && "opacity-30", className)}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      {direction !== "descending" && <path d="M5 6.5 8 3.5l3 3" />}
+      {direction !== "ascending" && <path d="m5 9.5 3 3 3-3" />}
+    </svg>
+  );
+}
+
 function TableCell({ className, ...props }: React.ComponentProps<"td">) {
   return <td className={cn("px-3 py-2 align-middle", className)} {...props} />;
 }
@@ -46,4 +72,4 @@ function TableCaption({ className, ...props }: React.ComponentProps<"caption">) 
   return <caption className={cn("mt-3 text-sm text-muted-foreground", className)} {...props} />;
 }
 
-export { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow };
+export { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow, TableSortIndicator };
