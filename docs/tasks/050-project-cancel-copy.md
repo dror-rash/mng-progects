@@ -1,6 +1,6 @@
 # Task 050: Cancel a project, or copy it to a new one
 
-- **Status:** in-progress
+- **Status:** done
 - **Milestone:** M12 Partner Access
 - **Zone / package:** `apps/dashboard`, `e2e`
 - **Feature file:** `docs/features/project-cancel-copy.feature` (and `docs/features/partner-access.feature`)
@@ -22,18 +22,18 @@ A project's owner never changes (rule 4a). To hand work to another partner, or b
 - Soft delete and the Deleted view (task 051).
 
 ## Acceptance criteria
-- [ ] Cancelling a project shows it as Canceled on its page and in the projects table; the Status filter has "Canceled", which matches only canceled projects (and other values never match them).
-- [ ] Reopening brings back the task-derived status.
-- [ ] An admin copies a partner's project to another partner: the new project has the tasks, unassigned; the original is still listed.
-- [ ] A partner copies only into their own partner: no Owner select.
-- [ ] A task customer the new owner can't see is dropped in the copy.
-- [ ] An auditor sees no Cancel or Copy controls, and the copy page is not found for them.
-- [ ] Another partner's project can't be copied or canceled (same refusal as a made-up id); a copy's link to its source shows only to those who can see the source.
+- [x] Cancelling a project shows it as Canceled on its page and in the projects table; the Status filter has "Canceled", which matches only canceled projects (and other values never match them).
+- [x] Reopening brings back the task-derived status.
+- [x] An admin copies a partner's project to another partner: the new project has the tasks, unassigned; the original is still listed.
+- [x] A partner copies only into their own partner: no Owner select.
+- [x] A task customer the new owner can't see is dropped in the copy.
+- [x] An auditor sees no Cancel or Copy controls, and the copy page is not found for them.
+- [x] Another partner's project can't be copied or canceled (same refusal as a made-up id); a copy's link to its source shows only to those who can see the source.
 
 ## Approach (brief)
 - `features/projects/copy-project.ts` (`"use server"`): `copyProjectAction(prev, formData) → FormState`, which redirects to the new project. It resolves the owner like project creation (partners: their own partner; admins: the Owner select) and checks the customer, then calls `copyProject`.
 - `features/projects/copy.ts`: `copyProject` (not an action, so it can't be called from a client), which checks everything again inside the transaction.
-- `features/projects/actions.ts`: `setProjectLifecycleAction(formData)` for the Cancel / Reopen buttons. The owner and customer checks shared with creation move to `features/projects/project-owner-check.ts` (a `"use server"` file may only export actions).
+- `features/projects/actions.ts`: `setProjectLifecycleAction(formData)` for the Cancel / Reopen buttons. The owner and customer checks shared with creation move to `features/projects/project-owner-check.ts` (a `"use server"` file may only export actions), with `mayCreateFor` for `copyProject`'s owner check; `workspaceAccess` (`features/access/require-change.ts`) gives the role in the project's workspace, which may not be the current one.
 - `ProjectForm` gets a `copyOf` mode (name, customer, owner; the description comes from the source).
 
 ## Test plan
@@ -43,4 +43,11 @@ A project's owner never changes (rule 4a). To hand work to another partner, or b
 ## Progress log
 - 2026-11-01 – Drafted from the task 050 brief and the controller's rulings 3 (`lifecycle`), 7 (not found looks like a made-up id), 18 (`copyProject` as the signed-in user in one `withAccess`; the copied-from link only for those who can see the source) and 19 (cancel/reopen for whoever can change the project; a canceled project stays editable).
 
+- 2026-11-01 – Red: 9 of 9 `@task:050` scenarios fail (no Cancel / Copy controls, no copy page). Unit: `project-lifecycle` (no module), `projectStatus` canceled, `parseProjectStatus("canceled")`, `projectStatusLabel("canceled")`.
+- 2026-11-01 – `project-lifecycle.ts`; `canceled` in `PROJECT_STATUSES` (last, so it sorts after Done) and `projectStatus(counts, lifecycle)`; Cancel / Reopen buttons and the copy link on the project page; the copy page and `ProjectForm`'s `copyOf` mode; `copyProject` and `copyProjectAction`. `@task:050` 9/9. No migration needed: 0018 added both columns, and the RLS project/task insert policies already hold a partner's copy to their own partner.
+- 2026-11-01 – `pnpm lint`, `pnpm typecheck` clean; `pnpm test` 316 (dashboard 244, ui 51, auth 13, db 8); `pnpm --filter @repo/db test:db` 21/21; full e2e 195/195 at load average 10–26.
+
 ## Parking lot
+- The project tiles (All projects, Home, a customer's page) don't show "Canceled"; only the table and the project page do.
+- `copyProject`'s refusals (another owner for a partner, a customer the owner can't have) are reached only by a tampered form; the copy page never offers them. A dashboard-level DB test harness would let them be tested directly; the RLS DB tests already cover a partner inserting into another partner.
+- A done task's `completed_at` isn't copied (the brief lists title, description, status, priority and due date), so a copied done task counts as completed before that column existed.
