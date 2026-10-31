@@ -43,6 +43,7 @@ Feature: Partner companies
     When I open "/dashboard/workspace"
     Then the "Test User" row shows the role "Admin"
 
+  @slow
   Scenario: Changing a user's partner clears assignments they can no longer see
     Given I have a partner "Northwind" with the customer "Acme Ltd"
     And I have a partner "Contoso"
