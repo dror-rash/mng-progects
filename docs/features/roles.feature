@@ -15,6 +15,7 @@ Feature: Roles: admins and auditors
     Then the auditor sees the "Website Redesign" project with the customer "Acme Ltd" and the task "Write copy"
     And the auditor sees the "Acme Ltd" customer with its details
 
+  @slow
   Scenario: An auditor can't change anything
     Given an auditor joins my workspace
     Then the auditor sees no "New project" link on "/dashboard/projects"
@@ -23,6 +24,7 @@ Feature: Roles: admins and auditors
     And the auditor opening "/dashboard/projects/new" sees "This page could not be found."
     And the auditor opening the "Website Redesign" project's "edit" page sees "Project not found"
 
+  @slow
   Scenario: An auditor's forms are refused
     Given an auditor joins my workspace
     When the auditor posts the edit form of the "Website Redesign" project with the name "Renamed"
