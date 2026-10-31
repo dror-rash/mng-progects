@@ -3,6 +3,7 @@
 import { eq, getDb, schema } from "@repo/db";
 import { redirect } from "next/navigation";
 
+import { requireAdmin } from "@/features/access/require-change";
 import { type FormState, invalid } from "@/features/forms/form-state";
 import { customerInWorkspace } from "@/features/organizations/queries";
 import { requireWorkspaceForAction } from "@/features/workspaces/require-workspace";
@@ -13,6 +14,8 @@ import { revalidateOverviews } from "./revalidate";
 
 export async function createProjectAction(_prev: FormState, formData: FormData): Promise<FormState> {
   const { session, workspace } = await requireWorkspaceForAction(formData);
+  // Internal projects only, for now: partners create their own partner's projects with task 049.
+  await requireAdmin(session.user.id, workspace.id);
   const input = parseProjectInput(formData);
   if (!input.ok) {
     return invalid(input.error, formData);

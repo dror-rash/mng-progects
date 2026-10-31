@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
+import { isAdmin } from "@/features/access/require-change";
 import { type FormState, invalid } from "@/features/forms/form-state";
 
 import { WORKSPACE_COOKIE } from "./current-workspace";
@@ -33,10 +34,10 @@ async function lockAsAdmin(tx: Tx, workspaceId: string, userId: string): Promise
   return workspace && me?.role === "admin" ? workspace : null;
 }
 
-/** Renames the form's workspace. Admins only (ADR-0005). */
+/** Renames the form's workspace. Admins only (ADR-0005, ADR-0006). */
 export async function renameWorkspaceAction(_prev: FormState, formData: FormData): Promise<FormState> {
   const { session, workspace } = await requireWorkspaceForAction(formData);
-  if (workspace.role !== "admin") {
+  if (!(await isAdmin(session.user.id, workspace.id))) {
     return { error: ADMINS_ONLY };
   }
   const name = parseWorkspaceName(formData.get("name"));
@@ -62,7 +63,7 @@ export async function renameWorkspaceAction(_prev: FormState, formData: FormData
  */
 export async function deleteWorkspaceAction(_prev: FormState, formData: FormData): Promise<FormState> {
   const { session, workspace } = await requireWorkspaceForAction(formData);
-  if (workspace.role !== "admin") {
+  if (!(await isAdmin(session.user.id, workspace.id))) {
     return { error: ADMINS_ONLY };
   }
   const result = await getDb().transaction(async (tx) => {

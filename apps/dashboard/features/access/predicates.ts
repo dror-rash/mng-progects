@@ -1,0 +1,29 @@
+import { type AnyColumn, sql } from "@repo/db";
+
+// SQL conditions for queries, each calling one of the access functions defined in the database
+// (migration 0018, ADR-0006). The one access rule: every query and lookup goes through these.
+
+/** `userId` can see the project in `projectId` (admins and auditors of its workspace; its own partner). */
+export function canSeeProject(userId: string, projectId: AnyColumn) {
+  return sql<boolean>`can_see_project(${userId}, ${projectId})`;
+}
+
+/** `userId` can change the project in `projectId` and its tasks (not auditors; never a deleted project). */
+export function canChangeProject(userId: string, projectId: AnyColumn) {
+  return sql<boolean>`can_change_project(${userId}, ${projectId})`;
+}
+
+/** `userId` can see everything about the customer in `orgId` (admins and auditors). */
+export function canSeeCustomer(userId: string, orgId: AnyColumn) {
+  return sql<boolean>`can_see_customer(${userId}, ${orgId})`;
+}
+
+/** `userId` can see the name of the customer in `orgId` (also partners it is assigned to). */
+export function canSeeCustomerName(userId: string, orgId: AnyColumn) {
+  return sql<boolean>`can_see_customer_name(${userId}, ${orgId})`;
+}
+
+/** `userId` can change the customer in `orgId`, its contacts and notes (admins only). */
+export function canChangeCustomer(userId: string, orgId: AnyColumn) {
+  return sql<boolean>`can_change_customer(${userId}, ${orgId})`;
+}

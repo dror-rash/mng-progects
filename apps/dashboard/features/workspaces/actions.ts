@@ -7,6 +7,8 @@ import { revalidatePath } from "next/cache";
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 
+import { isAdmin } from "@/features/access/require-change";
+import { type AssignableRole, keepsAnAdmin, parseAssignableRole } from "@/features/access/roles";
 import { type FormState, invalid } from "@/features/forms/form-state";
 
 import { WORKSPACE_COOKIE } from "./current-workspace";
@@ -22,7 +24,6 @@ import { findInvite } from "./members";
 import { ADMINS_ONLY, membershipError, type MembershipResult } from "./membership-errors";
 import { ensurePersonalWorkspace, isMember, listMemberships } from "./queries";
 import { requireWorkspaceForAction } from "./require-workspace";
-import { keepsAnAdmin, parseWorkspaceRole, type WorkspaceRole } from "./roles";
 import { parseWorkspaceName } from "./workspace-name";
 
 type Tx = Parameters<Parameters<ReturnType<typeof getDb>["transaction"]>[0]>[0];
@@ -36,10 +37,10 @@ async function useWorkspace(workspaceId: string) {
   });
 }
 
-/** The form's workspace, or null when I'm not its admin. Every admin action starts here (ADR-0005). */
+/** The form's workspace, or null when I'm not its admin. Every admin action starts here (ADR-0005, ADR-0006). */
 async function adminContext(formData: FormData) {
   const context = await requireWorkspaceForAction(formData);
-  return context.workspace.role === "admin" ? context : null;
+  return (await isAdmin(context.session.user.id, context.workspace.id)) ? context : null;
 }
 
 /** Leaving a workspace drops your assignments in it (ADR-0005). */
@@ -71,7 +72,7 @@ async function revokeOpenInvites(tx: Tx, workspaceId: string) {
  */
 async function changeMembership(
   workspaceId: string,
-  change: { userId: string; role: WorkspaceRole | null },
+  change: { userId: string; role: AssignableRole | null },
   adminId?: string,
   { revokeInvites = false }: { revokeInvites?: boolean } = {},
 ): Promise<MembershipResult> {
@@ -91,7 +92,11 @@ async function changeMembership(
       return "last-admin";
     }
     if (change.role) {
-      await tx.update(schema.workspaceMember).set({ role: change.role }).where(memberOf(workspaceId, change.userId));
+      // Admins and auditors belong to no partner company (a check constraint ties partner_id to the role).
+      await tx
+        .update(schema.workspaceMember)
+        .set({ role: change.role, partnerId: null })
+        .where(memberOf(workspaceId, change.userId));
     } else {
       await tx.delete(schema.workspaceMember).where(memberOf(workspaceId, change.userId));
       await clearAssignments(tx, workspaceId, change.userId);
@@ -113,13 +118,19 @@ async function publicOrigin() {
   });
 }
 
-export type InviteState = FormState & { link?: string };
+/** A created link comes back once, with the role it gives. */
+export type InviteState = FormState & { link?: string; role?: AssignableRole };
 
-/** Creates a link and returns it once; only its hash is stored. */
+/** Creates a link for the chosen role and returns it once; only its hash is stored. */
 export async function createInviteAction(_prev: InviteState, formData: FormData): Promise<InviteState> {
-  const { session, workspace } = await requireWorkspaceForAction(formData);
-  if (workspace.role !== "admin") {
+  const context = await adminContext(formData);
+  if (!context) {
     return { error: ADMINS_ONLY };
+  }
+  const { session, workspace } = context;
+  const role = parseAssignableRole(formData.get("role"));
+  if (!role) {
+    return invalid("Choose a role", formData, "role");
   }
   const token = newInviteToken();
   await getDb()
@@ -130,9 +141,10 @@ export async function createInviteAction(_prev: InviteState, formData: FormData)
       tokenHash: hashInviteToken(token),
       createdBy: session.user.id,
       expiresAt: inviteExpiresAt(new Date()),
+      role,
     });
   revalidatePath("/workspace");
-  return { link: new URL(`/dashboard/invite/${token}`, await publicOrigin()).toString() };
+  return { link: new URL(`/dashboard/invite/${token}`, await publicOrigin()).toString(), role };
 }
 
 export async function revokeInviteAction(_prev: FormState, formData: FormData): Promise<FormState> {
@@ -163,7 +175,7 @@ export async function changeRoleAction(_prev: FormState, formData: FormData): Pr
   if (!context) {
     return { error: ADMINS_ONLY };
   }
-  const role = parseWorkspaceRole(formData.get("role"));
+  const role = parseAssignableRole(formData.get("role"));
   if (!role) {
     return { error: "Unknown role" };
   }
@@ -226,7 +238,7 @@ export async function joinWorkspaceAction(_prev: FormState, _formData: FormData)
   }
   await getDb()
     .insert(schema.workspaceMember)
-    .values({ workspaceId: invite.workspaceId, userId: session.user.id, role: "member" })
+    .values({ workspaceId: invite.workspaceId, userId: session.user.id, role: invite.role, partnerId: invite.partnerId })
     .onConflictDoNothing();
   await useWorkspace(invite.workspaceId);
   redirect("/");

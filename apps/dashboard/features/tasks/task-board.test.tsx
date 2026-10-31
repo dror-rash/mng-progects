@@ -110,4 +110,20 @@ describe("TaskBoard", () => {
     expect(moveAction).not.toHaveBeenCalled();
     expect(column("To do").getByRole("link", { name: "Write homepage copy" })).toBeInTheDocument();
   });
+
+  it("shows the tasks without move, delete or drag controls when read-only", () => {
+    render(
+      <TaskBoard
+        projectId="project-1"
+        tasks={[task()]}
+        today="2026-10-30"
+        moveAction={vi.fn(async () => {})}
+        deleteAction={vi.fn(async () => {})}
+        readOnly
+      />,
+    );
+
+    expect(column("To do").getByRole("link", { name: "Write homepage copy" })).toBeInTheDocument();
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
+  });
 });

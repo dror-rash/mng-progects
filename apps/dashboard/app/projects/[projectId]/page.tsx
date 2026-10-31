@@ -57,17 +57,19 @@ export default async function ProjectPage({ params }: { params: Promise<{ projec
               )}
             </p>
           </div>
-          <div className="flex gap-2">
-            <Button asChild variant="outline" size="sm">
-              <Link href={`/projects/${project.id}/edit`}>Edit project</Link>
-            </Button>
-            <Button asChild variant="ghost" size="sm">
-              <Link href={`/projects/${project.id}/delete`}>Delete project</Link>
-            </Button>
-          </div>
+          {project.canChange && (
+            <div className="flex gap-2">
+              <Button asChild variant="outline" size="sm">
+                <Link href={`/projects/${project.id}/edit`}>Edit project</Link>
+              </Button>
+              <Button asChild variant="ghost" size="sm">
+                <Link href={`/projects/${project.id}/delete`}>Delete project</Link>
+              </Button>
+            </div>
+          )}
         </section>
 
-        <AddTaskForm projectId={project.id} />
+        {project.canChange && <AddTaskForm projectId={project.id} />}
 
         <TaskBoard
           projectId={project.id}
@@ -75,6 +77,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ projec
           today={todayUtc()}
           moveAction={updateTaskStatusAction}
           deleteAction={deleteTaskAction}
+          readOnly={!project.canChange}
         />
       </main>
     </div>

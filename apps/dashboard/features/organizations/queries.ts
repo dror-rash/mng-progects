@@ -1,27 +1,42 @@
-import { and, asc, eq, getDb, getTableColumns, schema, sql } from "@repo/db";
+import { and, asc, eq, getDb, getTableColumns, isNull, schema, sql } from "@repo/db";
 
-import { visibleTo } from "@/features/workspaces/access";
+import { canChangeCustomer, canSeeCustomer } from "@/features/access/predicates";
 
 import type { OrganizationKind, OrganizationStatus } from "./organization-kinds";
 import { distinctTags } from "./tag-list";
 
-/** The organization, only if it is of `kind` and `userId` is a member of its workspace (ADR-0005). */
+/**
+ * The organization with whether `userId` may change it, only if it is of `kind`, not deleted, and they can
+ * see it (admins and auditors, ADR-0006).
+ */
 export async function getOrganizationForUser(userId: string, id: string, kind: OrganizationKind) {
   const [organization] = await getDb()
-    .select()
+    .select({ ...getTableColumns(schema.organization), canChange: canChangeCustomer(userId, schema.organization.id) })
     .from(schema.organization)
     .where(
       and(
         eq(schema.organization.id, id),
         eq(schema.organization.kind, kind),
-        visibleTo(userId, schema.organization.workspaceId),
+        isNull(schema.organization.deletedAt),
+        canSeeCustomer(userId, schema.organization.id),
       ),
     );
   return organization ?? null;
 }
 
-/** The workspace's organizations of `kind` by name, each with its primary contact's name (task 038). */
+/** The workspace's organizations of `kind` that `userId` can see in full (not deleted). */
+function visibleOrganizations(userId: string, workspaceId: string, kind: OrganizationKind) {
+  return and(
+    eq(schema.organization.workspaceId, workspaceId),
+    eq(schema.organization.kind, kind),
+    isNull(schema.organization.deletedAt),
+    canSeeCustomer(userId, schema.organization.id),
+  );
+}
+
+/** The workspace's organizations of `kind` that `userId` can see, by name, each with its primary contact's name (task 038). */
 export async function listOrganizations(
+  userId: string,
   workspaceId: string,
   kind: OrganizationKind,
   filter: { status?: OrganizationStatus; tag?: string } = {},
@@ -29,11 +44,16 @@ export async function listOrganizations(
   return getDb()
     .select({ ...getTableColumns(schema.organization), primaryContactName: schema.organizationContact.name })
     .from(schema.organization)
-    .leftJoin(schema.organizationContact, eq(schema.organizationContact.id, schema.organization.primaryContactId))
+    .leftJoin(
+      schema.organizationContact,
+      and(
+        eq(schema.organizationContact.id, schema.organization.primaryContactId),
+        isNull(schema.organizationContact.deletedAt),
+      ),
+    )
     .where(
       and(
-        eq(schema.organization.workspaceId, workspaceId),
-        eq(schema.organization.kind, kind),
+        visibleOrganizations(userId, workspaceId, kind),
         filter.status ? eq(schema.organization.status, filter.status) : undefined,
         // Tags match without regard to case, the same way the tag list merges them.
         filter.tag
@@ -44,12 +64,12 @@ export async function listOrganizations(
     .orderBy(asc(schema.organization.name));
 }
 
-/** Every tag used by the workspace's organizations of `kind`; see `distinctTags` (oldest spelling wins). */
-export async function listOrganizationTags(workspaceId: string, kind: OrganizationKind) {
+/** Every tag used by the organizations of `kind` that `userId` can see; see `distinctTags` (oldest spelling wins). */
+export async function listOrganizationTags(userId: string, workspaceId: string, kind: OrganizationKind) {
   const rows = await getDb()
     .select({ tags: schema.organization.tags })
     .from(schema.organization)
-    .where(and(eq(schema.organization.workspaceId, workspaceId), eq(schema.organization.kind, kind)))
+    .where(visibleOrganizations(userId, workspaceId, kind))
     .orderBy(asc(schema.organization.createdAt));
   return distinctTags(rows.map((r) => r.tags));
 }
@@ -69,6 +89,7 @@ export async function customerInWorkspace(workspaceId: string, organizationId: s
         eq(schema.organization.id, organizationId),
         eq(schema.organization.workspaceId, workspaceId),
         eq(schema.organization.kind, "customer"),
+        isNull(schema.organization.deletedAt),
       ),
     );
   return row !== undefined;

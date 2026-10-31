@@ -13,7 +13,8 @@ export default async function DeleteCustomerPage({ params }: { params: Promise<{
   const { customerId } = await params;
   const { session } = await requireWorkspace(`/customers/${customerId}/delete`);
   const customer = await getOrganizationForUser(session.user.id, customerId, "customer");
-  if (!customer) {
+  // Someone who can't change it gets the same page as for a missing customer.
+  if (!customer?.canChange) {
     notFound();
   }
 

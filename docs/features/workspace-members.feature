@@ -23,7 +23,7 @@ Feature: Workspace members and invite links
     And I press "Remove Teammate"
     Then the teammate can no longer open the "Website Redesign" project
 
-  Scenario: A member doesn't get admin controls
+  Scenario: An auditor doesn't get admin controls
     Given I create an invite link
     And a teammate joins with the invite link
     Then the teammate doesn't see the "Create invite link" button on the members page
@@ -69,8 +69,9 @@ Feature: Workspace members and invite links
     Given I create an invite link
     And a teammate joins with the invite link
     When I open "/dashboard/workspace"
-    And I press "Make admin Teammate"
-    Then I see the "Make member Teammate" button
+    And I select "Admin" from "Role for Teammate"
+    And I press "Change role Teammate"
+    Then the "Teammate" row shows the role "Admin"
 
   @task:026
   Scenario: Someone removed from their first workspace stays removed
@@ -106,7 +107,7 @@ Feature: Workspace members and invite links
     And the teammate's workspaces include "Acme Team"
 
   @task:026
-  Scenario: A member can't create invite links by changing the form
+  Scenario: An auditor can't create invite links by changing the form
     Given I create an invite link
     And a teammate joins with the invite link
     When the teammate posts "Create invite link" for my workspace from their own members page
@@ -127,8 +128,8 @@ Feature: Workspace members and invite links
     Given I create an invite link
     And a teammate joins with the invite link
     When I open "/dashboard/workspace"
-    And the "Make admin Teammate" form is changed to make me a member
-    And I press "Make admin Teammate"
+    And the "Change role Teammate" form is changed to make me an auditor
+    And I press "Change role Teammate"
     Then the "Teammate" row shows the error "A workspace needs at least one admin"
     And I see the "Remove Teammate" button
 
@@ -150,7 +151,7 @@ Feature: Workspace members and invite links
     Then the invite link row shows the error "This invite link was already revoked"
 
   @task:027 @slow
-  Scenario Outline: A member can't use admin actions by changing the form
+  Scenario Outline: An auditor can't use admin actions by changing the form
     Given I create an invite link
     And a teammate joins with the invite link
     And I join the teammate's workspace with an invite link they created
@@ -160,7 +161,7 @@ Feature: Workspace members and invite links
 
     Examples:
       | button                 |
-      | Make admin Test User   |
+      | Change role Test User  |
       | Remove Test User       |
       | Revoke invite link     |
 

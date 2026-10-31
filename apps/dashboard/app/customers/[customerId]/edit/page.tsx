@@ -13,7 +13,8 @@ export default async function EditCustomerPage({ params }: { params: Promise<{ c
   const { customerId } = await params;
   const { session, workspace } = await requireWorkspace(`/customers/${customerId}/edit`);
   const customer = await getOrganizationForUser(session.user.id, customerId, "customer");
-  if (!customer) {
+  // Someone who can't change it gets the same page as for a missing customer.
+  if (!customer?.canChange) {
     notFound();
   }
 

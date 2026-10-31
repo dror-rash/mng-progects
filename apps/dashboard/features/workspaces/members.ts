@@ -31,7 +31,12 @@ export async function listMemberOptions(workspaceId: string) {
 /** Links that haven't been revoked (expired ones are shown as expired until revoked). */
 export async function listOpenInvites(workspaceId: string) {
   return getDb()
-    .select({ id: schema.workspaceInvite.id, createdAt: schema.workspaceInvite.createdAt, expiresAt: schema.workspaceInvite.expiresAt })
+    .select({
+      id: schema.workspaceInvite.id,
+      createdAt: schema.workspaceInvite.createdAt,
+      expiresAt: schema.workspaceInvite.expiresAt,
+      role: schema.workspaceInvite.role,
+    })
     .from(schema.workspaceInvite)
     .where(and(eq(schema.workspaceInvite.workspaceId, workspaceId), isNull(schema.workspaceInvite.revokedAt)))
     .orderBy(asc(schema.workspaceInvite.createdAt));
@@ -46,6 +51,8 @@ export async function findInvite(token: string) {
       workspaceName: schema.workspace.name,
       expiresAt: schema.workspaceInvite.expiresAt,
       revokedAt: schema.workspaceInvite.revokedAt,
+      role: schema.workspaceInvite.role,
+      partnerId: schema.workspaceInvite.partnerId,
     })
     .from(schema.workspaceInvite)
     .innerJoin(schema.workspace, eq(schema.workspaceInvite.workspaceId, schema.workspace.id))

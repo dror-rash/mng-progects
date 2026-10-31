@@ -39,12 +39,14 @@ export default async function CustomerPage({ params }: { params: Promise<{ custo
   if (!customer) {
     notFound();
   }
+  // Starting a project for this customer: admins, like changing it (partners start their own with task 049).
+  const canStartProjects = customer.canChange;
   const [contacts, notes, projects, projectCounts, openTasks] = await Promise.all([
     listContacts(customer.id),
     listNotes(customer.id),
-    listCustomerProjects(customer.workspaceId, customer.id),
-    countTasksByProjectAndStatus(customer.workspaceId),
-    listCustomerOpenTasks(customer.workspaceId, customer.id),
+    listCustomerProjects(session.user.id, customer.workspaceId, customer.id),
+    countTasksByProjectAndStatus(session.user.id, customer.workspaceId),
+    listCustomerOpenTasks(session.user.id, customer.workspaceId, customer.id),
   ]);
 
   return (
@@ -66,14 +68,16 @@ export default async function CustomerPage({ params }: { params: Promise<{ custo
               ))}
             </div>
           </div>
-          <div className="flex gap-2">
-            <Button asChild variant="outline" size="sm">
-              <Link href={`/customers/${customer.id}/edit`}>Edit customer</Link>
-            </Button>
-            <Button asChild variant="ghost" size="sm">
-              <Link href={`/customers/${customer.id}/delete`}>Delete customer</Link>
-            </Button>
-          </div>
+          {customer.canChange && (
+            <div className="flex gap-2">
+              <Button asChild variant="outline" size="sm">
+                <Link href={`/customers/${customer.id}/edit`}>Edit customer</Link>
+              </Button>
+              <Button asChild variant="ghost" size="sm">
+                <Link href={`/customers/${customer.id}/delete`}>Delete customer</Link>
+              </Button>
+            </div>
+          )}
         </section>
 
         <Card>
@@ -111,7 +115,9 @@ export default async function CustomerPage({ params }: { params: Promise<{ custo
             {customer.about ? (
               <p className="whitespace-pre-wrap text-sm">{customer.about}</p>
             ) : (
-              <p className="text-sm text-muted-foreground">Nothing yet. Use &ldquo;Edit customer&rdquo; to add it.</p>
+              <p className="text-sm text-muted-foreground">
+                {customer.canChange ? <>Nothing yet. Use &ldquo;Edit customer&rdquo; to add it.</> : "Nothing yet."}
+              </p>
             )}
           </CardContent>
         </Card>
@@ -119,13 +125,19 @@ export default async function CustomerPage({ params }: { params: Promise<{ custo
         <section aria-labelledby="projects-heading" className="space-y-3">
           <div className="flex items-center justify-between gap-4">
             <h2 id="projects-heading" className="text-base font-semibold">Projects</h2>
-            <Button asChild variant="outline" size="sm">
-              <Link href={`/projects/new?customer=${customer.id}`}>New project</Link>
-            </Button>
+            {canStartProjects && (
+              <Button asChild variant="outline" size="sm">
+                <Link href={`/projects/new?customer=${customer.id}`}>New project</Link>
+              </Button>
+            )}
           </div>
           {projects.length === 0 ? (
             <Card className="border-dashed p-6 text-center text-sm text-muted-foreground">
-              No projects for this customer yet. Use &ldquo;New project&rdquo; to start one.
+              {canStartProjects ? (
+                <>No projects for this customer yet. Use &ldquo;New project&rdquo; to start one.</>
+              ) : (
+                "No projects for this customer yet."
+              )}
             </Card>
           ) : (
             <ProjectList projects={projects} progress={summarizeProjectStatusCounts(projectCounts)} showCustomer={false} />
@@ -161,8 +173,13 @@ export default async function CustomerPage({ params }: { params: Promise<{ custo
           </Card>
         </section>
 
-        <ContactsSection customerId={customer.id} contacts={contacts} primaryContactId={customer.primaryContactId} />
-        <NotesSection customerId={customer.id} notes={notes} />
+        <ContactsSection
+          customerId={customer.id}
+          contacts={contacts}
+          primaryContactId={customer.primaryContactId}
+          readOnly={!customer.canChange}
+        />
+        <NotesSection customerId={customer.id} notes={notes} readOnly={!customer.canChange} />
       </main>
     </div>
   );

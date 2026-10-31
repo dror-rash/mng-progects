@@ -1,6 +1,7 @@
 import { Badge } from "@repo/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@repo/ui/card";
 
+import { workspaceRoleLabel } from "@/features/access/roles";
 import { AppHeader } from "@/features/layout/app-header";
 import { InviteForm } from "@/features/workspaces/invite-form";
 import { inviteState } from "@/features/workspaces/invite-token";
@@ -8,7 +9,6 @@ import { LeaveForm } from "@/features/workspaces/leave-form";
 import { ChangeRoleForm, RemoveMemberForm, RevokeInviteForm } from "@/features/workspaces/member-forms";
 import { listMembers, listOpenInvites } from "@/features/workspaces/members";
 import { requireWorkspace } from "@/features/workspaces/require-workspace";
-import { workspaceRoleLabel } from "@/features/workspaces/roles";
 
 export const dynamic = "force-dynamic";
 
@@ -83,7 +83,8 @@ export default async function WorkspacePage() {
                         <li key={invite.id} className="flex items-start justify-between gap-3 py-2 text-sm">
                           <span className="text-muted-foreground">
                             Created {DATE.format(invite.createdAt)} ·{" "}
-                            {expired ? "expired" : `expires ${DATE.format(invite.expiresAt)}`}
+                            {expired ? "expired" : `expires ${DATE.format(invite.expiresAt)}`} ·{" "}
+                            {workspaceRoleLabel(invite.role)}
                           </span>
                           <RevokeInviteForm workspaceId={workspace.id} inviteId={invite.id} created={DATE.format(invite.createdAt)} />
                         </li>

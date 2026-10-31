@@ -14,7 +14,8 @@ export default async function DeleteProjectPage({ params }: { params: Promise<{ 
   const { projectId } = await params;
   const { session } = await requireWorkspace(`/projects/${projectId}/delete`);
   const project = await getProjectForUser(session.user.id, projectId);
-  if (!project) {
+  // Someone who can't change it gets the same page as for a missing project.
+  if (!project?.canChange) {
     notFound();
   }
 

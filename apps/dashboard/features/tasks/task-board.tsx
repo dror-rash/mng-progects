@@ -46,6 +46,8 @@ type TaskBoardProps = {
   /** Saves a task's status: `projectId`, `taskId`, `status`. Also the "Move to" forms' action, so they work without JavaScript. */
   moveAction: TaskAction;
   deleteAction: TaskAction;
+  /** Lists the tasks without drag handles, Move to or Delete (for people who can't change the project). */
+  readOnly?: boolean;
 };
 
 type DragData = { title: string; status: TaskStatus };
@@ -105,7 +107,7 @@ function useInteractive() {
 }
 
 /** The project board: drag a card to another column, or use its "Move to" buttons. */
-export function TaskBoard({ projectId, tasks, today, moveAction, deleteAction }: TaskBoardProps) {
+export function TaskBoard({ projectId, tasks, today, moveAction, deleteAction, readOnly = false }: TaskBoardProps) {
   const [shownTasks, showMove] = useOptimistic(tasks, (current, move: { taskId: string; status: TaskStatus }) =>
     current.map((t) => (t.id === move.taskId ? { ...t, status: move.status } : t)),
   );
@@ -166,7 +168,8 @@ export function TaskBoard({ projectId, tasks, today, moveAction, deleteAction }:
                     status={column.status}
                     projectId={projectId}
                     today={today}
-                    draggable={interactive}
+                    draggable={interactive && !readOnly}
+                    readOnly={readOnly}
                     moveAction={moveAction}
                     deleteAction={deleteAction}
                   />
@@ -203,11 +206,12 @@ type BoardCardProps = {
   projectId: string;
   today: string;
   draggable: boolean;
+  readOnly: boolean;
   moveAction: TaskAction;
   deleteAction: TaskAction;
 };
 
-function BoardCard({ task, status, projectId, today, draggable, moveAction, deleteAction }: BoardCardProps) {
+function BoardCard({ task, status, projectId, today, draggable, readOnly, moveAction, deleteAction }: BoardCardProps) {
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, isDragging } = useDraggable({
     id: task.id,
     data: { title: task.title, status } satisfies DragData,
@@ -254,25 +258,27 @@ function BoardCard({ task, status, projectId, today, draggable, moveAction, dele
           {task.assigneeName && <p className="text-xs text-muted-foreground">Assigned to {task.assigneeName}</p>}
           {task.customerName && <p className="text-xs text-muted-foreground">For {task.customerName}</p>}
         </CardHeader>
-        <CardContent className="flex flex-wrap gap-1">
-          {TASK_STATUSES.filter((s) => s.status !== status).map((target) => (
-            <form key={target.status} action={moveAction}>
+        {!readOnly && (
+          <CardContent className="flex flex-wrap gap-1">
+            {TASK_STATUSES.filter((s) => s.status !== status).map((target) => (
+              <form key={target.status} action={moveAction}>
+                <input type="hidden" name="projectId" value={projectId} />
+                <input type="hidden" name="taskId" value={task.id} />
+                <input type="hidden" name="status" value={target.status} />
+                <Button type="submit" variant="outline" size="sm">
+                  Move to {target.label}
+                </Button>
+              </form>
+            ))}
+            <form action={deleteAction}>
               <input type="hidden" name="projectId" value={projectId} />
               <input type="hidden" name="taskId" value={task.id} />
-              <input type="hidden" name="status" value={target.status} />
-              <Button type="submit" variant="outline" size="sm">
-                Move to {target.label}
+              <Button type="submit" variant="ghost" size="sm">
+                Delete task
               </Button>
             </form>
-          ))}
-          <form action={deleteAction}>
-            <input type="hidden" name="projectId" value={projectId} />
-            <input type="hidden" name="taskId" value={task.id} />
-            <Button type="submit" variant="ghost" size="sm">
-              Delete task
-            </Button>
-          </form>
-        </CardContent>
+          </CardContent>
+        )}
       </Card>
     </li>
   );

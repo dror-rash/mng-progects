@@ -73,7 +73,7 @@ const { listMemberships } = await import("./queries");
 const { requireWorkspace, requireWorkspaceForAction } = await import("./require-workspace");
 
 function membership(workspaceId: string, name: string, joinedAt = new Date("2026-01-01")) {
-  return { workspaceId, role: "admin", joinedAt, name };
+  return { workspaceId, role: "admin", partnerId: null, joinedAt, name };
 }
 
 beforeEach(() => {

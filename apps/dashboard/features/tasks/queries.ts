@@ -1,24 +1,34 @@
-import { alias, and, asc, desc, eq, getDb, getTableColumns, gte, lt, lte, ne, schema, type SQL, sql } from "@repo/db";
+import { alias, and, asc, desc, eq, getDb, getTableColumns, gte, isNull, lt, lte, ne, schema, type SQL, sql } from "@repo/db";
 
+import { canSeeProject } from "@/features/access/predicates";
+import { visibleProjects } from "@/features/projects/queries";
 import type { CalendarDate } from "@/features/tasks/due-dates";
 import type { OverviewCount, OverviewWindow } from "@/features/tasks/overview";
-import { visibleTo } from "@/features/workspaces/access";
 
 import { DEFAULT_PRIORITY, TASK_PRIORITIES } from "./task-priority";
 
 const assignee = alias(schema.user, "assignee");
+
+/** SQL condition: tasks (not deleted) of the projects `userId` can see in a workspace. For queries joining `project`. */
+function visibleTasks(userId: string, workspaceId: string) {
+  return and(visibleProjects(userId, workspaceId), isNull(schema.task.deletedAt));
+}
 const assigneeMembership = alias(schema.workspaceMember, "assignee_membership");
 
 /**
- * The project's tasks, with each task's customer and assignee names (null when none). An assignee who
- * is no longer a member of the project's workspace counts as none.
+ * The project's tasks (not deleted), with each task's customer and assignee names (null when none). An
+ * assignee who is no longer a member of the project's workspace counts as none. Callers check the project
+ * is visible to the user (`getProjectForUser`) first.
  */
 export async function listProjectTasks(projectId: string) {
   return getDb()
     .select({ ...getTableColumns(schema.task), customerName: schema.organization.name, assigneeName: assignee.name })
     .from(schema.task)
     .innerJoin(schema.project, eq(schema.task.projectId, schema.project.id))
-    .leftJoin(schema.organization, eq(schema.task.organizationId, schema.organization.id))
+    .leftJoin(
+      schema.organization,
+      and(eq(schema.task.organizationId, schema.organization.id), isNull(schema.organization.deletedAt)),
+    )
     .leftJoin(
       assigneeMembership,
       and(
@@ -27,21 +37,21 @@ export async function listProjectTasks(projectId: string) {
       ),
     )
     .leftJoin(assignee, eq(assigneeMembership.userId, assignee.id))
-    .where(eq(schema.task.projectId, projectId))
+    .where(and(eq(schema.task.projectId, projectId), isNull(schema.task.deletedAt)))
     .orderBy(asc(schema.task.createdAt));
 }
 
-/** The task, only if it belongs to `projectId`. Callers check the project is visible to the user (workspace access) first. */
+/** The task, only if it belongs to `projectId` (not deleted). Callers check the project is visible to the user (`getProjectForUser`) first. */
 export async function getProjectTask(projectId: string, taskId: string) {
   const [task] = await getDb()
     .select()
     .from(schema.task)
-    .where(and(eq(schema.task.id, taskId), eq(schema.task.projectId, projectId)));
+    .where(and(eq(schema.task.id, taskId), eq(schema.task.projectId, projectId), isNull(schema.task.deletedAt)));
   return task ?? null;
 }
 
-/** Open (not Done) tasks about one customer, across the workspace's projects, newest first. */
-export async function listCustomerOpenTasks(workspaceId: string, organizationId: string) {
+/** Open (not Done) tasks about one customer, across the workspace's projects `userId` can see, newest first. */
+export async function listCustomerOpenTasks(userId: string, workspaceId: string, organizationId: string) {
   return getDb()
     .select({
       id: schema.task.id,
@@ -54,7 +64,7 @@ export async function listCustomerOpenTasks(workspaceId: string, organizationId:
     .innerJoin(schema.project, eq(schema.task.projectId, schema.project.id))
     .where(
       and(
-        eq(schema.project.workspaceId, workspaceId),
+        visibleTasks(userId, workspaceId),
         eq(schema.task.organizationId, organizationId),
         ne(schema.task.status, "done"),
       ),
@@ -92,7 +102,9 @@ export async function listMyOpenTasks(userId: string) {
       and(
         eq(schema.task.assigneeId, userId),
         ne(schema.task.status, "done"),
-        visibleTo(userId, schema.project.workspaceId),
+        isNull(schema.task.deletedAt),
+        isNull(schema.project.deletedAt),
+        canSeeProject(userId, schema.project.id),
       ),
     )
     .orderBy(
@@ -106,23 +118,23 @@ export async function listMyOpenTasks(userId: string) {
 const countAll = () => sql<number>`count(*)`.mapWith(Number);
 const countWhere = (condition: SQL | undefined) => sql<number>`count(*) filter (where ${condition})`.mapWith(Number);
 
-/** Task counts per project and status in the workspace (one row per pair), for progress meters. */
-export async function countTasksByProjectAndStatus(workspaceId: string) {
+/** Task counts per project and status for the projects `userId` can see (one row per pair), for progress meters. */
+export async function countTasksByProjectAndStatus(userId: string, workspaceId: string) {
   return getDb()
     .select({ projectId: schema.task.projectId, status: schema.task.status, count: countAll() })
     .from(schema.task)
     .innerJoin(schema.project, eq(schema.task.projectId, schema.project.id))
-    .where(eq(schema.project.workspaceId, workspaceId))
+    .where(visibleTasks(userId, workspaceId))
     .groupBy(schema.task.projectId, schema.task.status);
 }
 
-/** Open tasks due before `today`, per project in the workspace (projects with none are left out). */
-export async function countOverdueTasksByProject(workspaceId: string, today: CalendarDate) {
+/** Open tasks due before `today`, per project `userId` can see in the workspace (projects with none are left out). */
+export async function countOverdueTasksByProject(userId: string, workspaceId: string, today: CalendarDate) {
   const rows = await getDb()
     .select({ projectId: schema.task.projectId, count: countAll() })
     .from(schema.task)
     .innerJoin(schema.project, eq(schema.task.projectId, schema.project.id))
-    .where(and(eq(schema.project.workspaceId, workspaceId), ne(schema.task.status, "done"), lt(schema.task.dueDate, today)))
+    .where(and(visibleTasks(userId, workspaceId), ne(schema.task.status, "done"), lt(schema.task.dueDate, today)))
     .groupBy(schema.task.projectId);
   return new Map(rows.map((r) => [r.projectId, r.count]));
 }
@@ -132,7 +144,11 @@ export async function countOverdueTasksByProject(workspaceId: string, today: Cal
  * and created / completed since `since` (inclusive, no upper bound: the database clock may run ahead).
  * Timestamps are bound through their column, so they compare in UTC like the stored values.
  */
-export async function countWorkspaceOverview(workspaceId: string, window: OverviewWindow): Promise<OverviewCount[]> {
+export async function countWorkspaceOverview(
+  userId: string,
+  workspaceId: string,
+  window: OverviewWindow,
+): Promise<OverviewCount[]> {
   const { task } = schema;
   return getDb()
     .select({
@@ -145,6 +161,6 @@ export async function countWorkspaceOverview(workspaceId: string, window: Overvi
     })
     .from(task)
     .innerJoin(schema.project, eq(task.projectId, schema.project.id))
-    .where(eq(schema.project.workspaceId, workspaceId))
+    .where(visibleTasks(userId, workspaceId))
     .groupBy(task.status);
 }

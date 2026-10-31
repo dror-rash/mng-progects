@@ -1,5 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@repo/ui/card";
+import { notFound } from "next/navigation";
 
+import { canChange } from "@/features/access/scope";
 import { AppHeader } from "@/features/layout/app-header";
 import { firstParam, withParams } from "@/features/navigation/search-params";
 import { listOrganizations } from "@/features/organizations/queries";
@@ -13,7 +15,10 @@ type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 export default async function NewProjectPage({ searchParams }: { searchParams: SearchParams }) {
   const requested = firstParam((await searchParams).customer);
   const { session, workspace } = await requireWorkspace(withParams("/projects/new", { customer: requested }));
-  const customers = await listOrganizations(workspace.id, "customer");
+  if (!canChange(workspace.role)) {
+    notFound();
+  }
+  const customers = await listOrganizations(session.user.id, workspace.id, "customer");
   // Started from a customer's page: choose that customer and go back there on Cancel. Others are ignored.
   const customer = customers.find((c) => c.id === requested);
 

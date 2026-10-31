@@ -1,4 +1,4 @@
-import { workspaceRoleLabel } from "./roles";
+import { workspaceRoleLabel } from "@/features/access/roles";
 
 /** What tells same-named workspaces apart in the switcher: "Admin · 3 members". */
 export function workspaceDetails({ role, memberCount }: { role: string; memberCount: number }): string {

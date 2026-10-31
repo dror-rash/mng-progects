@@ -8,6 +8,7 @@ async function queryMemberships(userId: string) {
     .select({
       workspaceId: schema.workspaceMember.workspaceId,
       role: schema.workspaceMember.role,
+      partnerId: schema.workspaceMember.partnerId,
       joinedAt: schema.workspaceMember.joinedAt,
       name: schema.workspace.name,
     })

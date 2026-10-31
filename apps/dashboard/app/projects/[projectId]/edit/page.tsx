@@ -13,7 +13,8 @@ export default async function EditProjectPage({ params }: { params: Promise<{ pr
   const { projectId } = await params;
   const { session } = await requireWorkspace(`/projects/${projectId}/edit`);
   const project = await getProjectForUser(session.user.id, projectId);
-  if (!project) {
+  // Someone who can't change it gets the same page as for a missing project.
+  if (!project?.canChange) {
     notFound();
   }
 
@@ -24,7 +25,7 @@ export default async function EditProjectPage({ params }: { params: Promise<{ pr
           <CardTitle>Edit project</CardTitle>
         </CardHeader>
         <CardContent>
-          <ProjectForm project={project} customers={await listOrganizations(project.workspaceId, "customer")} />
+          <ProjectForm project={project} customers={await listOrganizations(session.user.id, project.workspaceId, "customer")} />
         </CardContent>
       </Card>
     </main>

@@ -18,10 +18,10 @@ const RECENT_PROJECTS = 5;
 export default async function DashboardPage() {
   const { session, workspace } = await requireWorkspace("/");
   const [projectCount, recentProjects, overviewCounts, projectCounts] = await Promise.all([
-    countProjects(workspace.id),
-    listProjects(workspace.id, RECENT_PROJECTS),
-    countWorkspaceOverview(workspace.id, overviewWindow(new Date())),
-    countTasksByProjectAndStatus(workspace.id),
+    countProjects(session.user.id, workspace.id),
+    listProjects(session.user.id, workspace.id, RECENT_PROJECTS),
+    countWorkspaceOverview(session.user.id, workspace.id, overviewWindow(new Date())),
+    countTasksByProjectAndStatus(session.user.id, workspace.id),
   ]);
   const { summary: overall, overdue, dueSoon, thisWeek, byStatus } = summarizeOverview(overviewCounts);
 
