@@ -1,6 +1,6 @@
 # Task 052: Access hardening after the final review of M12
 
-- **Status:** in-progress
+- **Status:** done
 - **Milestone:** M12 Partner Access (fix wave)
 - **Zone / package:** `packages/db`, `apps/dashboard`, `e2e`
 - **Feature file:** `docs/features/partner-access.feature`, `docs/features/task-assignees.feature`
@@ -24,13 +24,13 @@ The final whole-milestone review of M12 found no partner-to-partner leak through
 - Anything else noticed goes in the Parking lot.
 
 ## Acceptance criteria
-- [ ] As `app_user`, a temp table named `workspace_member` with a fake admin row exposes nothing (creating it is refused).
-- [ ] A pooled connection that isn't `app_user` never serves a query.
-- [ ] Making an admin an auditor clears their assignments (`task-assignees.feature`).
-- [ ] Saving a task keeps an assignee who isn't one of the choices (`task-assignees.feature`).
-- [ ] A deleted partner's users can't be assigned (`partner-access.feature`).
-- [ ] The leak suite's negative steps can't pass vacuously.
-- [ ] Guards for definer functions, RLS coverage and function grants pass.
+- [x] As `app_user`, a temp table named `workspace_member` with a fake admin row exposes nothing (creating it is refused).
+- [x] A pooled connection that isn't `app_user` never serves a query.
+- [x] Making an admin an auditor clears their assignments (`task-assignees.feature`).
+- [x] Saving a task keeps an assignee who isn't one of the choices (`task-assignees.feature`).
+- [x] A deleted partner's users can't be assigned (`partner-access.feature`).
+- [x] The leak suite's negative steps can't pass vacuously.
+- [x] Guards for definer functions, RLS coverage and function grants pass.
 
 ## Approach (brief)
 - Migration 0025 (custom SQL): `CREATE OR REPLACE clear_unseen_assignments` (auditor: clear all), then a `DO` loop `ALTER FUNCTION … SET search_path = public, pg_temp` over `pg_proc` where `prosecdef`, then `REVOKE TEMPORARY ON DATABASE <current_database()> FROM PUBLIC` (and from `app_user`).
@@ -44,5 +44,14 @@ The final whole-milestone review of M12 found no partner-to-partner leak through
 
 ## Progress log
 - 2026-11-01 – Drafted from the final review findings (items 1–8).
+- 2026-11-01 – Red (DB): as `app_user` with `app.user_id` = an outsider, a temp `workspace_member` with a fake admin row made the workspace's project visible (1 row); `app_user` had `TEMPORARY`; none of the 15 definer functions pinned `pg_temp`; a pool without the role switch served queries as the owner; demoting an admin to auditor kept both assignments. Red (unit): no `onConnect` / `assertRole`. The definer guards (item 6) and coverage checks (item 7) passed already and stay as guards.
+- 2026-11-01 – Migration 0025 (`clear_unseen_assignments` clears all for an auditor; `ALTER FUNCTION … SET search_path = public, pg_temp` over `pg_proc`; `REVOKE TEMPORARY` from `PUBLIC` and `app_user`); `assertRole` as the runtime pool's `onConnect`. DB 40/40, db unit 13/13.
+- 2026-11-01 – Red (e2e): a deleted partner's user offered as an assignee; saving a task whose assignee is an auditor cleared it; the demotion scenario red with the 0022 function restored by hand on the local database (green with 0025). Red (unit): the form posted an empty `assigneeId` for an assignee who isn't a choice. Green: `assignable()` checks the partner isn't deleted; `assigneeHidden` (page and form) like `customerHidden`. Leak-suite steps tightened (card visible first; the real address is a 404; no redirect on the page-source re-fetch).
+
+- 2026-11-01 – `pnpm lint`, `pnpm typecheck` clean; `pnpm test` 337 (dashboard 260, ui 51, auth 13, db 13); `pnpm --filter @repo/db test:db` 40/40; full e2e 205/206 at load average 5–17. The one failure, "My tasks lists tasks from every workspace I'm in" (`@task:031`, a 30 s timeout, no changed code), failed again only on its first try at load 21 and passed on the repeat, as did the other `@task:031` scenarios. ADR-0006 amendment, ARCHITECTURE and PLAN risks updated.
 
 ## Parking lot
+- `assertRole` runs once per new connection. A later `RESET ROLE` returns to the startup `app_user`, and `app_user` can't `SET ROLE` to the owner (not a member), so this is enough today; a per-checkout check would cost a round trip per query.
+- The RLS coverage guard checks tables only; `customer_name` is a view (security barrier, its own filter, SELECT only). A new view needs the same care by hand.
+- An assignee who isn't one of the choices shows as "Unassigned" in the select while the header says "Assigned to …" (same as a hidden customer showing "No customer").
+- Task 051's parking-lot item "a deleted partner's users are still offered as assignees" is fixed here (item 4); marking them "(deleted partner)" on the members page is still open.

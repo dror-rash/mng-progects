@@ -39,6 +39,7 @@ None in progress: M12 Partner Access is done (tasks 046–051). Candidates: M10 
 - CI `deploy` fails until GCP is set up (`infra/README.md`): no Workload Identity provider or project vars configured.
 - Timestamps are stored without time zone schema-wide; safe while Postgres runs in UTC (see task 010 parking lot).
 - Multi-zone rewrites configuration for new `/dashboard` zone in Next.js shell and Cloud Run deployment.
+- Before the first production deploy (M11): runtime and migrations share one Cloud SQL login that owns the tables, and RLS isn't forced (ADR-0006), so the `-c role=app_user` startup option is what applies the policies; the pool refuses a connection that isn't `app_user` (task 052), but this is untested on Cloud SQL. After `db:migrate` on staging, `select current_user, pg_has_role('app_user', 'MEMBER')` on a runtime connection must show `app_user` and `true`, and migration 0025's `REVOKE TEMPORARY … FROM PUBLIC` must have applied (the login must own the database or be a member of its owner).
 - Row-level security calls an access function per row (`can_see_project` and friends, ADR-0006): fine at today's sizes, but large lists may need the policies or the functions tuned (measure before M11 load).
 - Deletes are soft, but nothing records who changed what else: an audit log is a follow-up (and purging deleted items after a retention period, design Parking lot).
 
