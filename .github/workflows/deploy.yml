@@ -99,6 +99,7 @@ jobs:
       - if: env.IS_PR == 'true'
         run: pnpm exec playwright install --with-deps chromium
         working-directory: e2e
+        timeout-minutes: 10
       - name: Run Playwright against preview
         if: env.IS_PR == 'true'
         run: pnpm test:e2e
