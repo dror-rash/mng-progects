@@ -37,6 +37,10 @@ Given("the teammate is made an auditor directly, keeping the assignment", async 
     .where(and(eq(schema.workspaceMember.userId, teammate), inArray(schema.workspaceMember.workspaceId, workspacesOf(me))))
     .returning({ workspaceId: schema.workspaceMember.workspaceId });
   expect(changed).toHaveLength(1);
+  // A production build's links have already prefetched the pages they point to, with the teammate still
+  // an admin; a direct write doesn't revalidate them as the app's own actions do. Reload, as a user
+  // coming back to the board would, so the next page shows what is in the database now.
+  await page.reload();
 });
 
 // The task form only accepts the project's own customers; this links one from another workspace.
