@@ -18,6 +18,7 @@ const task = (organizationId: string | null) => ({
   assigneeId: null,
 });
 const customers = [{ id: "acme", name: "Acme Ltd" }];
+const members = [{ userId: "ann", name: "Ann" }];
 
 function posted() {
   return new FormData(screen.getByRole("button", { name: "Save changes" }).closest("form")!);
@@ -58,5 +59,32 @@ describe("EditTaskForm", () => {
     await userEvent.selectOptions(screen.getByLabelText("Customer"), "Acme Ltd");
 
     expect(posted().get("customerId")).toBe("acme");
+  });
+
+  it("posts the chosen assignee", () => {
+    render(<EditTaskForm projectId="p" task={{ ...task(null), assigneeId: "ann" }} customers={customers} members={members} />);
+
+    expect(posted().get("assigneeId")).toBe("ann");
+  });
+
+  it("doesn't post the assignee when they aren't one of the choices (an auditor), so they are kept", () => {
+    render(<EditTaskForm projectId="p" task={{ ...task(null), assigneeId: "aud" }} customers={customers} members={members} />);
+
+    expect(screen.getByLabelText("Assignee")).toHaveProperty("value", "");
+    expect(posted().has("assigneeId")).toBe(false);
+  });
+
+  it("doesn't post the assignee when it is hidden from me, without being given their id", () => {
+    render(<EditTaskForm projectId="p" task={{ ...task(null), assigneeHidden: true }} customers={customers} members={members} />);
+
+    expect(posted().has("assigneeId")).toBe(false);
+  });
+
+  it("posts an assignee chosen in place of one who isn't a choice", async () => {
+    render(<EditTaskForm projectId="p" task={{ ...task(null), assigneeHidden: true }} customers={customers} members={members} />);
+
+    await userEvent.selectOptions(screen.getByLabelText("Assignee"), "Unassigned");
+
+    expect(posted().get("assigneeId")).toBe("");
   });
 });

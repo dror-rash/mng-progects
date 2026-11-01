@@ -39,6 +39,8 @@ export default async function TaskPage({ params }: { params: Promise<{ projectId
   // Only the fields the edit form uses cross to the client. A customer that isn't one of the choices (a
   // partner can't see it, rule 7a) goes as hidden, never its id; the form then leaves it as it is.
   const customerHidden = task.organizationId !== null && !customers.some((c) => c.id === task.organizationId);
+  // Likewise an assignee who isn't one of the choices (an auditor, rule 7): kept on save, never sent.
+  const assigneeHidden = task.assigneeId !== null && !members.some((m) => m.userId === task.assigneeId);
   const editableTask = {
     id: task.id,
     title: task.title,
@@ -47,7 +49,8 @@ export default async function TaskPage({ params }: { params: Promise<{ projectId
     customerHidden,
     priority: task.priority,
     dueDate: task.dueDate,
-    assigneeId: task.assigneeId,
+    assigneeId: assigneeHidden ? null : task.assigneeId,
+    assigneeHidden,
   };
 
   return (

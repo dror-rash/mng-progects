@@ -226,6 +226,9 @@ Then(
   "I see {string}, the same as for a made-up {word} address",
   async ({ page }, text: string, kind: string) => {
     const main = page.getByRole("main");
+    // The real record's address again, for its status: it must be a 404 like the made-up one.
+    const real = await page.reload();
+    expect(real?.status()).toBe(404);
     await expect(main.getByRole("heading", { level: 1 })).toHaveText(text);
     const shown = await main.innerText();
     const madeUp = crypto.randomUUID();

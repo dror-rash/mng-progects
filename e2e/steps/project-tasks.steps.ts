@@ -206,6 +206,8 @@ Given("the task {string} is due {int} days from today", async ({ page }, title: 
 });
 
 Then("the task {string} does not show {string}", async ({ page }, title: string, text: string) => {
+  // The card must be there first, or the negative check would pass on a page without it.
+  await expect(taskCard(page, title)).toBeVisible();
   await expect(taskCard(page, title)).not.toContainText(text);
 });
 
