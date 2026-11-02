@@ -9,6 +9,9 @@ import { getOrganizationForUser } from "@/features/organizations/queries";
 import { setProjectLifecycleAction } from "@/features/projects/actions";
 import { isCanceled, projectLifecycleLabel } from "@/features/projects/project-lifecycle";
 import { getProjectForUser } from "@/features/projects/queries";
+import { mapsLink } from "@/features/sites/maps-link";
+import { ProjectSiteSection } from "@/features/sites/project-site-section";
+import { getSiteForUser, listSiteContacts } from "@/features/sites/queries";
 import { deleteTaskAction, updateTaskStatusAction } from "@/features/tasks/actions";
 import { AddTaskForm } from "@/features/tasks/add-task-form";
 import { listProjectTasks } from "@/features/tasks/queries";
@@ -30,13 +33,16 @@ export default async function ProjectPage({ params }: { params: Promise<{ projec
 
   // The customer is a link only for those who can open customer pages; partners see its name only. The
   // project it was copied from shows only to those who can see that one too (rule 4a).
-  const [tasks, customerPage, copiedFrom] = await Promise.all([
+  const [tasks, customerPage, copiedFrom, site] = await Promise.all([
     listProjectTasks(session.user.id, project.id),
     project.organizationId && project.customerName
       ? getOrganizationForUser(session.user.id, project.organizationId, "customer")
       : null,
     project.copiedFromId ? getProjectForUser(session.user.id, project.copiedFromId) : null,
+    project.siteId ? getSiteForUser(session.user.id, project.siteId) : null,
   ]);
+  // Where the work is (task 055); a project from before sites were required (or at a deleted site) has none.
+  const siteContacts = site ? await listSiteContacts(session.user.id, site.id) : [];
   const canceled = isCanceled(project.lifecycle);
   // Most urgent first in each column; tasks arrive oldest first, and the sort keeps that within a priority.
   // Only the fields a card shows cross to the client.
@@ -101,6 +107,20 @@ export default async function ProjectPage({ params }: { params: Promise<{ projec
             </div>
           )}
         </section>
+
+        <ProjectSiteSection
+          site={
+            site && {
+              id: site.id,
+              name: site.name,
+              address: site.address,
+              accessNotes: site.accessNotes,
+              mapsHref: mapsLink(site),
+              contacts: siteContacts,
+            }
+          }
+          addSiteHref={project.canChange ? `/projects/${project.id}/edit` : undefined}
+        />
 
         {project.canChange && <AddTaskForm projectId={project.id} />}
 

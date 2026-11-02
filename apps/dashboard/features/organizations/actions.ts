@@ -7,6 +7,7 @@ import { redirect } from "next/navigation";
 import { requireAdmin } from "@/features/access/require-change";
 import { requireActionSession } from "@/features/auth/require-session";
 import { type FormState, invalid } from "@/features/forms/form-state";
+import { listParentProjectsAtSitesOf } from "@/features/sites/queries";
 import { requireWorkspaceForAction } from "@/features/workspaces/require-workspace";
 
 import { parseOrganizationInput } from "./organization-input";
@@ -63,6 +64,14 @@ export async function updateCustomerAction(_prev: FormState, formData: FormData)
     }
     if (parentId && !(await isParentChoice(session.user.id, customer.workspaceId, parentId, customer.id))) {
       return invalid(NOT_A_CHOICE, formData, "parentId");
+    }
+    // Leaving a parent whose projects are at this sub-company's sites would put them at another customer's
+    // site (task 055; the database refuses it too).
+    if (parentId !== undefined && customer.parentId && parentId !== customer.parentId) {
+      const projects = await listParentProjectsAtSitesOf(session.user.id, customer.id, customer.parentId);
+      if (projects.length > 0) {
+        return invalid(`Projects of ${customer.parentName} are at its sites: ${projects.join(", ")}`, formData, "parentId");
+      }
     }
 
     await getDb()

@@ -8,6 +8,7 @@ import { listCustomerNames } from "@/features/organizations/customer-names";
 import { listPartners } from "@/features/partners/queries";
 import { ProjectForm } from "@/features/projects/project-form";
 import { INTERNAL_OWNER } from "@/features/projects/project-owner";
+import { listSiteChoices } from "@/features/sites/site-choices";
 import { requireWorkspace } from "@/features/workspaces/require-workspace";
 
 export const dynamic = "force-dynamic";
@@ -22,8 +23,9 @@ export default async function NewProjectPage({ searchParams }: { searchParams: S
   }
   // A partner's users create their own partner's projects, for its customers; admins choose the owner.
   const partnerId = workspace.role === "partner" ? workspace.partnerId : null;
-  const [customers, partners] = await Promise.all([
+  const [customers, sites, partners] = await Promise.all([
     listCustomerNames(session.user.id, workspace.id, partnerId),
+    listSiteChoices(session.user.id, workspace.id, partnerId),
     workspace.role === "admin" ? listPartners(session.user.id, workspace.id) : null,
   ]);
   // No Owner select before the workspace has partners: the project is internal.
@@ -45,10 +47,12 @@ export default async function NewProjectPage({ searchParams }: { searchParams: S
             <ProjectForm
               workspaceId={workspace.id}
               customers={customers}
+              sites={sites}
               defaultCustomerId={customer?.id}
               cancelHref={customer && canSeeCustomers(workspace.role) ? `/customers/${customer.id}` : undefined}
               owners={owners}
               customerRequired={partnerId !== null}
+              canAddSite={workspace.role === "admin"}
             />
           </CardContent>
         </Card>

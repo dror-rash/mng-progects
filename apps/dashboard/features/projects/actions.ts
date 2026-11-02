@@ -9,7 +9,7 @@ import { requireWorkspaceForAction } from "@/features/workspaces/require-workspa
 
 import { parseProjectInput } from "./project-input";
 import { parseProjectLifecycle } from "./project-lifecycle";
-import { customerAllowed, newProjectOwner } from "./project-owner-check";
+import { customerAndSiteError, newProjectOwner } from "./project-owner-check";
 import { requireProjectAccess } from "./require-project-access";
 import { revalidateOverviews } from "./revalidate";
 
@@ -26,10 +26,11 @@ export async function createProjectAction(_prev: FormState, formData: FormData):
     if (!input.ok) {
       return invalid(input.error, formData);
     }
-    if (!(await customerAllowed(workspace.id, owner.partnerId, input.value.organizationId))) {
-      // An admin's choice of a partner and a customer that don't go together; otherwise a tampered form.
-      const error = owner.partnerId && workspace.role === "admin" ? "Choose a customer assigned to this partner" : "Choose one of your customers";
-      return invalid(error, formData, "customerId");
+    // An admin's choice of a partner and a customer that don't go together; otherwise a tampered form.
+    const customerError = owner.partnerId && workspace.role === "admin" ? "Choose a customer assigned to this partner" : "Choose one of your customers";
+    const refused = await customerAndSiteError(workspace.id, owner.partnerId, input.value, formData, customerError);
+    if (refused) {
+      return refused;
     }
 
     const id = crypto.randomUUID();
@@ -45,7 +46,7 @@ export async function createProjectAction(_prev: FormState, formData: FormData):
   redirect(`/projects/${result.id}`);
 }
 
-/** The owner never changes (rule 4a); the customer must still suit it. */
+/** The owner never changes (rule 4a); the customer must still suit it, and the site the customer (task 055). */
 export async function updateProjectAction(_prev: FormState, formData: FormData): Promise<FormState> {
   const session = await requireActionSession();
   const result = await withAccess(session.user.id, async () => {
@@ -54,8 +55,9 @@ export async function updateProjectAction(_prev: FormState, formData: FormData):
     if (!input.ok) {
       return invalid(input.error, formData);
     }
-    if (!(await customerAllowed(project.workspaceId, project.partnerId, input.value.organizationId))) {
-      return invalid("Choose one of your customers", formData, "customerId");
+    const refused = await customerAndSiteError(project.workspaceId, project.partnerId, input.value, formData, "Choose one of your customers");
+    if (refused) {
+      return refused;
     }
 
     await getDb()

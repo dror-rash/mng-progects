@@ -10,7 +10,8 @@ import { type FormState, invalid } from "@/features/forms/form-state";
 import { parseContactInput } from "@/features/organizations/contacts/contact-input";
 import { requireOrganizationAccess } from "@/features/organizations/require-organization-access";
 
-import { getSiteForUser } from "./queries";
+import { getSiteForUser, listProjectsAtSite } from "./queries";
+import { siteInUseMessage } from "./site-in-use";
 import { parseSiteInput } from "./site-input";
 
 // Sites and their contacts (task 054): admins only. Each action does its reads and writes in one
@@ -75,11 +76,19 @@ export async function updateSiteAction(_prev: FormState, formData: FormData): Pr
   redirect(`/sites/${result.id}`);
 }
 
-/** Soft delete: the site and its contacts disappear; an admin restores it from the Deleted page. */
+/**
+ * Soft delete: the site and its contacts disappear; an admin restores it from the Deleted page. Not while
+ * projects (not deleted) are at it (task 055).
+ */
 export async function deleteSiteAction(formData: FormData) {
   const session = await requireActionSession();
   const site = await withAccess(session.user.id, async () => {
     const found = await requireSite(session.user.id, formData);
+    // The delete page offers no button for a site in use (task 055); a posted form is refused the same way.
+    const projects = await listProjectsAtSite(session.user.id, found.id);
+    if (projects.length > 0) {
+      throw new Error(siteInUseMessage(projects));
+    }
     await getDb()
       .update(schema.site)
       .set({ deletedAt: new Date(), deletedBy: session.user.id })

@@ -7,6 +7,7 @@ import { listPartners } from "@/features/partners/queries";
 import { ProjectForm } from "@/features/projects/project-form";
 import { INTERNAL_OWNER, projectOwnerValue } from "@/features/projects/project-owner";
 import { getProjectForUser } from "@/features/projects/queries";
+import { listSiteChoices } from "@/features/sites/site-choices";
 import { requireWorkspace } from "@/features/workspaces/require-workspace";
 
 export const dynamic = "force-dynamic";
@@ -26,8 +27,9 @@ export default async function CopyProjectPage({ params }: { params: Promise<{ pr
   }
 
   const partnerId = access.role === "partner" ? access.partnerId : null;
-  const [customers, partners] = await Promise.all([
+  const [customers, sites, partners] = await Promise.all([
     listCustomerNames(session.user.id, project.workspaceId, partnerId),
+    listSiteChoices(session.user.id, project.workspaceId, partnerId),
     access.role === "admin" ? listPartners(session.user.id, project.workspaceId) : null,
   ]);
   const owners = partners?.length
@@ -47,12 +49,14 @@ export default async function CopyProjectPage({ params }: { params: Promise<{ pr
           {/* Only the fields the form uses cross to the client (copied_from_id may name a project the viewer
               can't see). */}
           <ProjectForm
-            copyOf={{ id: project.id, name: project.name, organizationId: project.organizationId }}
+            copyOf={{ id: project.id, name: project.name, organizationId: project.organizationId, siteId: project.siteId }}
             workspaceId={project.workspaceId}
             customers={customers}
+            sites={sites}
             owners={owners}
             defaultOwner={projectOwnerValue(project.partnerId)}
             customerRequired={partnerId !== null}
+            canAddSite={access.role === "admin"}
           />
         </CardContent>
       </Card>

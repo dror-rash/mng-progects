@@ -202,6 +202,11 @@ export const project = pgTable("project", {
   lifecycle: text("status").notNull().default("active"),
   /** The project this one was copied from, if any (ADR-0006). */
   copiedFromId: text("copied_from_id").references((): AnyPgColumn => project.id, { onDelete: "set null" }),
+  /**
+   * The site the work is at (task 055, ADR-0008): one of the customer's sites or its sub-companies'. Null only
+   * for projects from before sites were required. Cleared if the site is deleted for good.
+   */
+  siteId: text("site_id").references((): AnyPgColumn => site.id, { onDelete: "set null" }),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
   deletedAt: timestamp("deleted_at"),
@@ -210,6 +215,7 @@ export const project = pgTable("project", {
   // A workspace's projects, a customer's projects, and the SET NULL when a customer is deleted.
   index("project_workspace_organization_idx").on(table.workspaceId, table.organizationId),
   index("project_partner_idx").on(table.partnerId),
+  index("project_site_idx").on(table.siteId),
   foreignKey({
     name: "project_partner_fk",
     columns: [table.partnerId, table.workspaceId],
@@ -408,4 +414,18 @@ export const customerName = pgView("customer_name", {
   parentName: text("parent_name"),
   /** How the app shows the customer: "Parent › Sub-company", or the name. Sorts sub-companies under their parent. */
   label: text("label").notNull(),
+}).existing();
+
+/**
+ * Sites a user may choose for a project (task 055): not deleted, of a customer whose name they may see.
+ * Partners pick sites of their assigned customers here without seeing the sites' details. Migration 0028.
+ */
+export const siteChoice = pgView("site_choice", {
+  id: text("id").notNull(),
+  workspaceId: text("workspace_id").notNull(),
+  organizationId: text("organization_id").notNull(),
+  /** The site's customer's parent, for a sub-company's site: its sites show on the parent's list too. */
+  customerParentId: text("customer_parent_id"),
+  customerName: text("customer_name").notNull(),
+  name: text("name").notNull(),
 }).existing();

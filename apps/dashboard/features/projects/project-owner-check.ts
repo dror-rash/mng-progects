@@ -1,9 +1,12 @@
 import { and, eq, getDb, isNull, schema } from "@repo/db";
 
 import { requireAdmin, workspaceAccess } from "@/features/access/require-change";
+import { type FormState, invalid } from "@/features/forms/form-state";
 import { isCustomerChoice } from "@/features/organizations/customer-names";
+import { isSiteChoice } from "@/features/sites/site-choices";
 import type { requireWorkspaceForAction } from "@/features/workspaces/require-workspace";
 
+import type { ProjectInput } from "./project-input";
 import { parseProjectOwner, type ProjectOwner } from "./project-owner";
 
 // The server checks shared by creating and copying a project (rule 4). Not in a `"use server"` file,
@@ -48,10 +51,40 @@ export async function mayCreateFor(userId: string, workspaceId: string, partnerI
 
 /**
  * Whether a project owned by `partnerId` (null: internal) may have the customer `organizationId`: one of
- * the acting user's customer choices, and for a partner's project one of the partner's (rule 4), which
- * it must have.
+ * the acting user's customer choices, and for a partner's project one of the partner's (rule 4).
  */
-export async function customerAllowed(workspaceId: string, partnerId: string | null, organizationId: string | null) {
-  if (!organizationId) return partnerId === null;
+export async function customerAllowed(workspaceId: string, partnerId: string | null, organizationId: string) {
   return isCustomerChoice(workspaceId, partnerId, organizationId);
+}
+
+/** Whether `siteId` may be the site of a project of `organizationId` owned by `partnerId` (task 055). */
+export async function siteAllowed(workspaceId: string, partnerId: string | null, organizationId: string, siteId: string) {
+  return isSiteChoice(workspaceId, partnerId, organizationId, siteId);
+}
+
+/**
+ * The form error for a project's customer and site (task 055), in order: no customer, a customer the
+ * project may not have (`customerError`), no site, a site that isn't one of the customer's choices (a
+ * tampered form: another customer's, another workspace's, another partner's, made up). Null when both suit.
+ */
+export async function customerAndSiteError(
+  workspaceId: string,
+  partnerId: string | null,
+  input: ProjectInput,
+  formData: FormData,
+  customerError: string,
+): Promise<FormState | null> {
+  if (!input.organizationId) {
+    return invalid("Choose a customer", formData, "customerId");
+  }
+  if (!(await customerAllowed(workspaceId, partnerId, input.organizationId))) {
+    return invalid(customerError, formData, "customerId");
+  }
+  if (!input.siteId) {
+    return invalid("Choose a site", formData, "siteId");
+  }
+  if (!(await siteAllowed(workspaceId, partnerId, input.organizationId, input.siteId))) {
+    return invalid("Choose a site of this customer", formData, "siteId");
+  }
+  return null;
 }

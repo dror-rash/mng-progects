@@ -8,30 +8,34 @@ import Link from "next/link";
 import { useActionState } from "react";
 
 import type { FormState } from "@/features/forms/form-state";
+import type { SiteChoice } from "@/features/sites/site-options";
 
 import { createProjectAction, updateProjectAction } from "./actions";
 import { copyProjectAction } from "./copy-project";
+import { CustomerSiteFields } from "./customer-site-fields";
 
-type Project = { id: string; name: string; description: string | null; organizationId: string | null };
-type Source = { id: string; name: string; organizationId: string | null };
+type Project = { id: string; name: string; description: string | null; organizationId: string | null; siteId: string | null };
+type Source = { id: string; name: string; organizationId: string | null; siteId: string | null };
 type CustomerOption = { id: string; name: string };
 type OwnerOption = { value: string; label: string };
 
 /**
  * Create a project, edit one when `project` is given, or copy one into a new project when `copyOf` is
- * given (its description and tasks come along, rule 4a). Shows validation errors and keeps what was typed
- * or chosen.
+ * given (its description and tasks come along, rule 4a). Every project needs a customer and one of its
+ * sites (task 055). Shows validation errors and keeps what was typed or chosen.
  */
 export function ProjectForm({
   project,
   copyOf,
   workspaceId,
   customers,
+  sites,
   defaultCustomerId,
   cancelHref,
   owners,
   defaultOwner,
   customerRequired = false,
+  canAddSite = false,
 }: {
   project?: Project;
   /** The project to copy: the name and customer start from it. */
@@ -39,6 +43,8 @@ export function ProjectForm({
   /** For a new project or a copy: the workspace it goes in. */
   workspaceId?: string;
   customers: CustomerOption[];
+  /** The sites the project may be at; the Site select shows the chosen customer's. */
+  sites: SiteChoice[];
   /** For a new project: the customer chosen to start with. */
   defaultCustomerId?: string;
   /** Where Cancel goes; defaults to the project, or All projects for a new one. */
@@ -47,20 +53,26 @@ export function ProjectForm({
   owners?: OwnerOption[];
   /** The Owner choice to start with; the first one otherwise. */
   defaultOwner?: string;
-  /** A partner's project always has a customer: no "No customer" choice. */
+  /** A partner's users choose among their own customers, the first one chosen: no "Choose a customer". */
   customerRequired?: boolean;
+  /** Admins get an "Add a site" link for a customer without sites. */
+  canAddSite?: boolean;
 }) {
   const [state, formAction, pending] = useActionState<FormState, FormData>(
     copyOf ? copyProjectAction : project ? updateProjectAction : createProjectAction,
     {},
   );
-  const value = (field: "name" | "description" | "customerId" | "owner", fallback: string) => state.values?.[field] ?? fallback;
+  const value = (field: "name" | "description" | "customerId" | "siteId" | "owner", fallback: string) =>
+    state.values?.[field] ?? fallback;
   // Errors without a field are about the name, the only other required input.
   const nameError = state.field ? undefined : state.error;
   const customerError = state.field === "customerId" ? state.error : undefined;
+  const siteError = state.field === "siteId" ? state.error : undefined;
   const ownerError = state.field === "owner" ? state.error : undefined;
   const owner = value("owner", defaultOwner ?? owners?.[0]?.value ?? "");
   const start = project ?? copyOf;
+  const customerId = value("customerId", start?.organizationId ?? defaultCustomerId ?? "");
+  const siteId = value("siteId", start?.siteId ?? "");
 
   return (
     <form action={formAction} className="space-y-4">
@@ -91,25 +103,18 @@ export function ProjectForm({
           />
         </div>
       )}
-      <div className="space-y-1">
-        <label htmlFor="customerId" className="text-sm font-medium">Customer</label>
-        {/* A select only applies defaultValue when it mounts, and React resets the form after every
-            submit; keying on the value just submitted keeps the user's choice after an error. */}
-        <NativeSelect
-          key={value("customerId", start?.organizationId ?? defaultCustomerId ?? "")}
-          id="customerId"
-          name="customerId"
-          defaultValue={value("customerId", start?.organizationId ?? defaultCustomerId ?? "")}
-          aria-invalid={customerError ? true : undefined}
-          aria-describedby={customerError ? "customerId-error" : undefined}
-        >
-          {!customerRequired && <option value="">No customer</option>}
-          {customers.map((c) => (
-            <option key={c.id} value={c.id}>{c.name}</option>
-          ))}
-        </NativeSelect>
-        <FieldError id="customerId-error" message={customerError} />
-      </div>
+      {/* Keyed on the values just submitted, so the selects start over from them after an error. */}
+      <CustomerSiteFields
+        key={`${customerId}:${siteId}`}
+        customers={customers}
+        sites={sites}
+        customerId={customerId}
+        siteId={siteId}
+        chooseCustomer={!customerRequired}
+        canAddSite={canAddSite}
+        customerError={customerError}
+        siteError={siteError}
+      />
       {owners && (
         <div className="space-y-1">
           <label htmlFor="owner" className="text-sm font-medium">Owner</label>

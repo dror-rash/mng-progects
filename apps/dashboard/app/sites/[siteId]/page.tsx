@@ -26,7 +26,10 @@ function Detail({ label, children }: { label: string; children: React.ReactNode 
 
 const missing = <span className="text-muted-foreground">—</span>;
 
-/** A site (task 054): where it is, how to get in and who to meet. Admins change it; auditors read it. */
+/**
+ * A site (task 054): where it is, how to get in and who to meet. Admins change it; auditors, and partners
+ * with a project at it (task 055), read it.
+ */
 export default async function SitePage({ params }: { params: Promise<{ siteId: string }> }) {
   const { siteId } = await params;
   const { session, workspace } = await requireWorkspace(`/sites/${siteId}`);
@@ -42,19 +45,28 @@ export default async function SitePage({ params }: { params: Promise<{ siteId: s
       <AppHeader email={session.user.email} role={workspace.role} {...await recordWorkspace(session.user.id, workspace, site.workspaceId)} />
 
       <main className="mx-auto w-full max-w-4xl space-y-6 p-6">
-        <nav aria-label="Breadcrumb" className="text-sm text-muted-foreground">
-          <Link href="/customers" className="hover:underline">Customers</Link>
-        </nav>
+        {site.canSeeCustomer && (
+          <nav aria-label="Breadcrumb" className="text-sm text-muted-foreground">
+            <Link href="/customers" className="hover:underline">Customers</Link>
+          </nav>
+        )}
 
         <section className="flex flex-wrap items-start justify-between gap-4">
           <div className="space-y-1">
             <h1 className="text-2xl font-bold tracking-tight">{site.name}</h1>
-            <p className="text-sm text-muted-foreground">
-              Site of{" "}
-              <Link href={`/customers/${site.organizationId}`} className="font-medium text-foreground hover:underline">
-                {site.customerName}
-              </Link>
-            </p>
+            {/* Partners see the site of their project (task 055), and its customer's name only. */}
+            {site.customerName && (
+              <p className="text-sm text-muted-foreground">
+                Site of{" "}
+                {site.canSeeCustomer ? (
+                  <Link href={`/customers/${site.organizationId}`} className="font-medium text-foreground hover:underline">
+                    {site.customerName}
+                  </Link>
+                ) : (
+                  <span className="font-medium text-foreground">{site.customerName}</span>
+                )}
+              </p>
+            )}
           </div>
           {site.canChange && (
             <div className="flex gap-2">
