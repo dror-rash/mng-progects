@@ -12,7 +12,7 @@ import { type DeletedKind, parseDeletedKind } from "./deleted-kind";
 // Restoring from the Deleted page (design rule 8): admins only. Anyone else, an unknown kind, a made-up id
 // and an item that isn't deleted all get the same "Not found". An item whose parent is still deleted
 // can't come back before it (a task without its project, a contact or note without its customer, a
-// sub-company without its parent).
+// sub-company without its parent, a site without its customer, a site contact without its site).
 
 const NOT_FOUND = "Not found";
 
@@ -25,7 +25,7 @@ const restored = { deletedAt: null, deletedBy: null };
  */
 async function restore(userId: string, kind: DeletedKind, id: string): Promise<string | null> {
   const db = getDb();
-  const { project, task, organization, organizationContact: contact, organizationNote: note, partner } = schema;
+  const { project, task, organization, organizationContact: contact, organizationNote: note, partner, site, siteContact } = schema;
   const admin = (workspace: Parameters<typeof hasWorkspaceRole>[1]) => hasWorkspaceRole(userId, workspace, ["admin"]);
 
   switch (kind) {
@@ -72,6 +72,29 @@ async function restore(userId: string, kind: DeletedKind, id: string): Promise<s
       if (!row) throw new Error(NOT_FOUND);
       if (row.customerDeletedAt) return "Restore its customer first";
       await db.update(table).set(restored).where(eq(table.id, id));
+      return null;
+    }
+    case "site": {
+      // A site can't come back before its customer (task 054).
+      const [row] = await db
+        .select({ customerDeletedAt: organization.deletedAt })
+        .from(site)
+        .innerJoin(organization, eq(organization.id, site.organizationId))
+        .where(and(eq(site.id, id), isNotNull(site.deletedAt), admin(site.workspaceId)));
+      if (!row) throw new Error(NOT_FOUND);
+      if (row.customerDeletedAt) return "Restore its customer first";
+      await db.update(site).set(restored).where(eq(site.id, id));
+      return null;
+    }
+    case "site_contact": {
+      const [row] = await db
+        .select({ siteDeletedAt: site.deletedAt })
+        .from(siteContact)
+        .innerJoin(site, eq(site.id, siteContact.siteId))
+        .where(and(eq(siteContact.id, id), isNotNull(siteContact.deletedAt), admin(site.workspaceId)));
+      if (!row) throw new Error(NOT_FOUND);
+      if (row.siteDeletedAt) return "Restore its site first";
+      await db.update(siteContact).set(restored).where(eq(siteContact.id, id));
       return null;
     }
     case "partner": {

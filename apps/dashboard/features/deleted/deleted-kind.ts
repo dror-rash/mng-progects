@@ -9,6 +9,8 @@ export const DELETED_KINDS = [
   { kind: "contact", label: "Contact" },
   { kind: "note", label: "Note" },
   { kind: "partner", label: "Partner" },
+  { kind: "site", label: "Site" },
+  { kind: "site_contact", label: "Site contact" },
 ] as const;
 
 export type DeletedKind = (typeof DELETED_KINDS)[number]["kind"];

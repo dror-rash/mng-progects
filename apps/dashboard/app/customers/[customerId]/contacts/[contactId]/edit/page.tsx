@@ -33,7 +33,7 @@ export default async function EditContactPage({
             <CardTitle>Edit contact at {customer.name}</CardTitle>
           </CardHeader>
           <CardContent>
-            <ContactForm customerId={customer.id} contact={contact} />
+            <ContactForm owner={{ kind: "customer", id: customer.id }} contact={contact} />
           </CardContent>
         </Card>
       </main>

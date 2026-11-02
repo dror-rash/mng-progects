@@ -13,6 +13,8 @@ import { listNotes } from "@/features/organizations/notes/queries";
 import { organizationStatusLabel } from "@/features/organizations/organization-kinds";
 import { getOrganizationForUser, listSubCompanies } from "@/features/organizations/queries";
 import { SubCompaniesSection } from "@/features/organizations/sub-companies-section";
+import { listCustomerSites } from "@/features/sites/queries";
+import { SitesSection } from "@/features/sites/sites-section";
 import { ProjectList } from "@/features/projects/project-list";
 import { listCustomerProjects } from "@/features/projects/queries";
 import { summarizeProjectStatusCounts } from "@/features/tasks/progress";
@@ -43,13 +45,14 @@ export default async function CustomerPage({ params }: { params: Promise<{ custo
   // Starting a project for this customer: admins, like changing it (partners start their own with task 049).
   const canStartProjects = customer.canChange;
   const isTopLevel = customer.parentId === null;
-  const [contacts, notes, projects, projectCounts, openTasks, subCompanies] = await Promise.all([
+  const [contacts, notes, projects, projectCounts, openTasks, subCompanies, sites] = await Promise.all([
     listContacts(session.user.id, customer.id),
     listNotes(session.user.id, customer.id),
     listCustomerProjects(session.user.id, customer.workspaceId, customer.id),
     countTasksByProjectAndStatus(session.user.id, customer.workspaceId),
     listCustomerOpenTasks(session.user.id, customer.workspaceId, customer.id),
     isTopLevel ? listSubCompanies(session.user.id, customer.workspaceId, customer.id) : Promise.resolve([]),
+    listCustomerSites(session.user.id, customer.id),
   ]);
 
   return (
@@ -134,6 +137,8 @@ export default async function CustomerPage({ params }: { params: Promise<{ custo
         </Card>
 
         {isTopLevel && <SubCompaniesSection parentId={customer.id} subCompanies={subCompanies} canAdd={customer.canChange} />}
+
+        <SitesSection customerId={customer.id} sites={sites} canAdd={customer.canChange} />
 
         <section aria-labelledby="projects-heading" className="space-y-3">
           <div className="flex items-center justify-between gap-4">

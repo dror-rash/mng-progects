@@ -67,7 +67,7 @@ export function ContactsSection({
           {!readOnly && (
             <div className="space-y-2 border-t pt-4">
               <h3 className="text-sm font-medium">Add a contact person</h3>
-              <ContactForm customerId={customerId} />
+              <ContactForm owner={{ kind: "customer", id: customerId }} />
             </div>
           )}
         </CardContent>

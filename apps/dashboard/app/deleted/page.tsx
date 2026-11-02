@@ -33,7 +33,7 @@ export default async function DeletedPage() {
         <div className="space-y-1">
           <h1 className="text-2xl font-bold tracking-tight">Deleted items</h1>
           <p className="text-sm text-muted-foreground">
-            Deleted items are hidden everywhere else. A deleted project hides its tasks, and a deleted customer its contacts and notes, until it is restored.
+            Deleted items are hidden everywhere else. A deleted project hides its tasks, a deleted customer its contacts, notes and sites, and a deleted site its contacts, until it is restored.
           </p>
         </div>
 

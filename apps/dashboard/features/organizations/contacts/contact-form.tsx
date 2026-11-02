@@ -8,16 +8,24 @@ import { useActionState } from "react";
 
 import type { FormState } from "@/features/forms/form-state";
 
+import { addSiteContactAction, updateSiteContactAction } from "@/features/sites/actions";
+
 import { addContactAction, updateContactAction } from "./actions";
 
 type Contact = { id: string; name: string; role: string | null; phone: string | null; email: string | null };
 
-/** Add a contact to a customer, or edit one when `contact` is given. */
-export function ContactForm({ customerId, contact }: { customerId: string; contact?: Contact }) {
-  const [state, formAction, pending] = useActionState<FormState, FormData>(
-    contact ? updateContactAction : addContactAction,
-    {},
-  );
+/** Whose contact it is: a customer's, or a site's on-site contact (task 054). */
+export type ContactOwner = { kind: "customer"; id: string } | { kind: "site"; id: string };
+
+const ACTIONS = {
+  customer: { add: addContactAction, update: updateContactAction, field: "customerId", back: (id: string) => `/customers/${id}` },
+  site: { add: addSiteContactAction, update: updateSiteContactAction, field: "siteId", back: (id: string) => `/sites/${id}` },
+} as const;
+
+/** Add a contact to a customer or site, or edit one when `contact` is given. */
+export function ContactForm({ owner, contact }: { owner: ContactOwner; contact?: Contact }) {
+  const target = ACTIONS[owner.kind];
+  const [state, formAction, pending] = useActionState<FormState, FormData>(contact ? target.update : target.add, {});
   const value = (field: string, fallback: string | null | undefined) => state.values?.[field] ?? fallback ?? "";
   const errorFor = (field: string) => (state.field === field ? state.error : undefined);
   const fieldProps = (field: string) =>
@@ -25,7 +33,7 @@ export function ContactForm({ customerId, contact }: { customerId: string; conta
 
   return (
     <form action={formAction} className="space-y-3">
-      <input type="hidden" name="customerId" value={customerId} />
+      <input type="hidden" name={target.field} value={owner.id} />
       {contact && <input type="hidden" name="contactId" value={contact.id} />}
       <FieldError message={state.field ? undefined : state.error} />
       <div className="grid gap-3 sm:grid-cols-2">
@@ -52,7 +60,7 @@ export function ContactForm({ customerId, contact }: { customerId: string; conta
         <Button type="submit" size="sm" disabled={pending}>{contact ? "Save contact" : "Add contact"}</Button>
         {contact && (
           <Button asChild variant="ghost" size="sm">
-            <Link href={`/customers/${customerId}`}>Cancel</Link>
+            <Link href={target.back(owner.id)}>Cancel</Link>
           </Button>
         )}
       </div>

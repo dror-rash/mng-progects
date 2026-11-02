@@ -3,7 +3,7 @@ import { getDb, sql, withAccess } from "@repo/db";
 import { normalizeWorkspaceRole, type WorkspaceRole } from "./roles";
 
 /** One access function's answer for this user and record (see `predicates.ts`). */
-async function allowed(check: "can_change_project" | "can_change_customer", userId: string, id: string) {
+async function allowed(check: "can_change_project" | "can_change_customer" | "can_change_site", userId: string, id: string) {
   const { rows } = await withAccess(userId, () =>
     getDb().execute<{ allowed: boolean }>(sql`select ${sql.raw(check)}(${userId}, ${id}) as allowed`),
   );
@@ -23,6 +23,13 @@ export async function requireProjectChange(userId: string, projectId: string): P
 /** For actions that write a customer, its contacts or notes: throws unless `userId` can change it. */
 export async function requireCustomerChange(userId: string, orgId: string): Promise<void> {
   if (!(await allowed("can_change_customer", userId, orgId))) {
+    throw new Error("Not found");
+  }
+}
+
+/** For actions that write a site or its contacts (task 054): throws unless `userId` can change the site. */
+export async function requireSiteChange(userId: string, siteId: string): Promise<void> {
+  if (!(await allowed("can_change_site", userId, siteId))) {
     throw new Error("Not found");
   }
 }

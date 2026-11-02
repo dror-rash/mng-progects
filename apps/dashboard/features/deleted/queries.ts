@@ -5,7 +5,7 @@ import { hasWorkspaceRole } from "@/features/access/predicates";
 import type { DeletedKind } from "./deleted-kind";
 import { noteName } from "./note-name";
 
-/** One row of the Deleted page: what it is, where it was (a task's project; a contact's or note's customer), who deleted it and when. */
+/** One row of the Deleted page: what it is, where it was (a task's project; a contact's, note's or site's customer; a site contact's site), who deleted it and when. */
 export type DeletedItem = {
   kind: DeletedKind;
   id: string;
@@ -24,7 +24,7 @@ const deletedBy = { deletedByName: schema.user.name };
  */
 export async function listDeleted(userId: string, workspaceId: string): Promise<DeletedItem[]> {
   const seesDeleted = (workspace: Parameters<typeof hasWorkspaceRole>[1]) => hasWorkspaceRole(userId, workspace, ["admin", "auditor"]);
-  const { project, task, organization, organizationContact: contact, organizationNote: note, partner, user } = schema;
+  const { project, task, organization, organizationContact: contact, organizationNote: note, partner, site, siteContact, user } = schema;
 
   return withAccess(userId, async () => {
     const db = getDb();
@@ -70,6 +70,20 @@ export async function listDeleted(userId: string, workspaceId: string): Promise<
       .leftJoin(user, eq(user.id, partner.deletedBy))
       .where(and(eq(partner.workspaceId, workspaceId), isNotNull(partner.deletedAt), seesDeleted(partner.workspaceId)));
 
+    // Sites (task 054): where = their customer; a site contact's where = its site.
+    const sites = await db
+      .select({ id: site.id, name: site.name, where: organization.name, deletedAt: site.deletedAt, ...deletedBy })
+      .from(site)
+      .innerJoin(organization, eq(organization.id, site.organizationId))
+      .leftJoin(user, eq(user.id, site.deletedBy))
+      .where(and(eq(site.workspaceId, workspaceId), isNotNull(site.deletedAt), seesDeleted(site.workspaceId)));
+    const siteContacts = await db
+      .select({ id: siteContact.id, name: siteContact.name, where: site.name, deletedAt: siteContact.deletedAt, ...deletedBy })
+      .from(siteContact)
+      .innerJoin(site, eq(site.id, siteContact.siteId))
+      .leftJoin(user, eq(user.id, siteContact.deletedBy))
+      .where(and(eq(site.workspaceId, workspaceId), isNotNull(siteContact.deletedAt), seesDeleted(site.workspaceId)));
+
     const items: DeletedItem[] = [
       ...projects.map((r) => ({ kind: "project" as const, where: null, ...r })),
       ...tasks.map((r) => ({ kind: "task" as const, ...r })),
@@ -77,6 +91,8 @@ export async function listDeleted(userId: string, workspaceId: string): Promise<
       ...contacts.map((r) => ({ kind: "contact" as const, ...r })),
       ...notes.map(({ body, ...r }) => ({ kind: "note" as const, name: noteName(body), ...r })),
       ...partners.map((r) => ({ kind: "partner" as const, where: null, ...r })),
+      ...sites.map((r) => ({ kind: "site" as const, ...r })),
+      ...siteContacts.map((r) => ({ kind: "site_contact" as const, ...r })),
     ].map((item) => ({ ...item, deletedAt: item.deletedAt! }));
     return items.sort((a, b) => b.deletedAt.getTime() - a.deletedAt.getTime() || a.name.localeCompare(b.name));
   });
