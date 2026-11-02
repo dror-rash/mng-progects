@@ -19,7 +19,17 @@ export type DemoTask = {
   linkCustomer: boolean;
 };
 
-export type DemoProject = { name: string; description: string; createdAt: Date; tasks: DemoTask[] };
+export type DemoProject = {
+  name: string;
+  description: string;
+  createdAt: Date;
+  tasks: DemoTask[];
+  /** The customer's sub-company this project is for (task 053), by name; null for the customer itself. */
+  subCompany: string | null;
+};
+
+/** A sub-company of a demo customer (task 053): its own details; it shares the customer's demo tag. */
+export type DemoSubCompany = { name: string; about: string; phone: string };
 
 export type DemoCustomer = {
   name: string;
@@ -31,6 +41,7 @@ export type DemoCustomer = {
   tags: string[];
   contacts: { name: string; role: string; email: string; phone: string; primary: boolean }[];
   notes: { body: string; createdAt: Date }[];
+  subCompanies: DemoSubCompany[];
   projects: DemoProject[];
 };
 
@@ -147,9 +158,18 @@ const TASK_TITLES = [
 ];
 
 /** Made-up companies on the reserved `.example` domain; statuses cover lead, active and past. */
-const CUSTOMERS: { name: string; domain: string; status: OrganizationStatus; about: string; tags: string[]; contacts: [string, string][] }[] = [
+const CUSTOMERS: {
+  name: string;
+  domain: string;
+  status: OrganizationStatus;
+  about: string;
+  tags: string[];
+  contacts: [string, string][];
+  /** Sub-companies (task 053); every third project goes to the first, the next to the second. */
+  subCompanies?: [string, string][];
+}[] = [
   { name: "Brightline Studios", domain: "brightline.example", status: "active", about: "Design studio, our longest-running customer.", tags: ["design", "retainer"], contacts: [["Maya Cohen", "Creative director"], ["Liam Brooks", "Producer"], ["Noa Levi", "Finance"]] },
-  { name: "Harborview Dental", domain: "harborview.example", status: "active", about: "Chain of three dental clinics.", tags: ["healthcare"], contacts: [["Daniel Price", "Operations manager"], ["Sara Kim", "Front desk lead"]] },
+  { name: "Harborview Dental", domain: "harborview.example", status: "active", about: "Chain of three dental clinics.", tags: ["healthcare"], contacts: [["Daniel Price", "Operations manager"], ["Sara Kim", "Front desk lead"]], subCompanies: [["Harborview North Clinic", "The original clinic, downtown."], ["Harborview Kids", "Children's dentistry brand, two locations."]] },
   { name: "Copperleaf Farms", domain: "copperleaf.example", status: "lead", about: "Organic produce supplier; evaluating us for a new ordering site.", tags: ["agriculture", "prospect"], contacts: [["Omar Haddad", "Owner"], ["Grace Turner", "Sales"]] },
   { name: "Old Mill Bakery", domain: "oldmill.example", status: "past", about: "Finished the online shop last year; no current contract.", tags: ["retail"], contacts: [["Ella Novak", "Owner"], ["Tom Reyes", "Manager"]] },
   { name: "Nimbus Analytics", domain: "nimbus.example", status: "active", about: "Data startup; fast-moving, lots of parallel work.", tags: ["saas", "priority"], contacts: [["Ari Shapiro", "CTO"], ["Priya Nair", "Product lead"], ["Ben Ortiz", "Engineer"]] },
@@ -186,6 +206,7 @@ export function buildDemoPlan(now: Date): DemoCustomer[] {
       { body: `Kickoff call with ${customer.contacts[0]![0]}. Agreed on monthly check-ins.`, createdAt: ago(21 + ci) },
       { body: "Sent the latest status report; waiting on feedback.", createdAt: ago(3, ci) },
     ],
+    subCompanies: (customer.subCompanies ?? []).map(([name, about], si) => ({ name, about, phone: `+1 555 02${ci}${si}` })),
     projects: ARCHETYPES.map((archetype, pi) => {
       // Customers start each kind of project a few hours apart, so "recently started" isn't a tie.
       const createdAt = ago(archetype.startedDaysAgo, ci * 3 + 1);
@@ -193,6 +214,7 @@ export function buildDemoPlan(now: Date): DemoCustomer[] {
         name: THEMES[(pi + ci * 3) % THEMES.length]!,
         description: archetype.description,
         createdAt,
+        subCompany: customer.subCompanies?.[pi % 3]?.[0] ?? null,
         tasks: archetype.tasks.map(([status, priority, dueIn, completedDaysAgo, mine], ti) => ({
           title: TASK_TITLES[(pi * 3 + ti) % TASK_TITLES.length]!,
           status,

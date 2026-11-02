@@ -76,4 +76,15 @@ describe("buildDemoPlan", () => {
   it("is the same for the same day", () => {
     expect(buildDemoPlan(now)).toEqual(plan);
   });
+
+  it("gives one customer two sub-companies, each with some of its projects (task 053)", () => {
+    const groups = plan.filter((c) => c.subCompanies.length > 0);
+    expect(groups).toHaveLength(1);
+    const [group] = groups;
+    expect(group!.subCompanies).toHaveLength(2);
+    for (const sub of group!.subCompanies) {
+      expect(group!.projects.filter((p) => p.subCompany === sub.name).length).toBeGreaterThan(0);
+    }
+    expect(group!.projects.some((p) => p.subCompany === null)).toBe(true);
+  });
 });

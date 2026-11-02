@@ -261,6 +261,11 @@ export const organization = pgTable(
       .notNull()
       .references(() => workspace.id, { onDelete: "cascade" }),
     kind: text("kind").notNull().default("customer"),
+    /**
+     * The company this one is a sub-company (sub-brand) of (task 053, ADR-0008): one level only, same
+     * workspace and kind; a trigger (migration 0026) keeps it that way. Null for a top-level organization.
+     */
+    parentId: text("parent_id").references((): AnyPgColumn => organization.id, { onDelete: "set null" }),
     name: text("name").notNull(),
     status: text("status").notNull().default("active"),
     email: text("email"),
@@ -282,6 +287,7 @@ export const organization = pgTable(
   },
   (table) => [
     index("organization_workspace_kind_idx").on(table.workspaceId, table.kind),
+    index("organization_parent_idx").on(table.parentId),
     // Lets customer_partner require a customer of its own workspace.
     unique("organization_id_workspace_unique").on(table.id, table.workspaceId),
   ],
@@ -338,4 +344,8 @@ export const customerName = pgView("customer_name", {
   id: text("id").notNull(),
   workspaceId: text("workspace_id").notNull(),
   name: text("name").notNull(),
+  /** The parent company's name for a sub-company (task 053); shown even when only the sub-company is assigned. */
+  parentName: text("parent_name"),
+  /** How the app shows the customer: "Parent › Sub-company", or the name. Sorts sub-companies under their parent. */
+  label: text("label").notNull(),
 }).existing();

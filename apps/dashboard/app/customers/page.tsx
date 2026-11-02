@@ -8,6 +8,7 @@ import { notFound } from "next/navigation";
 import { canChangeCustomers, canSeeCustomers } from "@/features/access/scope";
 import { AppHeader } from "@/features/layout/app-header";
 import { firstParam, withParams } from "@/features/navigation/search-params";
+import { groupCustomers } from "@/features/organizations/group-customers";
 import { ORGANIZATION_STATUSES, organizationStatusLabel, parseOrganizationStatus } from "@/features/organizations/organization-kinds";
 import { listOrganizations, listOrganizationTags } from "@/features/organizations/queries";
 import { sameTag } from "@/features/organizations/tag-list";
@@ -92,15 +93,17 @@ export default async function CustomersPage({ searchParams }: { searchParams: Se
             )}
           </Card>
         ) : (
-          <ul className="divide-y rounded-lg border">
-            {customers.map((c) => (
-              <li key={c.id} className="flex flex-wrap items-center justify-between gap-3 p-4">
+          <ul aria-label="Customers" className="divide-y rounded-lg border">
+            {/* Sub-companies right under their parent; one a filter separated from it says whose it is (task 053). */}
+            {groupCustomers(customers).map((c) => (
+              <li key={c.id} className={`flex flex-wrap items-center justify-between gap-3 p-4${c.nested ? " pl-10" : ""}`}>
                 <div className="space-y-1">
                   <div className="flex flex-wrap items-center gap-2">
                     <Link href={`/customers/${c.id}`} className="font-medium hover:underline">
                       {c.name}
                     </Link>
                     <Badge>{organizationStatusLabel(c.status)}</Badge>
+                    {c.parentName && <span className="text-xs text-muted-foreground">part of {c.parentName}</span>}
                   </div>
                   {c.tags.length > 0 && (
                     <div className="flex flex-wrap gap-1">

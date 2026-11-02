@@ -129,3 +129,20 @@ describe("parseOrganizationInput hardening", () => {
   });
 });
 
+describe("parseOrganizationInput: Part of (task 053)", () => {
+  it("keeps the current parent when the form has no Part of field", () => {
+    const result = parseOrganizationInput(form({ name: "Acme Retail", status: "active" }));
+    expect(result.ok && result.value.parentId).toBeUndefined();
+  });
+
+  it("reads None as no parent", () => {
+    const result = parseOrganizationInput(form({ name: "Acme Retail", status: "active", parentId: "" }));
+    expect(result.ok && result.value.parentId).toBeNull();
+  });
+
+  it("reads the chosen parent's id", () => {
+    const result = parseOrganizationInput(form({ name: "Acme Retail", status: "active", parentId: " acme-id " }));
+    expect(result.ok && result.value.parentId).toBe("acme-id");
+  });
+});
+

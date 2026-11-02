@@ -12,6 +12,7 @@ import type { FormState } from "@/features/forms/form-state";
 
 import { createCustomerAction, updateCustomerAction } from "./actions";
 import { ORGANIZATION_STATUSES } from "./organization-kinds";
+import { type ParentChoice, PartOfField } from "./part-of-field";
 
 type Customer = {
   id: string;
@@ -24,16 +25,25 @@ type Customer = {
   companyId: string | null;
   about: string | null;
   tags: string[];
+  parentId: string | null;
+  /** It has sub-companies (deleted ones too), so it can't be part of another company (task 053). */
+  hasSubCompanies: boolean;
 };
 
 /** Create a customer, or edit one when `customer` is given. */
 export function CustomerForm({
   customer,
   workspaceId,
+  parentChoices,
+  defaultParentId,
 }: {
   customer?: Customer;
   /** For a new customer: the workspace it goes in (the one this page shows). */
   workspaceId?: string;
+  /** The companies it can be part of: top-level customers, not this one (task 053). */
+  parentChoices: ParentChoice[];
+  /** For a new sub-company started from its parent's page. */
+  defaultParentId?: string;
 }) {
   const [state, formAction, pending] = useActionState<FormState, FormData>(
     customer ? updateCustomerAction : createCustomerAction,
@@ -72,6 +82,13 @@ export function CustomerForm({
           </NativeSelect>
           <FieldError id="status-error" message={errorFor("status")} />
         </div>
+        <PartOfField
+          name={customer?.name}
+          choices={customer?.hasSubCompanies ? [] : parentChoices}
+          locked={customer?.hasSubCompanies ?? false}
+          chosen={value("parentId", customer?.parentId ?? defaultParentId)}
+          error={errorFor("parentId")}
+        />
         <div className="space-y-1">
           <label htmlFor="email" className="text-sm font-medium">Email</label>
           {/* type="text": the server validates, so the message matches every other form error. */}

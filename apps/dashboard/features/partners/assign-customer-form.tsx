@@ -9,7 +9,7 @@ import type { FormState } from "@/features/forms/form-state";
 
 import { assignCustomerAction, unassignCustomerAction } from "./actions";
 
-type Customer = { id: string; name: string };
+type Customer = { id: string; name: string; label: string };
 
 /** Assigns one of the customers not yet assigned to the partner (admins only). */
 export function AssignCustomerForm({ partnerId, customers }: { partnerId: string; customers: Customer[] }) {
@@ -36,7 +36,7 @@ export function AssignCustomerForm({ partnerId, customers }: { partnerId: string
             <option value="">Choose a customer</option>
             {customers.map((c) => (
               <option key={c.id} value={c.id}>
-                {c.name}
+                {c.label}
               </option>
             ))}
           </NativeSelect>
