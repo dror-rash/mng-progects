@@ -211,6 +211,13 @@
       "when": 1793640741302,
       "tag": "0029_worker_role",
       "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1793642036781,
+      "tag": "0030_worker_role_fixes",
+      "breakpoints": true
     }
   ]
 }

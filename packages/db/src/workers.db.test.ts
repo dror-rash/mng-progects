@@ -178,6 +178,29 @@ describe("leaving a crew", () => {
     expect(after.rows).toHaveLength(0);
   });
 
+  it("keeps the assignments of a worker made an admin, who still sees the project", async () => {
+    const db = getMaintenanceDb();
+    const promoted = `${run}-promoted`;
+    await db.insert(schema.user).values({ id: promoted, name: promoted, email: `${promoted}@example.test` });
+    await db.insert(schema.workspaceMember).values({ workspaceId: ids.workspace, userId: promoted, role: "worker" });
+    await db.execute(addToCrew(ids.otherProject, promoted));
+    await db.execute(sql`update task set assignee_id = ${promoted} where id = ${ids.otherTask}`);
+    await db.execute(sql`update workspace_member set role = 'admin' where workspace_id = ${ids.workspace} and user_id = ${promoted}`);
+    const { rows } = await db.execute<{ assignee_id: string | null }>(sql`select assignee_id from task where id = ${ids.otherTask}`);
+    expect(rows[0]?.assignee_id).toBe(promoted);
+    await db.execute(sql`update task set assignee_id = null where id = ${ids.otherTask}`);
+    await db.execute(sql`delete from "user" where id = ${promoted}`);
+  });
+
+  it("hides a deleted customer's projects from the crew, as from partners", async () => {
+    const db = getMaintenanceDb();
+    await db.execute(sql`update organization set deleted_at = now() where id = ${ids.acme}`);
+    expect(await as(ids.worker, sql`select id from project where id = ${ids.crewProject}`)).toHaveLength(0);
+    expect(await writeAs(ids.worker, sql`update task set title = 'Mine' where id = ${ids.crewTask}`)).toBe(0);
+    await db.execute(sql`update organization set deleted_at = null where id = ${ids.acme}`);
+    expect(await as(ids.worker, sql`select id from project where id = ${ids.crewProject}`)).toHaveLength(1);
+  });
+
   it("can't call the access functions as PUBLIC", async () => {
     const { rows } = await getMaintenanceDb().execute<{ ok: boolean }>(
       sql`select has_function_privilege('public', 'can_work_on_project(text, text)', 'EXECUTE')
