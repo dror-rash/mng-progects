@@ -1,6 +1,6 @@
 # Task 053: Customer groups (sub-companies)
 
-- **Status:** in-review
+- **Status:** done
 - **Milestone:** M13 Sites & Field Data
 - **Zone / package:** `packages/db`, `apps/dashboard`, `e2e`
 - **Feature file:** `docs/features/customer-groups.feature`, plus three `@task:053` scenarios in `docs/features/partner-access.feature`
