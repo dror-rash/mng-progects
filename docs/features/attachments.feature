@@ -88,3 +88,14 @@ Feature: Photos and files
     When I finish an upload on "NW Site" with the upload id of "globex-secret.jpg"
     Then the upload is refused, the same as with a made-up id
     And the admin sees only "globex-secret.jpg" on "GX App"
+
+  Scenario: Photos of a deleted visit are hidden like the visit
+    Given a workspace with the partners "Northwind" and "Globex", an admin and an auditor
+    And the customer "Acme Ltd" is assigned to "Northwind" and "Globex"
+    And "Northwind" has the project "NW Site" for "Acme Ltd" with the task "Copy"
+    And the admin recorded a visit to "NW Site" with the notes "Panel delivered"
+    And the admin added the photo "visit.jpg" to the visit "Panel delivered"
+    And the visit "Panel delivered" is deleted
+    And I am signed in as a user of "Northwind"
+    When I open the address of the photo "visit.jpg"
+    Then it is not found, the same as a made-up photo address
