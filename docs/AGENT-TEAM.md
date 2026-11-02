@@ -43,7 +43,7 @@ scripts/lane.sh list
 scripts/lane.sh down 1                       # removes worktree + database, keeps the branch
 ```
 
-The zones' `dev`/`start` scripts and the Playwright config read `SHELL_PORT`, `EXAMPLE_PORT` and `DASHBOARD_PORT`, which default to the usual ports. Run at most three lanes' e2e at once: dev servers are memory-heavy (task 066).
+The zones' `dev`/`start` scripts and the Playwright config read `SHELL_PORT`, `EXAMPLE_PORT` and `DASHBOARD_PORT`, which default to the usual ports. Run at most three e2e suites at once on this machine, counting other sessions: dev servers are memory-heavy, and two full suites in parallel already cause random timeouts (task 066). **Never work in the main checkout** while another session may use it: every task, the orchestrator's own included, goes in a lane.
 
 ## Guard rails (hooks)
 `.claude/hooks/guard.sh` runs before every edit and shell command (`.claude/settings.json`). It refuses:

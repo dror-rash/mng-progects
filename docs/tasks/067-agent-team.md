@@ -1,6 +1,6 @@
 # Task 067: The agent team (harness)
 
-- **Status:** in-progress
+- **Status:** in-review
 - **Milestone:** POC (2026-11-13), first step
 - **Zone / package:** `.claude/` (agents, hooks, skills, settings), `scripts/`, `apps/*/package.json` (ports), `e2e/playwright.config.ts` (ports), `docs/`
 - **Feature file:** none (developer tooling, no user-visible behavior). Tested by `scripts/test-hooks.sh` and `scripts/test-lane.sh`.
@@ -38,11 +38,11 @@ The POC needs about nine tasks in eight days. Today one session does everything,
 - Splitting the e2e suite so lanes don't load the machine; measure first (task 066).
 
 ## Acceptance criteria
-- [ ] `scripts/test-hooks.sh` shows each guard refusing what it should and letting normal edits and commits through.
-- [ ] `scripts/test-lane.sh` creates lane 1 and checks its worktree, `.env`, database and ports, then removes it.
-- [ ] `pnpm test:e2e` still passes on the default ports (no lane).
-- [ ] Each agent file loads (`/agents` lists all seven) and states its job, its tools and what it must not do.
-- [ ] `docs/AGENT-TEAM.md` documents the pipeline and lanes; `CLAUDE.md` links it.
+- [x] `scripts/test-hooks.sh` shows each guard refusing what it should and letting normal edits and commits through.
+- [x] `scripts/test-lane.sh` creates lane 1 and checks its worktree, `.env`, database and ports, then removes it.
+- [x] `pnpm test:e2e` still passes on the default ports (no lane).
+- [ ] Each agent file loads (`/agents` lists all seven; checked in a new session after merge) and states its job, its tools and what it must not do.
+- [x] `docs/AGENT-TEAM.md` documents the pipeline and lanes; `CLAUDE.md` links it.
 
 ## Approach (brief)
 Hooks are bash scripts that read the tool-call JSON with `jq`, so they need no build. Read-only agents get no `Edit`/`Write` tools. The implementer's prompt holds the TDD loop and the domain conventions it most often gets wrong. The main session is the orchestrator: it doesn't write task code itself once the team exists.
@@ -55,6 +55,15 @@ Hooks are bash scripts that read the tool-call JSON with `jq`, so they need no b
 ## Progress log
 - 2026-11-02 – Planned at the owner's request: agent team first, then the POC (tasks 068–069 and M13 056–061, 064).
 
+- 2026-11-02 – Built:
+  - **Tests:** guard 29/29, lane 15/15.
+  - **Lane 1 dogfood:** the full e2e suite ran in lane 1 (ports 3010–3012, `app_lane1`).
+    - The first run gave 228 passed and 19 failed, at the same time as another session's full suite in the main checkout (load average about 21).
+    - The 19 failures (ECONNRESET, closed pages, timeouts) all passed when re-run alone (`--last-failed`), so it is load, as in task 066.
+  - **Other checks:** unit tests 363, lint and typecheck clean.
+  - **A lesson:** a second session switched the shared main checkout to another branch mid-task. From now on every task, including the orchestrator's own, works in a lane, never in the main checkout.
+
 ## Parking lot
+- The "at most three lanes" limit should count every session's e2e runs, not only this team's: a shared lock file in `scripts/lane.sh` around `test:e2e`.
 - A `security-reviewer` agent for auth flows beyond access (sessions, `safeNext`) if the access auditor misses them.
 - Cost and token reporting per lane.
