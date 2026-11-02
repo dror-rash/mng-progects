@@ -1,4 +1,4 @@
-@zone:dashboard @task:058 @wip
+@zone:dashboard @task:058
 Feature: Site visits
   As someone who works at a project's site
   I want to record each visit: when it was, who was there and what we found
@@ -17,7 +17,7 @@ Feature: Site visits
     And the "Test User" box is checked
     When I fill in "Notes" with "Main panel replaced; breaker 4 still trips"
     And I press "Save visit"
-    Then I see the heading "Visit on today's date"
+    Then I see the heading of today's visit
     And I see the text "Haifa warehouse"
     And I see the text "Test User"
     And I see the text "Main panel replaced; breaker 4 still trips"
