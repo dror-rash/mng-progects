@@ -1,4 +1,4 @@
-@zone:dashboard @task:053 @wip
+@zone:dashboard @task:053
 Feature: Customer groups (sub-companies)
   As an admin
   I want a customer to have sub-companies (sub-brands), each with its own details, contacts and notes
