@@ -28,18 +28,30 @@ export async function listMembers(userId: string, workspaceId: string) {
   );
 }
 
+type AssigneeProject = { id: string; workspaceId: string; partnerId: string | null };
+
 /**
  * Who may be assigned a task in `project` (rule 7): its partner's users and admins for a partner's
- * project, admins only for an internal one. Auditors never: they can't change anything. A deleted
- * partner's users never either: they have no access (rule 8c).
+ * project, admins only for an internal one, and the workers on its crew (task 056). Auditors never: they
+ * can't change anything. A deleted partner's users never either: they have no access (rule 8c).
  */
-function assignable(project: { workspaceId: string; partnerId: string | null }) {
+function assignable(project: AssigneeProject) {
   const admin = eq(schema.workspaceMember.role, "admin" satisfies WorkspaceRole);
+  const crew = and(
+    eq(schema.workspaceMember.role, "worker" satisfies WorkspaceRole),
+    exists(
+      getDb()
+        .select({ userId: schema.projectWorker.userId })
+        .from(schema.projectWorker)
+        .where(and(eq(schema.projectWorker.projectId, project.id), eq(schema.projectWorker.userId, schema.workspaceMember.userId))),
+    ),
+  );
   return and(
     eq(schema.workspaceMember.workspaceId, project.workspaceId),
     project.partnerId
       ? or(
           admin,
+          crew,
           and(
             eq(schema.workspaceMember.role, "partner" satisfies WorkspaceRole),
             eq(schema.workspaceMember.partnerId, project.partnerId),
@@ -51,12 +63,12 @@ function assignable(project: { workspaceId: string; partnerId: string | null }) 
             ),
           ),
         )
-      : admin,
+      : or(admin, crew),
   );
 }
 
 /** The assignee choices for a task in `project`, for client forms: only id and name, never email. */
-export async function listAssigneeOptions(userId: string, project: { workspaceId: string; partnerId: string | null }) {
+export async function listAssigneeOptions(userId: string, project: AssigneeProject) {
   return withAccess(userId, async () =>
     getDb()
       .select({ userId: schema.workspaceMember.userId, name: schema.user.name })
@@ -71,7 +83,7 @@ export async function listAssigneeOptions(userId: string, project: { workspaceId
  * Whether `assigneeId` may be assigned a task in `project`, as the acting user sees the members: the
  * server check behind `listAssigneeOptions`. Inside the action's `withAccess`.
  */
-export async function isAssignable(assigneeId: string, project: { workspaceId: string; partnerId: string | null }) {
+export async function isAssignable(assigneeId: string, project: AssigneeProject) {
   const [row] = await getDb()
     .select({ userId: schema.workspaceMember.userId })
     .from(schema.workspaceMember)

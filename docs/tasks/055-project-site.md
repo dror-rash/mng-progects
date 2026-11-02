@@ -1,6 +1,6 @@
 # Task 055: A project's site
 
-- **Status:** in-review
+- **Status:** done (PR #35)
 - **Milestone:** M13 Sites & Field Data
 - **Zone / package:** `packages/db`, `apps/dashboard`, `e2e`
 - **Feature file:** `docs/features/project-sites.feature`; `@task:055` scenarios in `docs/features/partner-access.feature`; existing scenarios updated for the new rule (list below)

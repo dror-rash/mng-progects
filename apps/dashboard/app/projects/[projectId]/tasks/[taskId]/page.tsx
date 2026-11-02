@@ -104,31 +104,31 @@ export default async function TaskPage({ params }: { params: Promise<{ projectId
           )}
         </section>
 
+        {/* Workers on the crew edit tasks too, but only those who can change the project delete them (task 056). */}
+        {project.canWork && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Edit task</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {/* Keyed on the last save, so the form starts from the saved values after each save
+                  (React resets a submitted form to its initial defaults otherwise). */}
+              <EditTaskForm
+                key={task.updatedAt.toISOString()}
+                projectId={project.id}
+                task={editableTask}
+                customers={customers}
+                members={members}
+              />
+            </CardContent>
+          </Card>
+        )}
         {project.canChange && (
-          <>
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Edit task</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {/* Keyed on the last save, so the form starts from the saved values after each save
-                    (React resets a submitted form to its initial defaults otherwise). */}
-                <EditTaskForm
-                  key={task.updatedAt.toISOString()}
-                  projectId={project.id}
-                  task={editableTask}
-                  customers={customers}
-                  members={members}
-                />
-              </CardContent>
-            </Card>
-
-            <form action={deleteTaskFromPageAction}>
-              <input type="hidden" name="projectId" value={project.id} />
-              <input type="hidden" name="taskId" value={task.id} />
-              <Button type="submit" variant="outline">Delete task</Button>
-            </form>
-          </>
+          <form action={deleteTaskFromPageAction}>
+            <input type="hidden" name="projectId" value={project.id} />
+            <input type="hidden" name="taskId" value={task.id} />
+            <Button type="submit" variant="outline">Delete task</Button>
+          </form>
         )}
       </main>
     </div>

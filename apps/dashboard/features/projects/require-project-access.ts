@@ -1,4 +1,4 @@
-import { requireProjectChange } from "@/features/access/require-change";
+import { requireProjectChange, requireProjectWork } from "@/features/access/require-change";
 
 import { getProjectForUser } from "./queries";
 
@@ -9,6 +9,19 @@ import { getProjectForUser } from "./queries";
  */
 export async function requireProjectAccess(userId: string, projectId: string) {
   await requireProjectChange(userId, projectId);
+  return requireVisibleProject(userId, projectId);
+}
+
+/**
+ * For server actions that add, edit or move a project's tasks: the project if `userId` can work on it
+ * (`can_work_on_project`: also its crew's workers, task 056), or the same error as for a missing one.
+ */
+export async function requireProjectWorkAccess(userId: string, projectId: string) {
+  await requireProjectWork(userId, projectId);
+  return requireVisibleProject(userId, projectId);
+}
+
+async function requireVisibleProject(userId: string, projectId: string) {
   const project = await getProjectForUser(userId, projectId);
   if (!project) {
     throw new Error("Not found");
