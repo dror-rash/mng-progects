@@ -63,6 +63,7 @@ to meet and the tasks, and nothing else: no other projects, no customer pages, n
 
 ## Progress log
 - 2026-11-02 – Drafted with the feature file (in review; scenarios `@wip`).
+- 2026-11-02 – Migration 0029 (`worker` role, `project_worker`, `is_on_crew`, `can_work_on_project`, task policies, customer names, member visibility, crew triggers); roles and scope; task actions by `can_work_on_project` (delete by `can_change_project`); Crew section and actions; crew workers assignable. Red: DB (no `worker` role), unit (roles, scope), 11 of 15 e2e scenarios. Green: DB 83, unit 287 (dashboard), `@task:056` 14 + the roles scenario.
 - 2026-11-02 – Approved by the owner. Planner readiness check: fixed six scenario gaps (Delete task and Remove are buttons, a task edit, no Partners/Deleted pages, a non-crew site, a duplicated step). Runs in the main checkout (no lane).
 
 ## Parking lot
