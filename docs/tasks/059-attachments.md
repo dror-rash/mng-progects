@@ -1,6 +1,6 @@
 # Task 059: Photos and files on a project or visit
 
-- **Status:** todo (feature file in review)
+- **Status:** in-progress
 - **Milestone:** M13 Sites & Field Data (POC lane: 056 → 058 → 059)
 - **Zone / package:** `packages/db`, `apps/dashboard`, `e2e`
 - **Feature file:** `docs/features/attachments.feature`
@@ -58,6 +58,7 @@ Photos of what was found and documents from the site (plans, certificates, deliv
 
 ## Progress log
 - 2026-11-02 – Drafted with the feature file (in review; scenarios `@wip`).
+- 2026-11-02 – Approved. Migration 0033 (`attachment`, its trigger, `can_change_attachment`, `delete_attachment`, policies); `features/attachments/` (limits, actions, queries, uploader, section with a story); the `/attachments/<id>` route; sections on the project and visit pages; the Deleted page. Red: DB (no table), 8 of 8 e2e (no buttons, gallery or route). Green: DB 103, unit 298 (dashboard), `@task:059` 8. Playwright passes files over 50 MB only from disk, so that step writes one.
 
 ## Parking lot
 - Shrink photos in the browser (open question 3).
