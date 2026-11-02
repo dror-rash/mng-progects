@@ -111,14 +111,16 @@ async function restore(userId: string, kind: DeletedKind, id: string): Promise<s
       return null;
     }
     case "attachment": {
-      // A photo or file comes back only on a project that isn't deleted (task 059).
+      // A photo or file comes back only on a project (and visit) that isn't deleted (task 059).
       const [row] = await db
-        .select({ projectDeletedAt: project.deletedAt })
+        .select({ projectDeletedAt: project.deletedAt, visitDeletedAt: visit.deletedAt })
         .from(attachment)
         .innerJoin(project, eq(project.id, attachment.projectId))
+        .leftJoin(visit, eq(visit.id, attachment.visitId))
         .where(and(eq(attachment.id, id), isNotNull(attachment.deletedAt), admin(project.workspaceId)));
       if (!row) throw new Error(NOT_FOUND);
       if (row.projectDeletedAt) return "Restore its project first";
+      if (row.visitDeletedAt) return "Restore its visit first";
       await db.update(attachment).set(restored).where(eq(attachment.id, id));
       return null;
     }

@@ -155,6 +155,24 @@ describe("who uploads, confirms and deletes", () => {
     expect(await del(ids.admin, ids.workerPhoto)).toBe(true);
   });
 
+  it("hides the photos of a deleted visit, except from admins and auditors", async () => {
+    const db = getMaintenanceDb();
+    await db.execute(sql`update site_visit set deleted_at = now() where id = ${ids.visitA}`);
+    expect(await as(ids.pa, sql`select id from attachment where id = ${ids.adminPhoto}`)).toHaveLength(0);
+    expect(await as(ids.worker, sql`select id from attachment where id = ${ids.adminPhoto}`)).toHaveLength(0);
+    expect(await as(ids.auditor, sql`select id from attachment where id = ${ids.adminPhoto}`)).toHaveLength(1);
+    await db.execute(sql`update site_visit set deleted_at = null where id = ${ids.visitA}`);
+  });
+
+  it("lets the app change only whether an upload is confirmed or deleted, and its checked size", async () => {
+    const id = `${run}-cols`;
+    await getMaintenanceDb().execute(insertAttachment(id, ids.projectA, ids.worker, { confirmed: false }));
+    expect(await writeAs(ids.worker, sql`update attachment set kind = 'file' where id = ${id}`)).toBe("refused");
+    expect(await writeAs(ids.worker, sql`update attachment set file_name = 'x.exe' where id = ${id}`)).toBe("refused");
+    expect(await writeAs(ids.worker, sql`update attachment set content_type = 'text/html' where id = ${id}`)).toBe("refused");
+    expect(await writeAs(ids.worker, sql`update attachment set size_bytes = 11, confirmed_at = now() where id = ${id}`)).toBe(1);
+  });
+
   it("can't call the attachment functions as PUBLIC", async () => {
     const { rows } = await getMaintenanceDb().execute<{ ok: boolean }>(
       sql`select has_function_privilege('public', 'can_change_attachment(text, text)', 'EXECUTE')

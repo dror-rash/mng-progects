@@ -33,7 +33,7 @@ export function AttachmentUploader({ visitId }: { visitId: string | null }) {
         size: file.size,
       });
       if (!start.ok) return start.error;
-      const sent = await fetch(start.uploadUrl, { method: "PUT", headers: { "Content-Type": file.type }, body: file });
+      const sent = await fetch(start.uploadUrl, { method: "PUT", headers: start.headers, body: file });
       if (!sent.ok) return `Couldn't add ${file.name}. Try again.`;
       const finish = await finishUploadAction({ attachmentId });
       return finish.ok ? null : `Couldn't add ${file.name}: ${finish.error}`;

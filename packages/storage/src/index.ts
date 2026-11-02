@@ -10,8 +10,9 @@ const UPLOAD_SECONDS = 15 * 60;
 const DOWNLOAD_SECONDS = 5 * 60;
 
 /**
- * A signed `PUT` URL for `key`, bound to `contentType` (the upload must send it). It can't limit the size:
- * check the upload with `stat` and `remove` what doesn't fit.
+ * A signed `PUT` URL for `key` and the headers the upload must send: its content type, and
+ * `x-goog-if-generation-match: 0`, so the URL only creates the object and can't replace it after the app
+ * has checked it. It can't limit the size: check the upload with `stat` and `remove` what doesn't fit.
  */
 export async function createUploadUrl({
   key,
@@ -21,11 +22,12 @@ export async function createUploadUrl({
   key: string;
   contentType: string;
   expiresInSeconds?: number;
-}): Promise<string> {
+}): Promise<{ url: string; headers: Record<string, string> }> {
+  const extensionHeaders = { "x-goog-if-generation-match": "0" };
   const [url] = await getBucket()
     .file(key)
-    .getSignedUrl({ version: "v4", action: "write", contentType, expires: Date.now() + expiresInSeconds * 1000 });
-  return url;
+    .getSignedUrl({ version: "v4", action: "write", contentType, extensionHeaders, expires: Date.now() + expiresInSeconds * 1000 });
+  return { url, headers: { "Content-Type": contentType, ...extensionHeaders } };
 }
 
 /** A signed `GET` URL for `key`; with `fileName`, the browser saves it under that name. */

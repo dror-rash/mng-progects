@@ -17,7 +17,7 @@ import { parseAttachmentKind, uploadRefusal } from "./attachment-limits";
 // partner's project, a made-up id, someone else's upload) throw the same not-found error; the limits come
 // back as a message to show.
 
-export type UploadStart = { ok: true; uploadUrl: string } | { ok: false; error: string };
+export type UploadStart = { ok: true; uploadUrl: string; headers: Record<string, string> } | { ok: false; error: string };
 export type UploadFinish = { ok: true } | { ok: false; error: string };
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
@@ -54,7 +54,8 @@ export async function startUploadAction(input: {
     }
     const storageKey = objectKey({ workspaceId: project.workspaceId, projectId: project.id });
     const contentType = String(input.contentType).toLowerCase();
-    await getDb().insert(schema.attachment).values({
+    // An id that is already taken (anyone's upload, anywhere) is refused like a tampered form.
+    const inserted = await getDb().insert(schema.attachment).values({
       id: input.attachmentId,
       workspaceId: project.workspaceId,
       projectId: project.id,
@@ -65,13 +66,17 @@ export async function startUploadAction(input: {
       contentType,
       sizeBytes: Number(input.size),
       uploadedBy: session.user.id,
-    });
+    }).onConflictDoNothing().returning({ id: schema.attachment.id });
+    if (inserted.length === 0) {
+      throw new Error("Not found");
+    }
     return { storageKey, contentType };
   });
   if ("refusal" in key) {
     return { ok: false, error: key.refusal };
   }
-  return { ok: true, uploadUrl: await createUploadUrl({ key: key.storageKey, contentType: key.contentType }) };
+  const signed = await createUploadUrl({ key: key.storageKey, contentType: key.contentType });
+  return { ok: true, uploadUrl: signed.url, headers: signed.headers };
 }
 
 /**

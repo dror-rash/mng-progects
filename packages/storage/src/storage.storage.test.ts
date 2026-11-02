@@ -12,8 +12,8 @@ function newKey() {
 }
 
 async function upload(key: string, body: string, contentType = "text/plain") {
-  const url = await createUploadUrl({ key, contentType });
-  return fetch(url, { method: "PUT", headers: { "Content-Type": contentType }, body });
+  const { url, headers } = await createUploadUrl({ key, contentType });
+  return fetch(url, { method: "PUT", headers, body });
 }
 
 afterAll(async () => {
@@ -53,14 +53,16 @@ describe("signed URLs against the local server", () => {
 });
 
 describe("what a signed URL allows", () => {
-  it("binds an upload to its content type", async () => {
-    const url = new URL(await createUploadUrl({ key: newKey(), contentType: "image/jpeg" }));
-    expect(url.searchParams.get("X-Goog-SignedHeaders")?.split(";")).toContain("content-type");
+  it("binds an upload to its content type, and to an object that doesn't exist yet", async () => {
+    const { url, headers } = await createUploadUrl({ key: newKey(), contentType: "image/jpeg" });
+    const signed = new URL(url).searchParams.get("X-Goog-SignedHeaders")?.split(";");
+    expect(signed).toEqual(expect.arrayContaining(["content-type", "x-goog-if-generation-match"]));
+    expect(headers).toEqual({ "Content-Type": "image/jpeg", "x-goog-if-generation-match": "0" });
   });
 
   it("expires: 15 minutes for uploads and 5 for downloads by default, or as asked", async () => {
     const key = newKey();
-    expect(new URL(await createUploadUrl({ key, contentType: "text/plain" })).searchParams.get("X-Goog-Expires")).toBe("900");
+    expect(new URL((await createUploadUrl({ key, contentType: "text/plain" })).url).searchParams.get("X-Goog-Expires")).toBe("900");
     expect(new URL(await createDownloadUrl({ key })).searchParams.get("X-Goog-Expires")).toBe("300");
     expect(new URL(await createDownloadUrl({ key, expiresInSeconds: 1 })).searchParams.get("X-Goog-Expires")).toBe("1");
   });

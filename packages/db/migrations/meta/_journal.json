@@ -239,6 +239,13 @@
       "when": 1793652362429,
       "tag": "0033_attachments",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1793653135649,
+      "tag": "0034_attachment_hardening",
+      "breakpoints": true
     }
   ]
 }

@@ -95,22 +95,30 @@ Then("the file {string} downloads as {string}", async ({ page }, name: string, f
 // --- The leak suite's two-partner workspace (partner-access.steps.ts) --------------------------------------
 
 /** The admin's photo, stored for real and written to the database as confirmed. */
-Given("the admin added the photo {string} to {string}", async ({ state }, name: string, project: string) => {
+async function adminPhoto(state: Parameters<typeof idOf>[0], name: string, projectId: string, visitId: string | null) {
   const workspaceId = idOf(state, "workspace");
-  const projectId = idOf(state, project);
   const key = objectKey({ workspaceId, projectId });
-  const upload = await fetch(await createUploadUrl({ key, contentType: "image/jpeg" }), {
-    method: "PUT",
-    headers: { "Content-Type": "image/jpeg" },
-    body: JPEG,
-  });
+  const { url, headers } = await createUploadUrl({ key, contentType: "image/jpeg" });
+  const upload = await fetch(url, { method: "PUT", headers, body: JPEG });
   expect(upload.ok).toBe(true);
   const id = crypto.randomUUID();
   await getMaintenanceDb().execute(
-    sql`insert into attachment (id, workspace_id, project_id, kind, storage_key, file_name, content_type, size_bytes, uploaded_by, confirmed_at)
-        values (${id}, ${workspaceId}, ${projectId}, 'photo', ${key}, ${name}, 'image/jpeg', ${JPEG.length}, ${idOf(state, "Admin")}, now())`,
+    sql`insert into attachment (id, workspace_id, project_id, visit_id, kind, storage_key, file_name, content_type, size_bytes, uploaded_by, confirmed_at)
+        values (${id}, ${workspaceId}, ${projectId}, ${visitId}, 'photo', ${key}, ${name}, 'image/jpeg', ${JPEG.length}, ${idOf(state, "Admin")}, now())`,
   );
   Object.assign(ids(state), { [`${name}:attachment`]: id });
+}
+
+Given("the admin added the photo {string} to {string}", async ({ state }, name: string, project: string) => {
+  await adminPhoto(state, name, idOf(state, project), null);
+});
+
+Given("the admin added the photo {string} to the visit {string}", async ({ state }, name: string, notes: string) => {
+  await adminPhoto(state, name, idOf(state, `${notes}:visit-project`), idOf(state, `${notes}:visit`));
+});
+
+Given("the visit {string} is deleted", async ({ state }, notes: string) => {
+  await getMaintenanceDb().execute(sql`update site_visit set deleted_at = now() where id = ${idOf(state, `${notes}:visit`)}`);
 });
 
 const attachmentPath = (id: string) => `/dashboard/attachments/${id}`;
