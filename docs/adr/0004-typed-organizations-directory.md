@@ -24,3 +24,4 @@ Tasks and projects need to relate to outside parties. Customers come first; exte
 - **Bad / trade-offs:** fields that only make sense for one kind go in shared columns or need a later per-kind extension table. Status values are shared across kinds.
 - **For now:** only customers have pages, so project/task pickers and links resolve kind `customer` only; a link to another kind would show as "No customer" until that kind gets UI.
 - **Follow-ups:** revisit ownership with the sharing/authorization ADR (M8). Add per-kind fields only when a real kind needs them.
+- **Amended by ADR-0008 (2026-11-02):** organizations get one level of children (`parent_id`, sub-companies), and physical sites are their own table, not an organization kind.
