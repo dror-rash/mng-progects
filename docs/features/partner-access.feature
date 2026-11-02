@@ -212,14 +212,14 @@ Feature: Partner access: a partner's user sees only their own partner's work
     And the admin sees the "NW Store" project
 
   # Task 054: sites are for admins and auditors; partners see the sites of their own projects with task 055.
-  @task:054 @wip
+  @task:054
   Scenario: I can't open a customer's site
     Given the customer "Acme Ltd" has the site "Acme HQ" with the contact "Yossi Mizrahi"
     When I open the address of the site "Acme HQ"
     Then I see "Site not found", the same as for a made-up site address
     And the page shows none of "Acme HQ, Yossi Mizrahi"
 
-  @task:054 @wip
+  @task:054
   Scenario: An auditor sees a site and its contacts but can't change them
     Given the customer "Acme Ltd" has the site "Acme HQ" with the contact "Yossi Mizrahi"
     When the auditor opens the address of the site "Acme HQ"

@@ -1,4 +1,4 @@
-@zone:dashboard @task:054 @wip
+@zone:dashboard @task:054
 Feature: Sites
   As an admin
   I want to record the physical sites of a customer or sub-company, with the people to meet there
