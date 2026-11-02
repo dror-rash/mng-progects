@@ -93,7 +93,7 @@ Feature: Customer links
   @task:020
   Scenario: Another user's customer can't be linked to a task
     Given another user has a customer named "Secret Corp"
-    And I have a project named "Internal Ops"
+    And a project "Internal Ops" from before sites were required, with no customer or site
     And I am on the "Internal Ops" project page
     And the project has a task "Call about invoice"
     And I am on the "Call about invoice" task page
