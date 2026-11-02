@@ -1,6 +1,7 @@
 import { and, eq, getDb, isNotNull, schema, withAccess } from "@repo/db";
 
 import { hasWorkspaceRole } from "@/features/access/predicates";
+import { visitName } from "@/features/visits/visit-name";
 
 import type { DeletedKind } from "./deleted-kind";
 import { noteName } from "./note-name";
@@ -24,7 +25,7 @@ const deletedBy = { deletedByName: schema.user.name };
  */
 export async function listDeleted(userId: string, workspaceId: string): Promise<DeletedItem[]> {
   const seesDeleted = (workspace: Parameters<typeof hasWorkspaceRole>[1]) => hasWorkspaceRole(userId, workspace, ["admin", "auditor"]);
-  const { project, task, organization, organizationContact: contact, organizationNote: note, partner, site, siteContact, user } = schema;
+  const { project, task, organization, organizationContact: contact, organizationNote: note, partner, site, siteContact, siteVisit: visit, user } = schema;
 
   return withAccess(userId, async () => {
     const db = getDb();
@@ -84,6 +85,14 @@ export async function listDeleted(userId: string, workspaceId: string): Promise<
       .leftJoin(user, eq(user.id, siteContact.deletedBy))
       .where(and(eq(site.workspaceId, workspaceId), isNotNull(siteContact.deletedAt), seesDeleted(site.workspaceId)));
 
+    // Visits (task 058): where = their project; named by their notes, or their date without notes.
+    const visits = await db
+      .select({ id: visit.id, notes: visit.notes, visitedOn: visit.visitedOn, where: project.name, deletedAt: visit.deletedAt, ...deletedBy })
+      .from(visit)
+      .innerJoin(project, eq(project.id, visit.projectId))
+      .leftJoin(user, eq(user.id, visit.deletedBy))
+      .where(and(eq(project.workspaceId, workspaceId), isNotNull(visit.deletedAt), seesDeleted(project.workspaceId)));
+
     const items: DeletedItem[] = [
       ...projects.map((r) => ({ kind: "project" as const, where: null, ...r })),
       ...tasks.map((r) => ({ kind: "task" as const, ...r })),
@@ -93,6 +102,7 @@ export async function listDeleted(userId: string, workspaceId: string): Promise<
       ...partners.map((r) => ({ kind: "partner" as const, where: null, ...r })),
       ...sites.map((r) => ({ kind: "site" as const, ...r })),
       ...siteContacts.map((r) => ({ kind: "site_contact" as const, ...r })),
+      ...visits.map(({ notes, visitedOn, ...r }) => ({ kind: "visit" as const, name: visitName(notes, visitedOn), ...r })),
     ].map((item) => ({ ...item, deletedAt: item.deletedAt! }));
     return items.sort((a, b) => b.deletedAt.getTime() - a.deletedAt.getTime() || a.name.localeCompare(b.name));
   });

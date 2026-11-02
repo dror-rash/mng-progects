@@ -12,7 +12,8 @@ import { type DeletedKind, parseDeletedKind } from "./deleted-kind";
 // Restoring from the Deleted page (design rule 8): admins only. Anyone else, an unknown kind, a made-up id
 // and an item that isn't deleted all get the same "Not found". An item whose parent is still deleted
 // can't come back before it (a task without its project, a contact or note without its customer, a
-// sub-company without its parent, a site without its customer, a site contact without its site).
+// sub-company without its parent, a site without its customer, a site contact without its site, a visit
+// without its project).
 
 const NOT_FOUND = "Not found";
 
@@ -25,7 +26,7 @@ const restored = { deletedAt: null, deletedBy: null };
  */
 async function restore(userId: string, kind: DeletedKind, id: string): Promise<string | null> {
   const db = getDb();
-  const { project, task, organization, organizationContact: contact, organizationNote: note, partner, site, siteContact } = schema;
+  const { project, task, organization, organizationContact: contact, organizationNote: note, partner, site, siteContact, siteVisit: visit } = schema;
   const admin = (workspace: Parameters<typeof hasWorkspaceRole>[1]) => hasWorkspaceRole(userId, workspace, ["admin"]);
 
   switch (kind) {
@@ -95,6 +96,18 @@ async function restore(userId: string, kind: DeletedKind, id: string): Promise<s
       if (!row) throw new Error(NOT_FOUND);
       if (row.siteDeletedAt) return "Restore its site first";
       await db.update(siteContact).set(restored).where(eq(siteContact.id, id));
+      return null;
+    }
+    case "visit": {
+      // A visit comes back only on a project that isn't deleted (task 058).
+      const [row] = await db
+        .select({ projectDeletedAt: project.deletedAt })
+        .from(visit)
+        .innerJoin(project, eq(project.id, visit.projectId))
+        .where(and(eq(visit.id, id), isNotNull(visit.deletedAt), admin(project.workspaceId)));
+      if (!row) throw new Error(NOT_FOUND);
+      if (row.projectDeletedAt) return "Restore its project first";
+      await db.update(visit).set(restored).where(eq(visit.id, id));
       return null;
     }
     case "partner": {
