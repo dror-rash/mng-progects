@@ -1,6 +1,7 @@
 import { alias, and, asc, desc, eq, getDb, getTableColumns, gte, isNull, lt, lte, ne, schema, type SQL, sql, withAccess } from "@repo/db";
 
 import { canSeeProject } from "@/features/access/predicates";
+import { inCompanyGroup } from "@/features/organizations/queries";
 import { visibleProjects } from "@/features/projects/queries";
 import type { CalendarDate } from "@/features/tasks/due-dates";
 import type { OverviewCount, OverviewWindow } from "@/features/tasks/overview";
@@ -23,7 +24,7 @@ const assigneeMembership = alias(schema.workspaceMember, "assignee_membership");
  */
 function selectWithNames() {
   return getDb()
-    .select({ ...getTableColumns(schema.task), customerName: schema.customerName.name, assigneeName: assignee.name })
+    .select({ ...getTableColumns(schema.task), customerName: schema.customerName.label, assigneeName: assignee.name })
     .from(schema.task)
     .innerJoin(schema.project, eq(schema.task.projectId, schema.project.id))
     .leftJoin(
@@ -72,7 +73,7 @@ export async function listCustomerOpenTasks(userId: string, workspaceId: string,
       .where(
         and(
           visibleTasks(userId, workspaceId),
-          eq(schema.task.organizationId, organizationId),
+          inCompanyGroup(schema.task.organizationId, organizationId),
           ne(schema.task.status, "done"),
         ),
       )

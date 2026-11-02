@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { AppHeader } from "@/features/layout/app-header";
 import { recordWorkspace } from "@/features/layout/record-workspace";
 import { CustomerForm } from "@/features/organizations/customer-form";
-import { getOrganizationForUser } from "@/features/organizations/queries";
+import { getOrganizationForUser, listParentChoices } from "@/features/organizations/queries";
 import { requireWorkspace } from "@/features/workspaces/require-workspace";
 
 export const dynamic = "force-dynamic";
@@ -27,7 +27,10 @@ export default async function EditCustomerPage({ params }: { params: Promise<{ c
             <CardTitle>Edit customer</CardTitle>
           </CardHeader>
           <CardContent>
-            <CustomerForm customer={customer} />
+            <CustomerForm
+              customer={customer}
+              parentChoices={await listParentChoices(session.user.id, customer.workspaceId, customer.id)}
+            />
           </CardContent>
         </Card>
       </main>

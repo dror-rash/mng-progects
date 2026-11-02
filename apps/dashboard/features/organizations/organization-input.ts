@@ -12,6 +12,11 @@ export type OrganizationInput = {
   companyId: string | null;
   about: string | null;
   tags: string[];
+  /**
+   * The company this one is part of (task 053): `undefined` when the form has no "Part of" field (keep it),
+   * `null` for "None", else the chosen id. The action checks it is one of the offered choices.
+   */
+  parentId?: string | null;
 };
 
 type Result = { ok: true; value: OrganizationInput } | { ok: false; field: string; error: string };
@@ -105,6 +110,7 @@ export function parseOrganizationInput(formData: FormData): Result {
       companyId: optional("companyId"),
       about: optional("about"),
       tags,
+      parentId: formData.has("parentId") ? optional("parentId") : undefined,
     },
   };
 }

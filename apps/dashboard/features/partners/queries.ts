@@ -1,4 +1,4 @@
-import { and, asc, eq, getDb, isNull, notExists, schema, sql, withAccess } from "@repo/db";
+import { alias, and, asc, eq, getDb, isNull, notExists, schema, sql, withAccess } from "@repo/db";
 
 import { canSeeCustomer, hasWorkspaceRole } from "@/features/access/predicates";
 
@@ -54,14 +54,21 @@ export async function getPartnerForUser(userId: string, partnerId: string) {
       );
     if (!partner) return null;
 
-    const customer = { id: schema.organization.id, name: schema.organization.name };
+    // Sub-companies show as "Parent › Sub-company" (task 053); assignment stays per company.
+    const parent = alias(schema.organization, "parent_organization");
+    const customer = {
+      id: schema.organization.id,
+      name: schema.organization.name,
+      label: sql<string>`case when ${parent.name} is null then ${schema.organization.name} else ${parent.name} || ' › ' || ${schema.organization.name} end`,
+    };
     // One after another: they share the transaction's connection.
     const customers = await db
       .select(customer)
       .from(schema.customerPartner)
       .innerJoin(schema.organization, eq(schema.organization.id, schema.customerPartner.organizationId))
+      .leftJoin(parent, eq(parent.id, schema.organization.parentId))
       .where(and(eq(schema.customerPartner.partnerId, partner.id), isNull(schema.organization.deletedAt)))
-      .orderBy(asc(schema.organization.name));
+      .orderBy(asc(customer.label));
     const users = await db
       .select({ userId: schema.user.id, name: schema.user.name, email: schema.user.email })
       .from(schema.workspaceMember)
@@ -81,6 +88,7 @@ export async function getPartnerForUser(userId: string, partnerId: string) {
       ? await db
           .select(customer)
           .from(schema.organization)
+          .leftJoin(parent, eq(parent.id, schema.organization.parentId))
           .where(
             and(
               eq(schema.organization.workspaceId, partner.workspaceId),
@@ -90,7 +98,7 @@ export async function getPartnerForUser(userId: string, partnerId: string) {
               notExists(alreadyAssigned),
             ),
           )
-          .orderBy(asc(schema.organization.name))
+          .orderBy(asc(customer.label))
       : [];
     return { ...partner, customers, users, assignable };
   });

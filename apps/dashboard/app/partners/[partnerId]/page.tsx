@@ -44,7 +44,7 @@ export default async function PartnerPage({ params }: { params: Promise<{ partne
                   {partner.customers.map((customer) => (
                     <li key={customer.id} className="flex items-center justify-between gap-3 py-2 text-sm first:pt-0">
                       <Link href={`/customers/${customer.id}`} className="font-medium hover:underline">
-                        {customer.name}
+                        {customer.label}
                       </Link>
                       {partner.canChange && <UnassignCustomerForm partnerId={partner.id} customer={customer} />}
                     </li>

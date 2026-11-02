@@ -1,6 +1,7 @@
 import { and, desc, eq, getDb, getTableColumns, isNull, schema, withAccess } from "@repo/db";
 
 import { canChangeProject, canSeeProject } from "@/features/access/predicates";
+import { inCompanyGroup } from "@/features/organizations/queries";
 
 /** Join condition: the project's customer in `customer_name` (its own workspace's only). */
 const projectCustomerName = and(
@@ -14,7 +15,7 @@ const projectCustomerName = and(
  */
 function selectWithCustomer() {
   return getDb()
-    .select({ ...getTableColumns(schema.project), customerName: schema.customerName.name })
+    .select({ ...getTableColumns(schema.project), customerName: schema.customerName.label })
     .from(schema.project)
     .leftJoin(schema.customerName, projectCustomerName);
 }
@@ -28,7 +29,7 @@ export async function getProjectForUser(userId: string, projectId: string) {
     getDb()
       .select({
         ...getTableColumns(schema.project),
-        customerName: schema.customerName.name,
+        customerName: schema.customerName.label,
         canChange: canChangeProject(userId, schema.project.id),
       })
       .from(schema.project)
@@ -57,11 +58,14 @@ export async function listProjects(userId: string, workspaceId: string, limit?: 
   });
 }
 
-/** The workspace's projects for one customer that `userId` can see, newest first ("previous projects"). */
+/**
+ * The workspace's projects for one customer and its sub-companies (task 053) that `userId` can see, newest
+ * first ("previous projects").
+ */
 export async function listCustomerProjects(userId: string, workspaceId: string, organizationId: string) {
   return withAccess(userId, async () =>
     selectWithCustomer()
-      .where(and(visibleProjects(userId, workspaceId), eq(schema.project.organizationId, organizationId)))
+      .where(and(visibleProjects(userId, workspaceId), inCompanyGroup(schema.project.organizationId, organizationId)))
       .orderBy(desc(schema.project.createdAt)),
   );
 }

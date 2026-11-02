@@ -15,16 +15,17 @@ function customerChoices(workspaceId: string, partnerId: string | null) {
 }
 
 /**
- * The customers `userId` may choose for a project or task in the workspace, by name. With `partnerId`
+ * The customers `userId` may choose for a project or task in the workspace, by label ("Parent › Sub-company"
+ * for a sub-company, task 053), so sub-companies sort under their parent. With `partnerId`
  * (a partner's project), only that partner's customers.
  */
 export async function listCustomerNames(userId: string, workspaceId: string, partnerId: string | null = null) {
   return withAccess(userId, async () =>
     getDb()
-      .select({ id: schema.customerName.id, name: schema.customerName.name })
+      .select({ id: schema.customerName.id, name: schema.customerName.label })
       .from(schema.customerName)
       .where(customerChoices(workspaceId, partnerId))
-      .orderBy(asc(schema.customerName.name), asc(schema.customerName.id)),
+      .orderBy(asc(schema.customerName.label), asc(schema.customerName.id)),
   );
 }
 

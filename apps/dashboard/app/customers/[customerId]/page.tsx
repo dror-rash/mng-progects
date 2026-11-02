@@ -11,7 +11,8 @@ import { listContacts } from "@/features/organizations/contacts/queries";
 import { NotesSection } from "@/features/organizations/notes/notes-section";
 import { listNotes } from "@/features/organizations/notes/queries";
 import { organizationStatusLabel } from "@/features/organizations/organization-kinds";
-import { getOrganizationForUser } from "@/features/organizations/queries";
+import { getOrganizationForUser, listSubCompanies } from "@/features/organizations/queries";
+import { SubCompaniesSection } from "@/features/organizations/sub-companies-section";
 import { ProjectList } from "@/features/projects/project-list";
 import { listCustomerProjects } from "@/features/projects/queries";
 import { summarizeProjectStatusCounts } from "@/features/tasks/progress";
@@ -41,12 +42,14 @@ export default async function CustomerPage({ params }: { params: Promise<{ custo
   }
   // Starting a project for this customer: admins, like changing it (partners start their own with task 049).
   const canStartProjects = customer.canChange;
-  const [contacts, notes, projects, projectCounts, openTasks] = await Promise.all([
+  const isTopLevel = customer.parentId === null;
+  const [contacts, notes, projects, projectCounts, openTasks, subCompanies] = await Promise.all([
     listContacts(session.user.id, customer.id),
     listNotes(session.user.id, customer.id),
     listCustomerProjects(session.user.id, customer.workspaceId, customer.id),
     countTasksByProjectAndStatus(session.user.id, customer.workspaceId),
     listCustomerOpenTasks(session.user.id, customer.workspaceId, customer.id),
+    isTopLevel ? listSubCompanies(session.user.id, customer.workspaceId, customer.id) : Promise.resolve([]),
   ]);
 
   return (
@@ -61,6 +64,14 @@ export default async function CustomerPage({ params }: { params: Promise<{ custo
         <section className="flex flex-wrap items-start justify-between gap-4">
           <div className="space-y-2">
             <h1 className="text-2xl font-bold tracking-tight">{customer.name}</h1>
+            {customer.parentId && customer.parentName && (
+              <p className="text-sm text-muted-foreground">
+                Part of{" "}
+                <Link href={`/customers/${customer.parentId}`} className="font-medium text-foreground hover:underline">
+                  {customer.parentName}
+                </Link>
+              </p>
+            )}
             <div className="flex flex-wrap items-center gap-2">
               <Badge>{organizationStatusLabel(customer.status)}</Badge>
               {customer.tags.map((t) => (
@@ -122,6 +133,8 @@ export default async function CustomerPage({ params }: { params: Promise<{ custo
           </CardContent>
         </Card>
 
+        {isTopLevel && <SubCompaniesSection parentId={customer.id} subCompanies={subCompanies} canAdd={customer.canChange} />}
+
         <section aria-labelledby="projects-heading" className="space-y-3">
           <div className="flex items-center justify-between gap-4">
             <h2 id="projects-heading" className="text-base font-semibold">Projects</h2>
@@ -140,7 +153,7 @@ export default async function CustomerPage({ params }: { params: Promise<{ custo
               )}
             </Card>
           ) : (
-            <ProjectList projects={projects} progress={summarizeProjectStatusCounts(projectCounts)} showCustomer={false} />
+            <ProjectList projects={projects} progress={summarizeProjectStatusCounts(projectCounts)} showCustomer={subCompanies.length > 0} />
           )}
         </section>
 

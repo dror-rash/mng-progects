@@ -83,7 +83,27 @@ async function main(): Promise<number> {
         .where(eq(schema.organization.id, organizationId));
       await tx.insert(schema.organizationNote).values(customer.notes.map((n) => ({ id: id(), organizationId, authorId: user.id, ...n })));
 
+      // Sub-companies (task 053) carry the demo tag too, so a rerun replaces them with their parent.
+      const subCompanyIds = new Map<string, string>();
+      for (const sub of customer.subCompanies) {
+        const subId = id();
+        subCompanyIds.set(sub.name, subId);
+        await tx.insert(schema.organization).values({
+          id: subId,
+          ownerId: user.id,
+          workspaceId,
+          kind: "customer",
+          parentId: organizationId,
+          name: sub.name,
+          status: customer.status,
+          phone: sub.phone,
+          about: sub.about,
+          tags: [DEMO_TAG],
+        });
+      }
+
       for (const project of customer.projects) {
+        const projectOrganizationId = (project.subCompany && subCompanyIds.get(project.subCompany)) || organizationId;
         const projectId = id();
         await tx.insert(schema.project).values({
           id: projectId,
@@ -91,7 +111,7 @@ async function main(): Promise<number> {
           description: project.description,
           ownerId: user.id,
           workspaceId,
-          organizationId,
+          organizationId: projectOrganizationId,
           createdAt: project.createdAt,
           updatedAt: project.createdAt,
         });
@@ -106,7 +126,7 @@ async function main(): Promise<number> {
               dueDate: t.dueDate,
               completedAt: t.completedAt,
               assigneeId: t.assignedToMe ? user.id : null,
-              organizationId: t.linkCustomer ? organizationId : null,
+              organizationId: t.linkCustomer ? projectOrganizationId : null,
               createdAt: t.createdAt,
               updatedAt: t.completedAt ?? t.createdAt,
             })),
@@ -120,7 +140,7 @@ async function main(): Promise<number> {
   const projects = plan.reduce((n, c) => n + c.projects.length, 0);
   const tasks = plan.reduce((n, c) => n + c.projects.reduce((m, p) => m + p.tasks.length, 0), 0);
   const workspaceName = memberships.find((m) => m.workspaceId === workspaceId)!.name;
-  console.log(`Seeded "${workspaceName}": ${plan.length} customers, ${projects} projects, ${tasks} tasks${removed ? ` (replaced ${removed} demo customers)` : ""}.`);
+  console.log(`Seeded "${workspaceName}": ${plan.length} customers (+${plan.reduce((n, c) => n + c.subCompanies.length, 0)} sub-companies), ${projects} projects, ${tasks} tasks${removed ? ` (replaced ${removed} demo customers)` : ""}.`);
   return 0;
 }
 

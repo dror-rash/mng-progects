@@ -1,6 +1,6 @@
 "use server";
 
-import { and, eq, getDb, isNotNull, schema, sql, withAccess } from "@repo/db";
+import { alias, and, eq, getDb, isNotNull, schema, sql, withAccess } from "@repo/db";
 import { revalidatePath } from "next/cache";
 
 import { hasWorkspaceRole } from "@/features/access/predicates";
@@ -11,7 +11,8 @@ import { type DeletedKind, parseDeletedKind } from "./deleted-kind";
 
 // Restoring from the Deleted page (design rule 8): admins only. Anyone else, an unknown kind, a made-up id
 // and an item that isn't deleted all get the same "Not found". An item whose parent is still deleted
-// can't come back before it (a task without its project, a contact or note without its customer).
+// can't come back before it (a task without its project, a contact or note without its customer, a
+// sub-company without its parent).
 
 const NOT_FOUND = "Not found";
 
@@ -46,14 +47,18 @@ async function restore(userId: string, kind: DeletedKind, id: string): Promise<s
       return null;
     }
     case "customer": {
-      const updated = await db
-        .update(organization)
-        .set(restored)
+      // A sub-company can't come back before its parent (task 053).
+      const parentOrganization = alias(organization, "parent_organization");
+      const [row] = await db
+        .select({ parentDeletedAt: parentOrganization.deletedAt })
+        .from(organization)
+        .leftJoin(parentOrganization, eq(parentOrganization.id, organization.parentId))
         .where(
           and(eq(organization.id, id), eq(organization.kind, "customer"), isNotNull(organization.deletedAt), admin(organization.workspaceId)),
-        )
-        .returning({ id: organization.id });
-      if (updated.length === 0) throw new Error(NOT_FOUND);
+        );
+      if (!row) throw new Error(NOT_FOUND);
+      if (row.parentDeletedAt) return "Restore its parent first";
+      await db.update(organization).set(restored).where(eq(organization.id, id));
       return null;
     }
     case "contact":
