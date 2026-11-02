@@ -28,8 +28,18 @@ export type DemoProject = {
   subCompany: string | null;
 };
 
-/** A sub-company of a demo customer (task 053): its own details; it shares the customer's demo tag. */
-export type DemoSubCompany = { name: string; about: string; phone: string };
+/** A site with the people to meet there (task 054). Coordinates are decimal strings, both or neither. */
+export type DemoSite = {
+  name: string;
+  address: string;
+  accessNotes: string | null;
+  latitude: string | null;
+  longitude: string | null;
+  contacts: { name: string; role: string; phone: string }[];
+};
+
+/** A sub-company of a demo customer (task 053): its own details and sites; it shares the customer's demo tag. */
+export type DemoSubCompany = { name: string; about: string; phone: string; sites: DemoSite[] };
 
 export type DemoCustomer = {
   name: string;
@@ -42,6 +52,7 @@ export type DemoCustomer = {
   contacts: { name: string; role: string; email: string; phone: string; primary: boolean }[];
   notes: { body: string; createdAt: Date }[];
   subCompanies: DemoSubCompany[];
+  sites: DemoSite[];
   projects: DemoProject[];
 };
 
@@ -175,6 +186,34 @@ const CUSTOMERS: {
   { name: "Nimbus Analytics", domain: "nimbus.example", status: "active", about: "Data startup; fast-moving, lots of parallel work.", tags: ["saas", "priority"], contacts: [["Ari Shapiro", "CTO"], ["Priya Nair", "Product lead"], ["Ben Ortiz", "Engineer"]] },
 ];
 
+/** Made-up places for demo sites; every other one has coordinates (around Tel Aviv and Haifa). */
+const SITE_PLACES: [string, string, string | null, string | null][] = [
+  ["Head office", "1 Harbor St, Tel Aviv", "32.0853", "34.7818"],
+  ["Haifa warehouse", "12 Port Rd, Haifa", null, null],
+  ["North branch", "8 Carmel Ave, Haifa", "32.7940", "34.9896"],
+  ["Service center", "40 Industrial Zone, Holon", null, null],
+  ["Main store", "15 Market St, Jerusalem", "31.7683", "35.2137"],
+];
+
+const ON_SITE: [string, string][] = [
+  ["Yossi Mizrahi", "Facility manager"],
+  ["Rina Cohen", "Security"],
+  ["Avi Peretz", "Maintenance lead"],
+];
+
+function demoSite(index: number, label?: string): DemoSite {
+  const [name, address, latitude, longitude] = SITE_PLACES[index % SITE_PLACES.length]!;
+  const [contact, role] = ON_SITE[index % ON_SITE.length]!;
+  return {
+    name: label ?? name,
+    address,
+    accessNotes: index % 2 === 0 ? "Report to the front desk; parking behind the building." : null,
+    latitude,
+    longitude,
+    contacts: [{ name: contact, role, phone: `+1 555 03${index % 10}0` }],
+  };
+}
+
 function plusDays(date: CalendarDate, days: number): CalendarDate {
   return new Date(Date.parse(`${date}T00:00:00Z`) + days * DAY).toISOString().slice(0, 10);
 }
@@ -206,7 +245,14 @@ export function buildDemoPlan(now: Date): DemoCustomer[] {
       { body: `Kickoff call with ${customer.contacts[0]![0]}. Agreed on monthly check-ins.`, createdAt: ago(21 + ci) },
       { body: "Sent the latest status report; waiting on feedback.", createdAt: ago(3, ci) },
     ],
-    subCompanies: (customer.subCompanies ?? []).map(([name, about], si) => ({ name, about, phone: `+1 555 02${ci}${si}` })),
+    subCompanies: (customer.subCompanies ?? []).map(([name, about], si) => ({
+      name,
+      about,
+      phone: `+1 555 02${ci}${si}`,
+      sites: [demoSite(ci + si + 2, `${name} location`)],
+    })),
+    // One or two sites per customer (task 054).
+    sites: ci % 2 === 0 ? [demoSite(ci), demoSite(ci + 1)] : [demoSite(ci)],
     projects: ARCHETYPES.map((archetype, pi) => {
       // Customers start each kind of project a few hours apart, so "recently started" isn't a tie.
       const createdAt = ago(archetype.startedDaysAgo, ci * 3 + 1);
