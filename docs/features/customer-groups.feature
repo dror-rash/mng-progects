@@ -115,6 +115,7 @@ Feature: Customer groups (sub-companies)
 
   Scenario: Another workspace's customer can't be the parent
     Given I have a customer "Other Co" in a new workspace named "Side"
+    And I switch to "Test User's workspace"
     When I open "/dashboard/customers/new"
     And I fill in "Name" with "Acme Online"
     And I choose the customer from my other workspace in "Part of"
