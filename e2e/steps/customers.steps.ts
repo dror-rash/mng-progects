@@ -1,6 +1,7 @@
 import { expect, type Page } from "@playwright/test";
 
 import { Given, origin, signUp, Then, When } from "./fixtures";
+import { createProject } from "./project-form";
 
 async function createCustomer(page: Page, name: string, status = "Active", tags = "") {
   await page.goto("/dashboard/customers/new");
@@ -71,11 +72,7 @@ Then("each note shows today's date", async ({ page }) => {
 });
 
 Given("I have a project named {string} for customer {string}", async ({ page }, name: string, customer: string) => {
-  await page.goto("/dashboard/projects/new");
-  await page.getByLabel("Project name", { exact: true }).fill(name);
-  await page.getByLabel("Customer", { exact: true }).selectOption({ label: customer });
-  await page.getByRole("button", { name: "Create Project" }).click();
-  await expect(page.getByRole("heading", { name, level: 1 })).toBeVisible();
+  await createProject(page, name, customer);
 });
 
 When("I delete the customer {string}", async ({ page }, name: string) => {

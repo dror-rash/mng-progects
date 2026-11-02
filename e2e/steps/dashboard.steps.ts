@@ -17,9 +17,12 @@ Then("the {string} chart shows {string} as {string}", async ({ page }, chart: st
   await expect(entry).toContainText(value);
 });
 
+// Each card's first link is the project; a project's customer is a link too.
 Then("the recently started projects are {string}", async ({ page }, names: string) => {
-  const links = page.getByRole("region", { name: "Recently started" }).getByRole("listitem").getByRole("link");
-  await expect(links).toHaveText(names.split(",").map((n) => n.trim()));
+  const items = page.getByRole("region", { name: "Recently started" }).getByRole("listitem");
+  await expect
+    .poll(() => items.evaluateAll((lis) => lis.map((li) => li.querySelector("a")?.textContent?.trim() ?? "")))
+    .toEqual(names.split(",").map((n) => n.trim()));
 });
 
 Then("the {string} progress meter is at {int} percent", async ({ page }, name: string, percent: number) => {

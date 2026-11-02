@@ -12,7 +12,7 @@ describe("parseProjectInput", () => {
   it("trims the name and description", () => {
     expect(parseProjectInput(form({ name: "  Launch  ", description: " Q4 launch " }))).toEqual({
       ok: true,
-      value: { name: "Launch", description: "Q4 launch", organizationId: null },
+      value: { name: "Launch", description: "Q4 launch", organizationId: null, siteId: null },
     });
   });
 
@@ -26,7 +26,7 @@ describe("parseProjectInput", () => {
   it("stores an empty description as null", () => {
     expect(parseProjectInput(form({ name: "Launch", description: "" }))).toEqual({
       ok: true,
-      value: { name: "Launch", description: null, organizationId: null },
+      value: { name: "Launch", description: null, organizationId: null, siteId: null },
     });
   });
 
@@ -36,5 +36,13 @@ describe("parseProjectInput", () => {
 
     expect(withCustomer.ok && withCustomer.value.organizationId).toBe("cust-1");
     expect(without.ok && without.value.organizationId).toBeNull();
+  });
+
+  it("reads the chosen site, or none when left empty", () => {
+    const withSite = parseProjectInput(form({ name: "Launch", customerId: "cust-1", siteId: " site-1 " }));
+    const without = parseProjectInput(form({ name: "Launch", customerId: "cust-1", siteId: "" }));
+
+    expect(withSite.ok && withSite.value.siteId).toBe("site-1");
+    expect(without.ok && without.value.siteId).toBeNull();
   });
 });

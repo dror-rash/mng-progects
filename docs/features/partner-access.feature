@@ -239,7 +239,7 @@ Feature: Partner access: a partner's user sees only their own partner's work
     And the auditor sees no "New site" link on the "Acme Ltd" customer page
 
   # Task 055: every project is at a site; partners see the sites of their own projects (ADR-0008).
-  @task:055 @wip
+  @task:055
   Scenario: I see my project's site, with the people to meet there
     Given the customer "Acme Ltd" has the site "Acme HQ" with the contact "Yossi Mizrahi"
     And the project "NW Site" is at the site "Acme HQ"
@@ -252,7 +252,7 @@ Feature: Partner access: a partner's user sees only their own partner's work
     And I do not see the "Acme Ltd" link
     And I do not see the "Edit site" link
 
-  @task:055 @wip
+  @task:055
   Scenario: Another partner's site stays hidden
     Given the customer "Acme Ltd" has the site "Acme HQ" with the contact "Yossi Mizrahi"
     And the customer "Acme Ltd" has the site "Acme Plant" with the contact "Dana Levi"
@@ -262,7 +262,7 @@ Feature: Partner access: a partner's user sees only their own partner's work
     Then I see "Site not found", the same as for a made-up site address
     And the page shows none of "Dana Levi"
 
-  @task:055 @wip
+  @task:055
   Scenario: A site of a customer I'm not assigned is refused, the same as a made-up one
     Given the customer "Initech" has the site "Initech Lab" with the contact "Dana Levi"
     When I open "/dashboard/projects/new"

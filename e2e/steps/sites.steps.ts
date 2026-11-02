@@ -8,7 +8,7 @@ import { idOf, ids, pageOf, shownText } from "./partner-access.steps";
 // Sites and on-site contacts (task 054, ADR-0008).
 
 /** The id of the record named `name` in `table`, in one of the workspaces of `page`'s user. */
-async function myRecordId(page: Page, table: "organization" | "site", name: string) {
+export async function myRecordId(page: Page, table: "organization" | "site" | "project", name: string) {
   const me = await userId(page);
   const { rows } = await getMaintenanceDb().execute<{ id: string }>(
     sql`select t.id from ${sql.identifier(table)} t
@@ -19,9 +19,11 @@ async function myRecordId(page: Page, table: "organization" | "site", name: stri
   return rows[0]!.id;
 }
 
+/** Adds a site with a made-up address (so it has a maps link); ends on its page. */
 async function addSite(page: Page, customerId: string, name: string) {
   await page.goto(`/dashboard/sites/new?customer=${customerId}`);
   await page.getByLabel("Site name", { exact: true }).fill(name);
+  await page.getByLabel("Address", { exact: true }).fill("1 Main St");
   await page.getByRole("button", { name: "Save site" }).click();
   await expect(page.getByRole("heading", { name, level: 1 })).toBeVisible();
 }

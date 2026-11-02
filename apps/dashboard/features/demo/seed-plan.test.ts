@@ -99,4 +99,13 @@ describe("buildDemoPlan", () => {
     const coordinates = plan.flatMap((c) => c.sites).filter((site) => site.latitude !== null);
     expect(coordinates.length).toBeGreaterThan(0);
   });
+
+  it("puts every project at a site of its customer, or of its sub-company (task 055)", () => {
+    for (const customer of plan) {
+      for (const project of customer.projects) {
+        const owner = project.subCompany ? customer.subCompanies.find((s) => s.name === project.subCompany)! : customer;
+        expect(owner.sites.map((s) => s.name)).toContain(project.site);
+      }
+    }
+  });
 });

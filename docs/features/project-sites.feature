@@ -1,4 +1,4 @@
-@zone:dashboard @task:055 @wip
+@zone:dashboard @task:055
 Feature: A project's site
   As someone who plans the work
   I want every project to be at one site of its customer

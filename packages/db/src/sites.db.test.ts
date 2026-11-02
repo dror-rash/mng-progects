@@ -6,7 +6,7 @@ import { getMaintenanceDb } from "./maintenance";
 import * as schema from "./schema";
 
 // Sites and on-site contacts (task 054, ADR-0008) against the migrated database: admins change them,
-// auditors read them, partners see none (task 055 adds the sites of their own projects).
+// auditors read them, partners see none without a project there (project-sites.db.test.ts covers those).
 
 const run = crypto.randomUUID().slice(0, 8);
 const ids = {
