@@ -2,14 +2,16 @@ import { and, asc, eq, getDb, isNull, schema, sql, withAccess } from "@repo/db";
 
 import { canSeeCustomerName, partnerServesCustomer } from "@/features/access/predicates";
 
-import { customerAllowed, mayCreateFor } from "./project-owner-check";
+import { customerAllowed, mayCreateFor, siteAllowed } from "./project-owner-check";
 import { requireProjectAccess } from "./require-project-access";
 
 export type CopyProjectInput = {
   name: string;
   /** The new project's owner: one partner, or null for internal. */
   ownerPartnerId: string | null;
-  customerId: string | null;
+  customerId: string;
+  /** One of the customer's sites (task 055). */
+  siteId: string;
 };
 
 /**
@@ -20,7 +22,7 @@ export type CopyProjectInput = {
  * source in `copied_from_id`.
  *
  * Refuses, with the same error as a missing project: a source `userId` can't change, an owner they may not
- * create for (a partner's user: only their own partner), and a customer the new owner may not have. Not an
+ * create for (a partner's user: only their own partner), and a customer or site the new owner may not have. Not an
  * action (it takes `userId`); `copyProjectAction` calls it.
  */
 export async function copyProject(userId: string, sourceId: string, input: CopyProjectInput): Promise<string> {
@@ -28,7 +30,8 @@ export async function copyProject(userId: string, sourceId: string, input: CopyP
     const source = await requireProjectAccess(userId, sourceId);
     if (
       !(await mayCreateFor(userId, source.workspaceId, input.ownerPartnerId)) ||
-      !(await customerAllowed(source.workspaceId, input.ownerPartnerId, input.customerId))
+      !(await customerAllowed(source.workspaceId, input.ownerPartnerId, input.customerId)) ||
+      !(await siteAllowed(source.workspaceId, input.ownerPartnerId, input.customerId, input.siteId))
     ) {
       throw new Error("Not found");
     }
@@ -41,6 +44,7 @@ export async function copyProject(userId: string, sourceId: string, input: CopyP
       description: source.description,
       workspaceId: source.workspaceId,
       organizationId: input.customerId,
+      siteId: input.siteId,
       ...(input.ownerPartnerId
         ? { visibility: "partner", partnerId: input.ownerPartnerId }
         : { visibility: "internal", partnerId: null }),

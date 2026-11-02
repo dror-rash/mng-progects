@@ -1,6 +1,6 @@
 # Task 054: Sites and on-site contacts
 
-- **Status:** in-review
+- **Status:** done (PR #34)
 - **Milestone:** M13 Sites & Field Data
 - **Zone / package:** `packages/db`, `apps/dashboard`, `e2e`
 - **Feature file:** `docs/features/sites.feature`, plus two `@task:054` scenarios in `docs/features/partner-access.feature`

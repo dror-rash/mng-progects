@@ -10,9 +10,11 @@ Feature: Customer links
 
   @task:016
   Scenario: A project for a customer shows on the customer's page
+    Given "Acme Ltd" has a site "Haifa warehouse"
     When I open "/dashboard/projects/new"
     And I fill in "Project name" with "Website Redesign"
     And I select "Acme Ltd" from "Customer"
+    And I select "Haifa warehouse" from "Site"
     And I press "Create Project"
     And I am on the "Website Redesign" project page
     Then I see the "Acme Ltd" link
@@ -21,10 +23,12 @@ Feature: Customer links
 
   @task:044
   Scenario: Starting a project from a customer's page picks that customer
-    Given I am on the "Acme Ltd" customer page
+    Given "Acme Ltd" has a site "Haifa warehouse"
+    And I am on the "Acme Ltd" customer page
     When I follow the "New project" link
     Then "Acme Ltd" is selected in "Customer"
     When I fill in "Project name" with "Website Redesign"
+    And I select "Haifa warehouse" from "Site"
     And I press "Create Project"
     Then I see the heading "Website Redesign"
     When I am on the "Acme Ltd" customer page
@@ -33,7 +37,7 @@ Feature: Customer links
   @task:044
   Scenario: An unknown customer in the new project link is ignored
     When I open "/dashboard/projects/new?customer=not-a-customer"
-    Then "No customer" is selected in "Customer"
+    Then "Choose a customer" is selected in "Customer"
 
   @task:016
   Scenario: Deleting a customer keeps its projects
@@ -89,7 +93,7 @@ Feature: Customer links
   @task:020
   Scenario: Another user's customer can't be linked to a task
     Given another user has a customer named "Secret Corp"
-    And I have a project named "Internal Ops"
+    And a project "Internal Ops" from before sites were required, with no customer or site
     And I am on the "Internal Ops" project page
     And the project has a task "Call about invoice"
     And I am on the "Call about invoice" task page

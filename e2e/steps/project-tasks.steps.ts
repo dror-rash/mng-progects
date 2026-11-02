@@ -1,15 +1,7 @@
 import { expect, type Page } from "@playwright/test";
 
 import { Given, signUp, Then, userId, When } from "./fixtures";
-
-// Ends on the new project's page.
-async function createProject(page: Page, name: string) {
-  await page.goto("/dashboard/projects/new");
-  await page.getByLabel("Project name").fill(name);
-  await page.getByRole("button", { name: "Create Project" }).click();
-  await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+$/);
-  await expect(page.getByRole("heading", { name, level: 1 })).toBeVisible();
-}
+import { createProject } from "./project-form";
 
 // Dashboard card titles are headings too, so wait for the project URL before checking the page.
 async function openProjectFromDashboard(page: Page, name: string) {

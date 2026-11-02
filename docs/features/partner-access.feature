@@ -83,11 +83,16 @@ Feature: Partner access: a partner's user sees only their own partner's work
     And I press "Save changes"
     Then the admin sees the task "Copy" for the customer "Initech", with the description "Shorter copy"
 
-  Scenario: I create a project for an assigned customer only
+  @task:055
+  Scenario: I create a project for an assigned customer only, at one of its sites
+    Given the customer "Acme Ltd" has the site "Acme HQ" with the contact "Yossi Mizrahi"
+    And the customer "Initech" has the site "Initech Lab" with the contact "Dana Levi"
     When I open "/dashboard/projects/new"
     Then the "Customer" select offers "Acme Ltd" with "Acme Ltd" chosen
+    And the "Site" select offers "Choose a site, Acme HQ" with "Choose a site" chosen
     And there is no "Owner" field
     When I fill in "Project name" with "NW App"
+    And I select "Acme HQ" from "Site"
     And I press "Create Project"
     Then I see the heading "NW App"
     And I see the text "Acme Ltd"
@@ -192,9 +197,11 @@ Feature: Partner access: a partner's user sees only their own partner's work
   Scenario: A sub-company assigned to my partner shows with its parent's name
     Given the customer "Acme Ltd" has a sub-company "Acme Retail"
     And the customer "Acme Retail" is assigned to "Northwind"
+    And the customer "Acme Retail" has the site "Retail store" with the contact "Dana Levi"
     When I open "/dashboard/projects/new"
     Then the "Customer" select offers "Acme Ltd, Acme Ltd › Acme Retail" with "Acme Ltd" chosen
     When I select "Acme Ltd › Acme Retail" from "Customer"
+    And I select "Retail store" from "Site"
     And I fill in "Project name" with "NW Store"
     And I press "Create Project"
     Then I see the text "Acme Ltd › Acme Retail"
@@ -230,4 +237,36 @@ Feature: Partner access: a partner's user sees only their own partner's work
     When the auditor opens the "Acme Ltd" customer page
     Then the auditor sees the text "Acme HQ"
     And the auditor sees no "New site" link on the "Acme Ltd" customer page
+
+  # Task 055: every project is at a site; partners see the sites of their own projects (ADR-0008).
+  @task:055
+  Scenario: I see my project's site, with the people to meet there
+    Given the customer "Acme Ltd" has the site "Acme HQ" with the contact "Yossi Mizrahi"
+    And the project "NW Site" is at the site "Acme HQ"
+    When I am on the "NW Site" project page
+    Then the "Site" section shows "Acme HQ"
+    And the "Site" section shows "Yossi Mizrahi"
+    When I follow the "Acme HQ" link
+    Then I see the heading "Acme HQ"
+    And I see the text "Acme Ltd"
+    And I do not see the "Acme Ltd" link
+    And I do not see the "Edit site" link
+
+  @task:055
+  Scenario: Another partner's site stays hidden
+    Given the customer "Acme Ltd" has the site "Acme HQ" with the contact "Yossi Mizrahi"
+    And the customer "Acme Ltd" has the site "Acme Plant" with the contact "Dana Levi"
+    And the project "NW Site" is at the site "Acme HQ"
+    And the project "GX App" is at the site "Acme Plant"
+    When I open the address of the site "Acme Plant"
+    Then I see "Site not found", the same as for a made-up site address
+    And the page shows none of "Dana Levi"
+
+  @task:055
+  Scenario: A site of a customer I'm not assigned is refused, the same as a made-up one
+    Given the customer "Initech" has the site "Initech Lab" with the contact "Dana Levi"
+    When I open "/dashboard/projects/new"
+    And I fill in "Project name" with "NW Wiring"
+    And I post the new project with the site id of "Initech Lab"
+    Then I see "Choose a site of this customer", the same as with a made-up id
 

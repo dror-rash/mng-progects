@@ -56,6 +56,7 @@ async function main(): Promise<number> {
     const previousIds = previous.map((o) => o.id);
     if (previousIds.length > 0) {
       // Projects only lose their customer when it's deleted, so remove the demo projects (and their tasks) first.
+      // Sub-companies' projects too: previousIds has the sub-companies (they carry the demo tag).
       await tx.delete(schema.project).where(inArray(schema.project.organizationId, previousIds));
       await tx.delete(schema.organization).where(inArray(schema.organization.id, previousIds));
     }
@@ -87,9 +88,12 @@ async function main(): Promise<number> {
       // Read before the helper: narrowing doesn't carry into a nested function.
       const createdBy = user.id;
       const siteWorkspaceId = workspaceId;
+      // Site ids by organization and name, for the projects at them (task 055).
+      const siteIds = new Map<string, string>();
       async function insertSites(siteOrganizationId: string, sites: typeof customer.sites) {
         for (const site of sites) {
           const siteId = id();
+          siteIds.set(`${siteOrganizationId}:${site.name}`, siteId);
           const { contacts: siteContacts, ...fields } = site;
           await tx.insert(schema.site).values({ id: siteId, workspaceId: siteWorkspaceId, organizationId: siteOrganizationId, createdBy, ...fields });
           await tx.insert(schema.siteContact).values(siteContacts.map((c) => ({ id: id(), siteId, ...c })));
@@ -127,6 +131,7 @@ async function main(): Promise<number> {
           ownerId: user.id,
           workspaceId,
           organizationId: projectOrganizationId,
+          siteId: siteIds.get(`${projectOrganizationId}:${project.site}`)!,
           createdAt: project.createdAt,
           updatedAt: project.createdAt,
         });

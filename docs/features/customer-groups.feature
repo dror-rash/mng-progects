@@ -46,8 +46,10 @@ Feature: Customer groups (sub-companies)
 
   Scenario: A project for a sub-company shows on both pages and in pickers with its parent
     Given "Acme Ltd" has a sub-company "Acme Retail"
+    And "Acme Retail" has a site "Dizengoff store"
     When I open "/dashboard/projects/new"
     And I select "Acme Ltd › Acme Retail" from "Customer"
+    And I select "Dizengoff store" from "Site"
     And I fill in "Project name" with "Store wiring"
     And I press "Create Project"
     Then I see the heading "Store wiring"

@@ -8,12 +8,12 @@ import { requireWorkspaceForAction } from "@/features/workspaces/require-workspa
 
 import { copyProject } from "./copy";
 import { parseProjectInput } from "./project-input";
-import { customerAllowed, newProjectOwner } from "./project-owner-check";
+import { customerAndSiteError, newProjectOwner } from "./project-owner-check";
 import { getProjectForUser } from "./queries";
 import { revalidateOverviews } from "./revalidate";
 
 /**
- * The copy page's form (rule 4a): a new project from `sourceId`, with the chosen name, customer and owner
+ * The copy page's form (rule 4a): a new project from `sourceId`, with the chosen name, customer, site and owner
  * (partners: their own partner; admins: the Owner select). Posts the source's `workspaceId`, where the
  * copy goes. Redirects to the new project.
  */
@@ -34,14 +34,16 @@ export async function copyProjectAction(_prev: FormState, formData: FormData): P
     if (!input.ok) {
       return invalid(input.error, formData);
     }
-    if (!(await customerAllowed(workspace.id, owner.partnerId, input.value.organizationId))) {
-      const error = owner.partnerId && workspace.role === "admin" ? "Choose a customer assigned to this partner" : "Choose one of your customers";
-      return invalid(error, formData, "customerId");
+    const customerError = owner.partnerId && workspace.role === "admin" ? "Choose a customer assigned to this partner" : "Choose one of your customers";
+    const refused = await customerAndSiteError(workspace.id, owner.partnerId, input.value, formData, customerError);
+    if (refused) {
+      return refused;
     }
     const id = await copyProject(session.user.id, source.id, {
       name: input.value.name,
       ownerPartnerId: owner.partnerId,
-      customerId: input.value.organizationId,
+      customerId: input.value.organizationId!,
+      siteId: input.value.siteId!,
     });
     return { id };
   });

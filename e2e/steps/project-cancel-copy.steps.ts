@@ -4,6 +4,7 @@ import { getMaintenanceDb } from "@repo/db/maintenance";
 
 import { Given, Then, When } from "./fixtures";
 import { ids, idOf, pageOf, projectPath, shownText } from "./partner-access.steps";
+import { chooseCustomerAndSite } from "./project-form";
 import { pressAndWait } from "./workspaces.steps";
 
 // Cancel and copy (task 050), in the leak suite's two-partner workspace (partner-access.steps.ts).
@@ -27,9 +28,9 @@ When(
     await admin.goto(projectPath(state, source));
     await admin.getByRole("link", { name: "Copy to new project", exact: true }).click();
     await expect(admin.getByLabel("Project name")).toHaveValue(source);
+    await chooseCustomerAndSite(admin, customer);
     await admin.getByLabel("Project name").fill(name);
     await admin.getByLabel("Owner", { exact: true }).selectOption({ label: owner });
-    await admin.getByLabel("Customer", { exact: true }).selectOption({ label: customer });
     await pressAndWait(admin, "Copy project");
     await expect(admin.getByRole("heading", { name, level: 1 })).toBeVisible();
     ids(state)[name] = admin.url().split("/").pop()!;

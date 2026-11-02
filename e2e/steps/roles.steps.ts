@@ -1,5 +1,6 @@
 import { expect, type Page } from "@playwright/test";
 
+import { createProject } from "./project-form";
 import { Given, signUp, Then, When } from "./fixtures";
 import { createInviteLink, pressAndWait, switchTo } from "./workspaces.steps";
 
@@ -87,10 +88,7 @@ When(
     const target = await projectUrl(page, project);
     state.keptUrl = target;
     await switchTo(auditor, "Auditor's workspace");
-    await auditor.goto("/dashboard/projects/new");
-    await auditor.getByLabel("Project name").fill("Decoy");
-    await auditor.getByRole("button", { name: "Create Project" }).click();
-    await expect(auditor.getByRole("heading", { name: "Decoy", level: 1 })).toBeVisible();
+    await createProject(auditor, "Decoy");
     await auditor.goto(`${auditor.url()}/edit`);
     await auditor.getByLabel("Project name").fill(name);
     await auditor.locator("form", { has: auditor.getByRole("button", { name: "Save changes" }) }).evaluate((form, id) => {

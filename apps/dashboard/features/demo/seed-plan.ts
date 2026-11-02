@@ -26,6 +26,8 @@ export type DemoProject = {
   tasks: DemoTask[];
   /** The customer's sub-company this project is for (task 053), by name; null for the customer itself. */
   subCompany: string | null;
+  /** Where the work is (task 055): one of the sites of the project's customer (or sub-company), by name. */
+  site: string;
 };
 
 /** A site with the people to meet there (task 054). Coordinates are decimal strings, both or neither. */
@@ -226,52 +228,60 @@ export function buildDemoPlan(now: Date): DemoCustomer[] {
   const today = todayUtc(now);
   const ago = (days: number, hours = 0) => new Date(now.getTime() - days * DAY - hours * HOUR);
 
-  return CUSTOMERS.map((customer, ci) => ({
-    name: customer.name,
-    status: customer.status,
-    email: `hello@${customer.domain}`,
-    phone: `+1 555 01${ci}0`,
-    website: `https://${customer.domain}`,
-    about: customer.about,
-    tags: [DEMO_TAG, ...customer.tags],
-    contacts: customer.contacts.map(([name, role], i) => ({
-      name,
-      role,
-      email: `${name.split(" ")[0]!.toLowerCase()}@${customer.domain}`,
-      phone: `+1 555 01${ci}${i + 1}`,
-      primary: i === 0,
-    })),
-    notes: [
-      { body: `Kickoff call with ${customer.contacts[0]![0]}. Agreed on monthly check-ins.`, createdAt: ago(21 + ci) },
-      { body: "Sent the latest status report; waiting on feedback.", createdAt: ago(3, ci) },
-    ],
-    subCompanies: (customer.subCompanies ?? []).map(([name, about], si) => ({
+  return CUSTOMERS.map((customer, ci) => {
+    const subCompanies = (customer.subCompanies ?? []).map(([name, about], si) => ({
       name,
       about,
       phone: `+1 555 02${ci}${si}`,
       sites: [demoSite(ci + si + 2, `${name} location`)],
-    })),
+    }));
     // One or two sites per customer (task 054).
-    sites: ci % 2 === 0 ? [demoSite(ci), demoSite(ci + 1)] : [demoSite(ci)],
-    projects: ARCHETYPES.map((archetype, pi) => {
-      // Customers start each kind of project a few hours apart, so "recently started" isn't a tie.
-      const createdAt = ago(archetype.startedDaysAgo, ci * 3 + 1);
-      return {
-        name: THEMES[(pi + ci * 3) % THEMES.length]!,
-        description: archetype.description,
-        createdAt,
-        subCompany: customer.subCompanies?.[pi % 3]?.[0] ?? null,
-        tasks: archetype.tasks.map(([status, priority, dueIn, completedDaysAgo, mine], ti) => ({
-          title: TASK_TITLES[(pi * 3 + ti) % TASK_TITLES.length]!,
-          status,
-          priority,
-          dueDate: dueIn === null ? null : plusDays(today, dueIn),
-          completedAt: completedDaysAgo === null ? null : ago(completedDaysAgo, ti),
-          createdAt: new Date(createdAt.getTime() + ti * HOUR),
-          assignedToMe: mine ?? false,
-          linkCustomer: ti % 2 === 0,
-        })),
-      };
-    }),
-  }));
+    const sites = ci % 2 === 0 ? [demoSite(ci), demoSite(ci + 1)] : [demoSite(ci)];
+    return {
+      name: customer.name,
+      status: customer.status,
+      email: `hello@${customer.domain}`,
+      phone: `+1 555 01${ci}0`,
+      website: `https://${customer.domain}`,
+      about: customer.about,
+      tags: [DEMO_TAG, ...customer.tags],
+      contacts: customer.contacts.map(([name, role], i) => ({
+        name,
+        role,
+        email: `${name.split(" ")[0]!.toLowerCase()}@${customer.domain}`,
+        phone: `+1 555 01${ci}${i + 1}`,
+        primary: i === 0,
+      })),
+      notes: [
+        { body: `Kickoff call with ${customer.contacts[0]![0]}. Agreed on monthly check-ins.`, createdAt: ago(21 + ci) },
+        { body: "Sent the latest status report; waiting on feedback.", createdAt: ago(3, ci) },
+      ],
+      subCompanies,
+      sites,
+      projects: ARCHETYPES.map((archetype, pi) => {
+        // Customers start each kind of project a few hours apart, so "recently started" isn't a tie.
+        const createdAt = ago(archetype.startedDaysAgo, ci * 3 + 1);
+        const sub = subCompanies[pi % 3];
+        const ownSites = sub?.sites ?? sites;
+        return {
+          name: THEMES[(pi + ci * 3) % THEMES.length]!,
+          description: archetype.description,
+          createdAt,
+          subCompany: sub?.name ?? null,
+          // Projects take turns among the sites of their customer (or sub-company).
+          site: ownSites[pi % ownSites.length]!.name,
+          tasks: archetype.tasks.map(([status, priority, dueIn, completedDaysAgo, mine], ti) => ({
+            title: TASK_TITLES[(pi * 3 + ti) % TASK_TITLES.length]!,
+            status,
+            priority,
+            dueDate: dueIn === null ? null : plusDays(today, dueIn),
+            completedAt: completedDaysAgo === null ? null : ago(completedDaysAgo, ti),
+            createdAt: new Date(createdAt.getTime() + ti * HOUR),
+            assignedToMe: mine ?? false,
+            linkCustomer: ti % 2 === 0,
+          })),
+        };
+      }),
+    };
+  });
 }

@@ -3,6 +3,7 @@ import { eq, schema } from "@repo/db";
 import { getMaintenanceDb } from "@repo/db/maintenance";
 
 import { type Account, Given, origin, type People, type ScenarioState, signUp, Then, userId, When } from "./fixtures";
+import { chooseCustomerAndSite } from "./project-form";
 import { pressAndWait } from "./workspaces.steps";
 
 // The leak suite (task 049, ADR-0006). The two-partner workspace is written straight to the database
@@ -53,7 +54,7 @@ export async function pageOf(state: ScenarioState, people: People, who: "admin" 
 }
 
 /** Adds an option with `value` to the select and chooses it: a tampered form, as a user could post it. */
-async function chooseValue(select: Locator, value: string) {
+export async function chooseValue(select: Locator, value: string) {
   await select.evaluate((element, id) => {
     const option = document.createElement("option");
     option.value = id;
@@ -338,8 +339,8 @@ When(
   async ({ people, state }, name: string, customer: string, owner: string) => {
     const admin = await pageOf(state, people, "admin");
     await admin.goto("/dashboard/projects/new");
+    await chooseCustomerAndSite(admin, customer);
     await admin.getByLabel("Project name").fill(name);
-    await admin.getByLabel("Customer", { exact: true }).selectOption({ label: customer });
     await admin.getByLabel("Owner", { exact: true }).selectOption({ label: owner });
     await pressAndWait(admin, "Create Project");
   },
