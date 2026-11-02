@@ -8,7 +8,7 @@ Feature: Project list
     Given I am signed in with an existing account
     And I have a customer "Acme Ltd" with status "Active" and tags "retail"
     And I have a project named "Website Redesign" for customer "Acme Ltd"
-    And I have a project named "Internal Ops"
+    And a project "Internal Ops" from before sites were required, with no customer or site
 
   Scenario: Projects show as a table, newest first
     Given I am on the "Website Redesign" project page

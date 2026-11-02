@@ -46,12 +46,14 @@ Feature: Cancel a project, or copy it to a new one
     And the admin sees the "NW Site" project
 
   Scenario: A partner can only copy into their own partner
+    Given the customer "Acme Ltd" has the site "Acme HQ" with the contact "Yossi Mizrahi"
     When I am on the "NW Site" project page
     And I follow the "Copy to new project" link
     Then there is no "Owner" field
     And the "Project name" field contains "NW Site"
     And the "Customer" select offers "Acme Ltd" with "Acme Ltd" chosen
     When I fill in "Project name" with "NW Relaunch"
+    And I select "Acme HQ" from "Site"
     And I press "Copy project"
     Then I see the heading "NW Relaunch"
     And I see the "NW Site" link

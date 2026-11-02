@@ -16,9 +16,13 @@ Feature: Project Management Dashboard
 
   Scenario: Authenticated user creates a new project
     Given I am signed in with an existing account
+    And I have a customer "Acme Ltd" with status "Active" and tags "retail"
+    And "Acme Ltd" has a site "Haifa warehouse"
     When I open "/dashboard/projects/new"
     And I fill in "Project name" with "Website Redesign"
     And I fill in "Description" with "Revamping our marketing site"
+    And I select "Acme Ltd" from "Customer"
+    And I select "Haifa warehouse" from "Site"
     And I press "Create Project"
     Then I see the text "Website Redesign"
     And I see the text "Revamping our marketing site"

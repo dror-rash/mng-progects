@@ -47,6 +47,7 @@ Feature: Dashboard home
     And I see the "Alpha" link
     When I follow the "New project" link
     And I fill in "Project name" with "Golf"
+    And I choose the customer and site of "Alpha"
     And I press "Create Project"
     Then I see the heading "Golf"
 
