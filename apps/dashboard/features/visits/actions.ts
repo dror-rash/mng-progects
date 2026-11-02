@@ -50,9 +50,19 @@ function revalidateVisits(projectId: string) {
   revalidatePath("/deleted");
 }
 
+/** Whether `visitId` is a visit `userId` recorded on the project: a form they sent before (inside `withAccess`). */
+async function isMyVisit(userId: string, projectId: string, visitId: string) {
+  const [row] = await getDb()
+    .select({ id: schema.siteVisit.id })
+    .from(schema.siteVisit)
+    .where(and(eq(schema.siteVisit.id, visitId), eq(schema.siteVisit.projectId, projectId), eq(schema.siteVisit.createdBy, userId)));
+  return row !== undefined;
+}
+
 /**
  * Records a visit under the id the form made in the browser. Sending the same form again inserts nothing
- * and lands on the same visit (`on conflict do nothing`), so a retried send never records it twice.
+ * and lands on the same visit (`on conflict do nothing`), so a retried send never records it twice. An id
+ * that belongs to any other visit is refused.
  */
 export async function createVisitAction(_prev: FormState, formData: FormData): Promise<FormState> {
   const session = await requireActionSession();
@@ -70,6 +80,9 @@ export async function createVisitAction(_prev: FormState, formData: FormData): P
       .returning({ id: schema.siteVisit.id });
     if (inserted.length > 0) {
       await setMembers(visitId, memberIds);
+    } else if (!(await isMyVisit(session.user.id, project.id, visitId))) {
+      // The id is someone else's visit (anywhere): refuse it like a tampered form, without landing on it.
+      throw new Error("Not found");
     }
     return { projectId: project.id, visitId };
   });

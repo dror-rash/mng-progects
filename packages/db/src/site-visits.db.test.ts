@@ -147,6 +147,22 @@ describe("who records and changes visits", () => {
     expect(await as(ids.pa, sql`select user_id from site_visit_member where visit_id = ${ids.workerVisit}`)).toHaveLength(1);
   });
 
+  it("lists as there only people who could work on the project", async () => {
+    const add = (member: string) =>
+      writeAs(ids.admin, sql`insert into site_visit_member (visit_id, user_id) values (${ids.adminVisit}, ${member})`);
+    expect(await add(ids.auditor)).toBe("refused");
+    expect(await add(ids.pb)).toBe("refused");
+    expect(await add(ids.pa)).toBe(1);
+    expect(await add(ids.otherWorker)).toBe(1);
+  });
+
+  it("changes nobody on a deleted visit", async () => {
+    const id = `${run}-deleted`;
+    await getMaintenanceDb().execute(insertVisit(id, ids.projectA, ids.admin));
+    await getMaintenanceDb().execute(sql`update site_visit set deleted_at = now() where id = ${id}`);
+    expect(await writeAs(ids.admin, sql`insert into site_visit_member (visit_id, user_id) values (${id}, ${ids.admin})`)).toBe("refused");
+  });
+
   it("can't call the visit functions as PUBLIC", async () => {
     const { rows } = await getMaintenanceDb().execute<{ ok: boolean }>(
       sql`select has_function_privilege('public', 'can_change_visit(text, text)', 'EXECUTE')

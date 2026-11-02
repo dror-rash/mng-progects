@@ -207,3 +207,13 @@ When(
   },
 );
 
+
+When(
+  "I record a visit on {string} with the visit id of {string}",
+  async ({ page, state }, project: string, notes: string) => {
+    await page.goto(`${projectPath(state, project)}/visits/new`);
+    await page.getByLabel("Notes", { exact: true }).fill("Sneaky");
+    await setHiddenFields(page, "Save visit", { visitId: idOf(state, `${notes}:visit`) });
+    await pressAndWait(page, "Save visit");
+  },
+);
