@@ -70,8 +70,8 @@ Then(
 // a workspace of their own (where they are an admin), pointed at the crew project. The server must refuse
 // it on the role, not on the missing form.
 
-/** A workspace of mine with the project "Decoy" and its task "Decoy task"; returns their ids. */
-async function myDecoy(state: Parameters<typeof idOf>[0]) {
+/** A workspace of mine with the project "Decoy", its task "Decoy task" and a visit of mine; returns their ids. */
+export async function myDecoy(state: Parameters<typeof idOf>[0]) {
   const db = getMaintenanceDb();
   const workspaceId = crypto.randomUUID();
   const projectId = crypto.randomUUID();
@@ -80,11 +80,15 @@ async function myDecoy(state: Parameters<typeof idOf>[0]) {
   await db.execute(sql`insert into workspace_member (workspace_id, user_id, role) values (${workspaceId}, ${idOf(state, "me")}, 'admin')`);
   await db.execute(sql`insert into project (id, name, workspace_id) values (${projectId}, 'Decoy', ${workspaceId})`);
   await db.execute(sql`insert into task (id, project_id, title) values (${taskId}, ${projectId}, 'Decoy task')`);
-  return { projectId, taskId };
+  const visitId = crypto.randomUUID();
+  await db.execute(
+    sql`insert into site_visit (id, project_id, visited_on, notes, created_by) values (${visitId}, ${projectId}, current_date, 'Decoy visit', ${idOf(state, "me")})`,
+  );
+  return { projectId, taskId, visitId };
 }
 
 /** Sets the hidden fields of the form with the button `button`. */
-async function setHiddenFields(page: Page, button: string, values: Record<string, string>) {
+export async function setHiddenFields(page: Page, button: string, values: Record<string, string>) {
   await page.locator("form", { has: page.getByRole("button", { name: button }) }).evaluate((form, fields) => {
     for (const [name, value] of Object.entries(fields)) {
       form.querySelector<HTMLInputElement>(`input[name="${name}"]`)!.value = value;

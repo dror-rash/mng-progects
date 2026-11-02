@@ -24,6 +24,8 @@ export type ScenarioState = {
   accounts?: Record<string, { account: Account; page?: Page }>;
   /** Posts the last tampered form again with another id, to compare the refusals. */
   replay?: (id: string) => Promise<void>;
+  /** The last form post a step watched (task 058), to send it again as it was. */
+  lastPost?: { url: string; headers: Record<string, string>; body: Buffer | null };
 };
 
 /** Opens extra browser contexts (other people) and closes them when the scenario ends. */

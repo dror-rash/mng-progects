@@ -238,6 +238,7 @@ Then(
       task: `/dashboard/projects/${madeUp}/tasks/${crypto.randomUUID()}`,
       customer: `/dashboard/customers/${madeUp}`,
       site: `/dashboard/sites/${madeUp}`,
+      visit: `/dashboard/projects/${madeUp}/visits/${crypto.randomUUID()}`,
     }[kind];
     expect(path, `no made-up address for "${kind}"`).toBeDefined();
     const response = await page.goto(path!);
