@@ -31,9 +31,18 @@ Build a modern, full-stack Project Management application on a Next.js multi-zon
 | M9 | Polish & Hardening | Open parking-lot items: members-page errors, invite hygiene, workspace settings, header, cross-workspace reads, request caching, indexes, test cleanup, SQL counts, dark mode, drag-and-drop, primary contact, chart tooltips (tasks 027–039) | done |
 | M12 | Partner Access | Admin / Auditor / Partner roles; partner companies with assigned customers; partners see only their own projects and customer names; enforced by SQL access functions and row-level security; project cancel/copy; soft delete everywhere (ADR-0006, tasks 046–052, plan `docs/superpowers/plans/2026-10-31-partner-access.md`) | done |
 | M13 | Sites & Field Data | Customers get sub-companies (one level); physical sites with on-site contacts; every project has a site; a Worker role for internal technicians; site visits, photos and files, admin-built reading forms, uploaded and generated reports; offline capture with sync and no data loss; partners and workers see their projects' sites (amends ADR-0004 and ADR-0006; ADR-0008, ADR-0009 offline; design `docs/superpowers/specs/2026-11-02-sites-and-field-data-design.md`, proposed tasks 053–065) | in progress |
+| POC | POC, deployed (2026-11-13) | One flow from customer to report on the public `run.app` URL: agent team (067), first GCP deploy (068, M11), M13 tasks 056–061 and 064, end-to-end `@poc` scenario and demo data (069). Out: offline capture (062–063), generated PDF (065), custom domain. ADR-0010 | in progress |
 
 ## Current milestone
-None in progress: M12 Partner Access is done (tasks 046–052). M13 Sites & Field Data is in progress (design approved, ADR-0008 and ADR-0009): task 053 customer groups done (PR #32); task 054 sites done (PR #34); task 055 a project's site in review; next is task 056 (the worker role). Other candidates: M10 accounts and email (incl. user deletion), M11 deploy to GCP, and two drafted but blocked tasks moved out of M9: 040 other organization kinds (needs product answers) and 041 time zones (needs ADR-0007).
+**POC, due 2026-11-13** (owner, 2026-11-02): deployed on GCP, demo data only, no custom domain. Order:
+1. Task 067 agent team (ADR-0010): agents, hooks, lanes.
+2. In parallel lanes:
+   - 068 first GCP deploy (M11);
+   - M13 056 worker role → 058 site visits → 059 photos;
+   - 057 storage → 060 form templates → 061 readings → 064 uploaded reports.
+3. 069: the `@poc` flow against the deployed preview.
+
+M13 tasks 062, 063 and 065 continue after the POC. Task 055 is in review (PR #35).
 
 ## Risks & open questions
 - Invite tokens will appear in Cloud Run / load balancer request logs until a log exclusion is added in `infra/` (task 028 parking lot; do it with M11).
@@ -75,3 +84,4 @@ None in progress: M12 Partner Access is done (tasks 046–052). M13 Sites & Fiel
 - 2026-11-02 – Task 053 done (PR #32). Task 066 drafted: `task-assignees.feature` scenarios fail at random under local parallel load, on `main` too (CI passes).
 - 2026-11-02 – Task 054: sites with on-site contacts (migration 0027: `site`, `site_contact`, `can_see_site`, `can_change_site`); admins change them, auditors read them, partners see none until task 055.
 - 2026-11-02 – Task 055: every new or edited project needs a customer and one of its sites (owner's call: "customer and site always"); older projects show "No site yet." until edited. Migration 0028 (`project.site_id`, `project_site_check`, `site_choice`); partners see the sites and on-site contacts of their projects; a site in use can't be deleted, and a sub-company can't leave a parent whose projects use its sites.
+- 2026-11-02 – Planned the POC for 2026-11-13 at the owner's request: GCP (not AWS; similar cost and the Terraform exists), no custom domain, demo data only, offline capture and the generated report left out. Agent team first (task 067, ADR-0010), then tasks 068 (first deploy) and 069 (end-to-end flow).
