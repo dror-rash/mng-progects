@@ -1,6 +1,6 @@
 # Task 057: File storage foundation
 
-- **Status:** todo (in review)
+- **Status:** in-progress
 - **Milestone:** M13 Sites & Field Data
 - **Zone / package:** new `packages/storage` (`@repo/storage`), `docker-compose.yml`, `.env.example`, `.github/workflows/ci.yml`
 - **Feature file:** none. Nothing a user sees changes; task 059 (photos and files) adds `attachments.feature` and the first screens. This task is tested by the package's tests against a real local storage server.
@@ -16,7 +16,7 @@ Photos, files and reports need a home that isn't Postgres, reachable from phones
   - `stat(key)`: size and content type of an uploaded object, or null. Signed `PUT` URLs can't limit size, so callers check an upload with `stat` and delete what's too big or of the wrong type (limits wait on open question 3).
   - `remove(key)`: deletes an object; a missing object is not an error.
   - `objectKey(parts)`: builds keys as `<workspace>/<project>/<uuid>`, never from file names (*my call*), so a key says nothing a URL shouldn't.
-  - Config from env: `STORAGE_BUCKET`, and locally `STORAGE_EMULATOR_HOST` (the fake server). Deployed, credentials come from the Cloud Run service account (signing through IAM); no keys in the repo.
+  - Config from env: `STORAGE_BUCKET`, and locally `STORAGE_LOCAL_URL` (the fake server; not `STORAGE_EMULATOR_HOST`, which the Google client reads itself and which overrides its API path). Deployed, credentials come from the Cloud Run service account (signing through IAM); no keys in the repo.
   - The package never checks access: callers do, before asking for a URL (task 059).
 - **Local backend:** `fake-gcs-server` in `docker-compose.yml` next to Postgres, started by `pnpm db:up`, with the dev bucket created on start and CORS open to the local zones, so browsers upload straight to it.
 - **CI:** the e2e job runs `fake-gcs-server` as a service, and runs the storage tests.
@@ -46,6 +46,7 @@ Photos, files and reports need a home that isn't Postgres, reachable from phones
 
 ## Progress log
 - 2026-11-02 – Drafted.
+- 2026-11-02 – Approved. `@repo/storage` with unit tests (config, `objectKey`) and storage tests against `fake-gcs-server` (red first: no modules). `fake-gcs-server` doesn't check signatures, so content-type binding and expiry are tested on the signed URL (`X-Goog-SignedHeaders` includes `content-type`; `X-Goog-Expires`); GCS itself enforces them. Locally the client signs with a key made up in memory per process (no key in the repo). CI starts the server in a step (service containers can't take its flags).
 
 ## Parking lot
 - Purging deleted files after a retention period (design parking lot).

@@ -15,7 +15,8 @@ If the plan, feature file, or task is missing or unclear: **stop and ask**. Do n
 Next.js (App Router, multi-zone) · Better Auth · Postgres + Drizzle · TypeScript strict · Tailwind + shadcn/ui · Storybook · Vitest + Testing Library (unit/component) · Playwright + Gherkin via playwright-bdd (acceptance) · Turborepo + pnpm · GCP (Cloud Run, Artifact Registry, Secret Manager, Terraform) · GitHub Actions
 
 ## Commands
-- `pnpm db:up` – local Postgres (Docker); `pnpm db:generate` / `pnpm db:migrate` / `pnpm db:studio`
+- `pnpm db:up` – local Postgres and file storage (Docker: `fake-gcs-server`, task 057); `pnpm db:generate` / `pnpm db:migrate` / `pnpm db:studio`
+- `pnpm --filter @repo/storage test:storage` – storage tests against the local storage server (needs `pnpm db:up` and `STORAGE_*` in `.env`)
 - `pnpm --filter @repo/dashboard seed:demo --email you@example.com` – demo data for local dev: 5 customers × 15 projects with tasks in every state, in that user's workspace (needs `pnpm db:migrate` first). Reruns replace the previous demo data (customers tagged `demo`)
 - `pnpm dev` – run all zones (shell :3000, example-zone :3001, dashboard :3002); needs `.env` (copy `.env.example`) and the database up. Restart it if e2e gets slow after a long session (dev memory growth); never run `pnpm build` while it runs (both write `.next`)
 - `pnpm test` – unit/component tests (Vitest)

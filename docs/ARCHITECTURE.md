@@ -24,6 +24,7 @@ Rules:
 | `packages/testing` | Test data builders |
 | `packages/db` | Drizzle schema, migrations, lazy Postgres client |
 | `packages/auth` | Better Auth server/client, zone middleware helper, `SignOutButton` |
+| `packages/storage` | Files in object storage (task 057, ADR-0008), server-only: signed upload and download URLs, `stat`, `remove`, `objectKey`. Google Cloud Storage deployed, `fake-gcs-server` locally (`STORAGE_LOCAL_URL`). Never checks access: callers check before asking for a URL |
 
 ## Conventions
 - Feature-based folders at each zone's root: `features/<feature>/` (imported as `@/features/...`).
