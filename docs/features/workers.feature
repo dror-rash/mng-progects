@@ -42,7 +42,16 @@ Feature: Workers: internal technicians on a project's crew
     Then the task "Pull cables" is in the "To do" column
     And the task "Copy" is in the "In progress" column
     When I am on the "Copy" task page
-    Then I do not see the "Delete task" link
+    And I fill in "Description" with "Bring the long ladder"
+    And I press "Save changes"
+    Then I see the text "Bring the long ladder"
+    And I do not see the "Delete task" button
+
+  Scenario: No customer, partner or Deleted pages for me
+    When I open "/dashboard/partners"
+    Then I see the heading "This page could not be found."
+    When I open "/dashboard/deleted"
+    Then I see the heading "This page could not be found."
 
   Scenario: I can't create projects
     When I open "/dashboard/projects"
@@ -65,8 +74,14 @@ Feature: Workers: internal technicians on a project's crew
     Then I see the heading "Acme HQ"
     And I do not see the "Edit site" link
 
+  Scenario: The site of a project I'm not on the crew of stays hidden
+    Given the customer "Acme Ltd" has the site "Acme Plant" with the contact "Dana Levi"
+    And the project "GX App" is at the site "Acme Plant"
+    When I open the address of the site "Acme Plant"
+    Then I see "Site not found", the same as for a made-up site address
+    And the page shows none of "Dana Levi"
+
   Scenario: My crew's tasks can be assigned to me
-    When the admin opens the task "Copy" of "NW Site"
     Then the admin's "Assignee" options for the task "Copy" are "Unassigned, Admin, Worker"
     And the admin's "Assignee" options for the task "Budget" are "Unassigned, Admin"
     When the task "Copy" is assigned to me by the admin
@@ -92,9 +107,10 @@ Feature: Workers: internal technicians on a project's crew
   Scenario: Only admins see and change the crew
     When I am on the "NW Site" project page
     Then I do not see the "Add to crew" button
+    And I do not see the "Remove Worker" button
     When the auditor opens the "NW Site" project page
     Then the auditor sees the text "Worker"
-    And the auditor sees no "Add to crew" button and no "Remove Worker" link
+    And the auditor sees no "Add to crew" button and no "Remove Worker" button
 
   Scenario: Admins invite workers
     When the admin opens "/dashboard/workspace"
@@ -106,4 +122,4 @@ Feature: Workers: internal technicians on a project's crew
     When I post the delete form of the task "Copy"
     Then the admin sees the tasks of "NW Site" are "Copy"
     When I post the edit form of the "NW Site" project with the name "Renamed"
-    Then the admin sees the project "NW Site"
+    Then the admin sees the "NW Site" project

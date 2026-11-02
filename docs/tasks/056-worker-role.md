@@ -1,6 +1,6 @@
 # Task 056: The worker role and project crews
 
-- **Status:** todo (feature file in review)
+- **Status:** in-progress
 - **Milestone:** M13 Sites & Field Data
 - **Zone / package:** `packages/db`, `apps/dashboard`, `e2e`
 - **Feature file:** `docs/features/workers.feature`; `roles.feature` "Admins invite admins or auditors" updated (the Role select gains Worker)
@@ -45,7 +45,7 @@ to meet and the tasks, and nothing else: no other projects, no customer pages, n
 ## Acceptance criteria
 - [ ] A worker sees only their crew's projects, and other projects and tasks are not found. ("I see only my crew's projects", "A project I'm not on the crew of…")
 - [ ] A worker adds, edits and moves tasks but can't change, copy, cancel or delete the project, delete tasks or create projects. ("I work on my crew's tasks…", "I can't create projects")
-- [ ] Customer names only; the site with its contacts, read-only. ("I see customer names…", "I see my project's site…")
+- [ ] Customer names only; no customer, partner or Deleted pages; the site with its contacts, read-only; a non-crew project's site not found. ("I see customer names…", "No customer, partner or Deleted pages…", "I see my project's site…", "The site of a project I'm not on the crew of…")
 - [ ] Crew workers can be assigned; leaving the crew hides the project and clears the assignments. ("My crew's tasks…", "Leaving a crew…")
 - [ ] Admins manage crews; workers and auditors don't. ("An admin puts a worker…", "Only admins see and change the crew")
 - [ ] Admins invite workers. ("Admins invite workers"; `roles.feature`)
@@ -58,11 +58,12 @@ to meet and the tasks, and nothing else: no other projects, no customer pages, n
 
 ## Test plan
 - **Acceptance:** `workers.feature` (`@task:056`), the updated `roles.feature` scenario, and every existing scenario.
-- **New steps:** `I am signed in as a worker`, `I am on the crew of {string}`, `the admin adds {string} to the crew`, `the admin removes {string} from the crew`, `the admin sees the {string} section shows {string}`, `the task {string} is assigned to me by the admin`, `I post the delete form of the task {string}`, `I post the edit form of the {string} project with the name {string}`, `the admin opens the {string} project page`, `the admin sees the project {string}`, `the auditor sees no {string} button and no {string} link` (exists).
+- **New steps:** `I am signed in as a worker` (signs up as "Worker", recorded under that name), `I am on the crew of {string}`, `the admin adds {string} to the crew`, `the admin removes {string} from the crew`, `the admin sees the {string} section shows {string}`, `the task {string} is assigned to me by the admin`, `I post the delete form of the task {string}`, `I post the edit form of the {string} project with the name {string}`, `the admin opens the {string} project page`, `the auditor sees no {string} button and no {string} button`. Reused: `the admin sees the {string} project`, the leak suite's site steps.
 - **Storybook:** `CrewSection` (with workers, empty, admin with the add form, read-only).
 
 ## Progress log
 - 2026-11-02 – Drafted with the feature file (in review; scenarios `@wip`).
+- 2026-11-02 – Approved by the owner. Planner readiness check: fixed six scenario gaps (Delete task and Remove are buttons, a task edit, no Partners/Deleted pages, a non-crew site, a duplicated step). Runs in the main checkout (no lane).
 
 ## Parking lot
 - A demo worker in the seed.
