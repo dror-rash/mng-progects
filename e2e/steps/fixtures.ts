@@ -29,7 +29,7 @@ export type ScenarioState = {
 /** Opens extra browser contexts (other people) and closes them when the scenario ends. */
 export type People = { newPerson: () => Promise<Page> };
 
-export const origin = process.env.BASE_URL ?? "http://localhost:3000";
+export const origin = process.env.BASE_URL ?? `http://localhost:${process.env.SHELL_PORT ?? 3000}`;
 
 /** Signs up and signs in a new person (in their own browser context) with a unique email. */
 export async function signUp(page: Page, name: string) {

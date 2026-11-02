@@ -9,6 +9,11 @@ const testDir = defineBddConfig({
   tags: process.env.E2E_TAGS || "not @wip",
 });
 
+// Ports come from the environment so parallel lanes (scripts/lane.sh) don't clash; defaults are the usual ones.
+const shellUrl = `http://localhost:${process.env.SHELL_PORT ?? 3000}`;
+const exampleUrl = `http://localhost:${process.env.EXAMPLE_PORT ?? 3001}`;
+const dashboardUrl = `http://localhost:${process.env.DASHBOARD_PORT ?? 3002}`;
+
 // Locally: dev servers. In CI: the workflow builds first, then we run `start`.
 const mode = process.env.CI ? "start" : "dev";
 
@@ -22,7 +27,7 @@ export default defineConfig({
   expect: { timeout: process.env.CI ? 5_000 : 15_000 },
   reporter: process.env.CI ? [["html", { open: "never" }], ["github"]] : "list",
   use: {
-    baseURL: process.env.BASE_URL ?? "http://localhost:3000",
+    baseURL: process.env.BASE_URL ?? shellUrl,
     trace: "retain-on-failure",
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
@@ -31,8 +36,8 @@ export default defineConfig({
     ? undefined
     : [
         // The shell owns /api/auth. Every scenario signs up from one IP, which production rate limits would block.
-        { command: `pnpm --filter @repo/shell ${mode}`, url: "http://localhost:3000", reuseExistingServer: !process.env.CI, timeout: 120_000, env: { AUTH_DISABLE_RATE_LIMIT: "true" } },
-        { command: `pnpm --filter @repo/example-zone ${mode}`, url: "http://localhost:3001/example", reuseExistingServer: !process.env.CI, timeout: 120_000 },
-        { command: `pnpm --filter @repo/dashboard ${mode}`, url: "http://localhost:3002/dashboard", reuseExistingServer: !process.env.CI, timeout: 120_000 },
+        { command: `pnpm --filter @repo/shell ${mode}`, url: shellUrl, reuseExistingServer: !process.env.CI, timeout: 120_000, env: { AUTH_DISABLE_RATE_LIMIT: "true" } },
+        { command: `pnpm --filter @repo/example-zone ${mode}`, url: `${exampleUrl}/example`, reuseExistingServer: !process.env.CI, timeout: 120_000 },
+        { command: `pnpm --filter @repo/dashboard ${mode}`, url: `${dashboardUrl}/dashboard`, reuseExistingServer: !process.env.CI, timeout: 120_000 },
       ],
 });

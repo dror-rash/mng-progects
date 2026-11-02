@@ -3,9 +3,9 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --turbopack -p 3001",
+    "dev": "next dev --turbopack -p ${EXAMPLE_PORT:-3001}",
     "build": "next build",
-    "start": "next start -p 3001",
+    "start": "next start -p ${EXAMPLE_PORT:-3001}",
     "lint": "eslint .",
     "typecheck": "next typegen && tsc --noEmit"
   },

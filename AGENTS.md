@@ -7,6 +7,7 @@ Read this file first, every session. `AGENTS.md` is a copy/symlink of this file 
 2. `docs/ARCHITECTURE.md` – zone map, package boundaries, conventions
 3. `docs/WORKFLOW.md` – the loop you must follow
 4. The active task in `docs/tasks/` and its linked `.feature` file
+5. `docs/AGENT-TEAM.md` – the agent team, pipeline, lanes and guard hooks (ADR-0010). The main session orchestrates; agents in `.claude/agents/` do the work
 
 If the plan, feature file, or task is missing or unclear: **stop and ask**. Do not invent scope.
 
@@ -23,6 +24,7 @@ Next.js (App Router, multi-zone) · Better Auth · Postgres + Drizzle · TypeScr
 - `pnpm storybook` – UI workbench on :6006
 - `pnpm lint && pnpm typecheck` – must pass before any commit
 - `pnpm build` – build everything (Turborepo caches; CI can add `--filter=...[origin/main]`)
+- `scripts/lane.sh up|exec|list|down <n>` – a parallel lane: worktree, database `app_lane<n>`, ports 3000+10n…; tests: `bash scripts/test-hooks.sh`, `bash scripts/test-lane.sh`
 - Single package: `pnpm --filter @repo/ui test`, `pnpm --filter @repo/shell dev`
 
 ## Non-negotiable rules
