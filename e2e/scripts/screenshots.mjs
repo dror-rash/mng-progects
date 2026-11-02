@@ -7,7 +7,7 @@ import { fileURLToPath, URL } from "node:url";
 
 import { chromium, expect } from "@playwright/test";
 
-const BASE = process.env.BASE_URL ?? "http://localhost:3000";
+const BASE = process.env.BASE_URL ?? `http://localhost:${process.env.SHELL_PORT ?? 3000}`;
 const OUT = fileURLToPath(new URL("../screenshots", import.meta.url));
 mkdirSync(OUT, { recursive: true });
 const manifest = [];

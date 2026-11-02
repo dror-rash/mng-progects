@@ -10,7 +10,10 @@
     "BETTER_AUTH_URL",
     "ALLOW_PREVIEW_ORIGINS",
     "EXAMPLE_ZONE_URL",
-    "DASHBOARD_ZONE_URL"
+    "DASHBOARD_ZONE_URL",
+    "SHELL_PORT",
+    "EXAMPLE_PORT",
+    "DASHBOARD_PORT"
   ],
   "tasks": {
     "build": {
