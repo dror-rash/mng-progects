@@ -3,6 +3,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@repo/ui/card";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { deleteAttachmentAction } from "@/features/attachments/actions";
+import { AttachmentUploader } from "@/features/attachments/attachment-uploader";
+import { AttachmentsSection } from "@/features/attachments/attachments-section";
+import { listVisitAttachments } from "@/features/attachments/queries";
 import { AppHeader } from "@/features/layout/app-header";
 import { recordWorkspace } from "@/features/layout/record-workspace";
 import { getProjectForUser } from "@/features/projects/queries";
@@ -26,7 +30,10 @@ export default async function VisitPage({ params }: { params: Promise<{ projectI
   if (!project || !visit) {
     notFound();
   }
-  const site = project.siteId ? await getSiteForUser(session.user.id, project.siteId) : null;
+  const [site, attachments] = await Promise.all([
+    project.siteId ? getSiteForUser(session.user.id, project.siteId) : null,
+    listVisitAttachments(session.user.id, project.id, visit.id),
+  ]);
 
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
@@ -94,6 +101,13 @@ export default async function VisitPage({ params }: { params: Promise<{ projectI
             )}
           </CardContent>
         </Card>
+        <AttachmentsSection
+          projectId={project.id}
+          items={attachments}
+          showVisits={false}
+          uploader={project.canWork ? <AttachmentUploader visitId={visit.id} /> : undefined}
+          deleteAction={project.canWork ? deleteAttachmentAction : undefined}
+        />
       </main>
     </div>
   );

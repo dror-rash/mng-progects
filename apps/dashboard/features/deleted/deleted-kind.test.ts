@@ -40,6 +40,7 @@ describe("DELETED_KINDS", () => {
       "site:Site",
       "site_contact:Site contact",
       "visit:Visit",
+      "attachment:Photo or file",
     ]);
   });
 });

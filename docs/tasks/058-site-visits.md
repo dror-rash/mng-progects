@@ -1,6 +1,6 @@
 # Task 058: Site visits (online)
 
-- **Status:** in-review
+- **Status:** done (PR #39)
 - **Milestone:** M13 Sites & Field Data (POC lane: 056 → 058 → 059)
 - **Zone / package:** `packages/db`, `apps/dashboard`, `e2e`
 - **Feature file:** `docs/features/site-visits.feature`

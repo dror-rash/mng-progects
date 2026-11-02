@@ -19,7 +19,7 @@ The POC must run on the internet, not just on a laptop. Row-level security has n
 
   No custom domain: the shell's `run.app` URL is the app's origin.
 - **Agent (`infra`):**
-  - **Terraform:** a `dashboard` Cloud Run service if it's missing, and the GCS bucket for task 057 (planned in M13).
+  - **Terraform:** a `dashboard` Cloud Run service if it's missing, and the GCS bucket for task 057 (planned in M13). The bucket's CORS must allow `PUT` and `GET` from the shell's origin with the headers `Content-Type` and `x-goog-if-generation-match` (task 059's uploads send both), and the runtime service account needs to sign URLs (`roles/iam.serviceAccountTokenCreator` on itself).
   - **Logs:** a log exclusion for invite-link paths (task 028 parking lot).
   - **Artifact Registry:** a cleanup policy that keeps the images that running revisions use.
   - **`deploy.yml`:** deploys all three zones and builds the shell with both zone URLs.

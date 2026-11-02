@@ -27,5 +27,6 @@ Reproduce with `--repeat-each=5` on the feature, read the traces (`trace: retain
 
 ## Progress log
 - 2026-11-02 – Drafted from the task 053 verification run.
+- 2026-11-02 – Seen again on task 059: "My tasks lists tasks from every workspace I'm in…" fails even on its own against dev servers. The whole scenario (two workspaces, two projects, two assignments) hits Playwright's 30s test timeout while going back to the board; project pages now load visits, photos and the crew too. Look at the per-test timeout for long scenarios, or at making the steps lighter.
 
 ## Parking lot

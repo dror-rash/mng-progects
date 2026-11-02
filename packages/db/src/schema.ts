@@ -11,6 +11,7 @@ import {
   date,
   foreignKey,
   index,
+  integer,
   numeric,
   pgTable,
   pgView,
@@ -292,6 +293,44 @@ export const siteVisitMember = pgTable(
       .references(() => user.id, { onDelete: "cascade" }),
   },
   (table) => [primaryKey({ columns: [table.visitId, table.userId] }), index("site_visit_member_user_idx").on(table.userId)],
+);
+
+/**
+ * A photo or file on a project, or on one of its visits (task 059, ADR-0008). The bytes live in object
+ * storage (`@repo/storage`) under `storage_key`; this row is the metadata. The id comes from the browser.
+ * Unconfirmed (`confirmed_at` null) until the server has checked the stored object's size and type.
+ */
+export const attachment = pgTable(
+  "attachment",
+  {
+    id: text("id").primaryKey(),
+    workspaceId: text("workspace_id")
+      .notNull()
+      .references(() => workspace.id, { onDelete: "cascade" }),
+    projectId: text("project_id")
+      .notNull()
+      .references(() => project.id, { onDelete: "cascade" }),
+    visitId: text("visit_id").references(() => siteVisit.id, { onDelete: "cascade" }),
+    /** `photo` or `file` (features/attachments/attachment-kind.ts); `report` with task 064. */
+    kind: text("kind").notNull(),
+    storageKey: text("storage_key").notNull().unique(),
+    fileName: text("file_name").notNull(),
+    contentType: text("content_type").notNull(),
+    sizeBytes: integer("size_bytes").notNull(),
+    uploadedBy: text("uploaded_by").references(() => user.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    confirmedAt: timestamp("confirmed_at"),
+    /** When it was taken or added on the device; the server's time for uploads made online. */
+    recordedAt: timestamp("recorded_at").notNull().defaultNow(),
+    deletedAt: timestamp("deleted_at"),
+    deletedBy: text("deleted_by").references(() => user.id, { onDelete: "set null" }),
+  },
+  (table) => [
+    index("attachment_project_idx").on(table.projectId, table.createdAt),
+    index("attachment_visit_idx").on(table.visitId),
+    check("attachment_kind_check", sql`${table.kind} in ('photo', 'file', 'report')`),
+    check("attachment_size_check", sql`${table.sizeBytes} >= 0`),
+  ],
 );
 
 export const task = pgTable("task", {
