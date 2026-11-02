@@ -1,6 +1,6 @@
 import { and, desc, eq, getDb, getTableColumns, isNull, schema, withAccess } from "@repo/db";
 
-import { canChangeProject, canSeeProject } from "@/features/access/predicates";
+import { canChangeProject, canSeeProject, canWorkOnProject } from "@/features/access/predicates";
 import { inCompanyGroup } from "@/features/organizations/queries";
 
 /** Join condition: the project's customer in `customer_name` (its own workspace's only). */
@@ -21,8 +21,8 @@ function selectWithCustomer() {
 }
 
 /**
- * The project with its customer's name and whether `userId` may change it, only if they can see it
- * (ADR-0006). Not deleted ones.
+ * The project with its customer's name, whether `userId` may change it and whether they may work on its
+ * tasks (task 056), only if they can see it (ADR-0006). Not deleted ones.
  */
 export async function getProjectForUser(userId: string, projectId: string) {
   const [project] = await withAccess(userId, () =>
@@ -31,6 +31,7 @@ export async function getProjectForUser(userId: string, projectId: string) {
         ...getTableColumns(schema.project),
         customerName: schema.customerName.label,
         canChange: canChangeProject(userId, schema.project.id),
+        canWork: canWorkOnProject(userId, schema.project.id),
       })
       .from(schema.project)
       .leftJoin(schema.customerName, projectCustomerName)

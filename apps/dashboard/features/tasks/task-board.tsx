@@ -45,8 +45,9 @@ type TaskBoardProps = {
   today: string;
   /** Saves a task's status: `projectId`, `taskId`, `status`. Also the "Move to" forms' action, so they work without JavaScript. */
   moveAction: TaskAction;
-  deleteAction: TaskAction;
-  /** Lists the tasks without drag handles, Move to or Delete (for people who can't change the project). */
+  /** Without it, no Delete task (workers move and edit tasks but don't delete them, task 056). */
+  deleteAction?: TaskAction;
+  /** Lists the tasks without drag handles, Move to or Delete (for people who can't work on the project). */
   readOnly?: boolean;
 };
 
@@ -208,7 +209,7 @@ type BoardCardProps = {
   draggable: boolean;
   readOnly: boolean;
   moveAction: TaskAction;
-  deleteAction: TaskAction;
+  deleteAction?: TaskAction;
 };
 
 function BoardCard({ task, status, projectId, today, draggable, readOnly, moveAction, deleteAction }: BoardCardProps) {
@@ -270,13 +271,15 @@ function BoardCard({ task, status, projectId, today, draggable, readOnly, moveAc
                 </Button>
               </form>
             ))}
-            <form action={deleteAction}>
-              <input type="hidden" name="projectId" value={projectId} />
-              <input type="hidden" name="taskId" value={task.id} />
-              <Button type="submit" variant="ghost" size="sm">
-                Delete task
-              </Button>
-            </form>
+            {deleteAction && (
+              <form action={deleteAction}>
+                <input type="hidden" name="projectId" value={projectId} />
+                <input type="hidden" name="taskId" value={task.id} />
+                <Button type="submit" variant="ghost" size="sm">
+                  Delete task
+                </Button>
+              </form>
+            )}
           </CardContent>
         )}
       </Card>

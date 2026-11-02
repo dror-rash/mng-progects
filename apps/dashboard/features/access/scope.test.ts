@@ -7,6 +7,10 @@ describe("canChange", () => {
     expect(canChange("auditor")).toBe(false);
   });
 
+  it("is false for a worker, who works on their crew's tasks but creates no projects", () => {
+    expect(canChange("worker")).toBe(false);
+  });
+
   it("is true for admins and partners", () => {
     expect(canChange("admin")).toBe(true);
     expect(canChange("partner")).toBe(true);
@@ -18,6 +22,7 @@ describe("canChangeCustomers", () => {
     expect(canChangeCustomers("admin")).toBe(true);
     expect(canChangeCustomers("auditor")).toBe(false);
     expect(canChangeCustomers("partner")).toBe(false);
+    expect(canChangeCustomers("worker")).toBe(false);
   });
 });
 
@@ -26,6 +31,7 @@ describe("canSeePartners", () => {
     expect(canSeePartners("admin")).toBe(true);
     expect(canSeePartners("auditor")).toBe(true);
     expect(canSeePartners("partner")).toBe(false);
+    expect(canSeePartners("worker")).toBe(false);
   });
 });
 
@@ -34,6 +40,7 @@ describe("canSeeCustomers", () => {
     expect(canSeeCustomers("admin")).toBe(true);
     expect(canSeeCustomers("auditor")).toBe(true);
     expect(canSeeCustomers("partner")).toBe(false);
+    expect(canSeeCustomers("worker")).toBe(false);
   });
 });
 
@@ -42,6 +49,7 @@ describe("canSeeDeleted", () => {
     expect(canSeeDeleted("admin")).toBe(true);
     expect(canSeeDeleted("auditor")).toBe(true);
     expect(canSeeDeleted("partner")).toBe(false);
+    expect(canSeeDeleted("worker")).toBe(false);
   });
 });
 
@@ -50,5 +58,6 @@ describe("canRestore", () => {
     expect(canRestore("admin")).toBe(true);
     expect(canRestore("auditor")).toBe(false);
     expect(canRestore("partner")).toBe(false);
+    expect(canRestore("worker")).toBe(false);
   });
 });

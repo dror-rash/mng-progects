@@ -86,7 +86,7 @@ export const workspaceMember = pgTable(
     userId: text("user_id")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
-    /** `admin`, `auditor` or `partner` (features/access/roles.ts, ADR-0006). */
+    /** `admin`, `auditor`, `worker` (task 056, ADR-0008) or `partner` (features/access/roles.ts, ADR-0006). */
     role: text("role").notNull().default("admin"),
     /** The partner company of a `partner` membership; set exactly then. A partner of the same workspace. */
     partnerId: text("partner_id"),
@@ -101,7 +101,7 @@ export const workspaceMember = pgTable(
       columns: [table.partnerId, table.workspaceId],
       foreignColumns: [partner.id, partner.workspaceId],
     }),
-    check("workspace_member_role_check", sql`${table.role} in ('admin', 'auditor', 'partner')`),
+    check("workspace_member_role_check", sql`${table.role} in ('admin', 'auditor', 'worker', 'partner')`),
     check("workspace_member_partner_check", sql`(${table.role} = 'partner') = (${table.partnerId} is not null)`),
   ],
 );
@@ -176,7 +176,7 @@ export const workspaceInvite = pgTable(
       columns: [table.partnerId, table.workspaceId],
       foreignColumns: [partner.id, partner.workspaceId],
     }),
-    check("workspace_invite_role_check", sql`${table.role} in ('admin', 'auditor', 'partner')`),
+    check("workspace_invite_role_check", sql`${table.role} in ('admin', 'auditor', 'worker', 'partner')`),
     check("workspace_invite_partner_check", sql`(${table.role} = 'partner') = (${table.partnerId} is not null)`),
   ],
 );
@@ -226,6 +226,33 @@ export const project = pgTable("project", {
   check("project_partner_customer_check", sql`${table.visibility} <> 'partner' or ${table.organizationId} is not null`),
   check("project_status_check", sql`${table.lifecycle} in ('active', 'canceled')`),
 ]);
+
+/**
+ * A project's crew (task 056, ADR-0008): the workers who see the project and work on its tasks. The member
+ * key ties each row to a membership of the project's workspace, so leaving the workspace leaves the crews;
+ * a trigger keeps the member a worker of the project's own workspace (migration 0029).
+ */
+export const projectWorker = pgTable(
+  "project_worker",
+  {
+    projectId: text("project_id")
+      .notNull()
+      .references(() => project.id, { onDelete: "cascade" }),
+    userId: text("user_id").notNull(),
+    workspaceId: text("workspace_id").notNull(),
+    addedBy: text("added_by").references(() => user.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.projectId, table.userId] }),
+    index("project_worker_member_idx").on(table.workspaceId, table.userId),
+    foreignKey({
+      name: "project_worker_member_fk",
+      columns: [table.workspaceId, table.userId],
+      foreignColumns: [workspaceMember.workspaceId, workspaceMember.userId],
+    }).onDelete("cascade"),
+  ],
+);
 
 export const task = pgTable("task", {
   id: text("id").primaryKey(),

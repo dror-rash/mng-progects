@@ -9,7 +9,7 @@ import { type FormState, invalid } from "@/features/forms/form-state";
 import { isCustomerChoice } from "@/features/organizations/customer-names";
 import { isAssignable } from "@/features/workspaces/members";
 import { revalidateOverviews } from "@/features/projects/revalidate";
-import { requireProjectAccess } from "@/features/projects/require-project-access";
+import { requireProjectAccess, requireProjectWorkAccess } from "@/features/projects/require-project-access";
 
 import { nextCompletedAt } from "./activity";
 import { parseTaskInput } from "./task-input";
@@ -51,12 +51,14 @@ async function refusal(project: Project, organizationId: string | null | undefin
   return null;
 }
 
-/** Runs `fn` as the signed-in user with the project of the form, if they can change it. */
-async function withProject<T>(formData: FormData, fn: (project: Project) => Promise<T>) {
+/**
+ * Runs `fn` as the signed-in user with the project of the form, if they can work on it (add, edit and move
+ * tasks: also its crew's workers, task 056), or with `change`, if they can change it (delete tasks).
+ */
+async function withProject<T>(formData: FormData, fn: (project: Project) => Promise<T>, need: "work" | "change" = "work") {
   const session = await requireActionSession();
-  return withAccess(session.user.id, async () =>
-    fn(await requireProjectAccess(session.user.id, String(formData.get("projectId") ?? ""))),
-  );
+  const require = need === "change" ? requireProjectAccess : requireProjectWorkAccess;
+  return withAccess(session.user.id, async () => fn(await require(session.user.id, String(formData.get("projectId") ?? ""))));
 }
 
 export async function createTaskAction(_prev: FormState, formData: FormData): Promise<FormState> {
@@ -130,10 +132,14 @@ async function softDeleteTask(formData: FormData, project: Project) {
 }
 
 export async function deleteTaskAction(formData: FormData) {
-  const projectId = await withProject(formData, async (project) => {
-    await softDeleteTask(formData, project);
-    return project.id;
-  });
+  const projectId = await withProject(
+    formData,
+    async (project) => {
+      await softDeleteTask(formData, project);
+      return project.id;
+    },
+    "change",
+  );
   revalidateProject(projectId);
 }
 
@@ -177,10 +183,14 @@ export async function updateTaskAction(_prev: FormState, formData: FormData): Pr
 
 /** Delete from the task's own page, then go back to the board. */
 export async function deleteTaskFromPageAction(formData: FormData) {
-  const projectId = await withProject(formData, async (project) => {
-    await softDeleteTask(formData, project);
-    return project.id;
-  });
+  const projectId = await withProject(
+    formData,
+    async (project) => {
+      await softDeleteTask(formData, project);
+      return project.id;
+    },
+    "change",
+  );
   revalidateProject(projectId);
   redirect(`/projects/${projectId}`);
 }

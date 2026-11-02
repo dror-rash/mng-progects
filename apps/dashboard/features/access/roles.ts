@@ -1,7 +1,11 @@
-/** Roles per workspace membership (ADR-0006). A `partner` membership also names a partner company. */
+/**
+ * Roles per workspace membership (ADR-0006). A `partner` membership also names a partner company. A
+ * `worker` is an internal technician who sees only the projects whose crew they're on (task 056, ADR-0008).
+ */
 export const WORKSPACE_ROLES = [
   { role: "admin", label: "Admin" },
   { role: "auditor", label: "Auditor" },
+  { role: "worker", label: "Worker" },
   { role: "partner", label: "Partner" },
 ] as const;
 
@@ -18,18 +22,18 @@ export type AssignableRole = Exclude<WorkspaceRole, "partner">;
 
 export function parseAssignableRole(value: unknown): AssignableRole | null {
   const role = parseWorkspaceRole(value);
-  return role === "admin" || role === "auditor" ? role : null;
+  return role && role !== "partner" ? role : null;
 }
 
 /**
- * What an admin chooses for an invite link or a member (one select): Admin, Auditor, or a partner
+ * What an admin chooses for an invite link or a member (one select): Admin, Auditor, Worker, or a partner
  * company's user. The server still checks that the partner is one of the workspace's.
  */
 export type RoleChoice = { role: AssignableRole; partnerId: null } | { role: "partner"; partnerId: string };
 
 const PARTNER_PREFIX = "partner:";
 
-/** The select option value for a role: `admin`, `auditor` or `partner:<partner id>`. */
+/** The select option value for a role: `admin`, `auditor`, `worker` or `partner:<partner id>`. */
 export function roleChoiceValue(role: string, partnerId: string | null): string {
   return role === "partner" && partnerId ? `${PARTNER_PREFIX}${partnerId}` : role;
 }

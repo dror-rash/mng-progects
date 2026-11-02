@@ -67,6 +67,10 @@ When("I move the task {string} to {string}", async ({ page }, title: string, sta
 When("I drag the task {string} to the {string} column", async ({ page }, title: string, column: string) => {
   const handle = taskCard(page, title).getByRole("button", { name: `Drag ${title}` });
   await expect(handle).toBeVisible();
+  // The mouse doesn't scroll: bring the card and the column (side by side) into view first.
+  await handle.scrollIntoViewIfNeeded();
+  await page.getByRole("region", { name: column }).scrollIntoViewIfNeeded();
+  await handle.scrollIntoViewIfNeeded();
   const from = (await handle.boundingBox())!;
   const to = (await page.getByRole("region", { name: column }).boundingBox())!;
 
