@@ -190,6 +190,13 @@
       "when": 1793622487086,
       "tag": "0026_customer_groups",
       "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1793625363072,
+      "tag": "0027_sites",
+      "breakpoints": true
     }
   ]
 }

@@ -87,4 +87,16 @@ describe("buildDemoPlan", () => {
     }
     expect(group!.projects.some((p) => p.subCompany === null)).toBe(true);
   });
+
+  it("gives every customer a site with someone to meet there, and each sub-company one too (task 054)", () => {
+    for (const customer of plan) {
+      expect(customer.sites.length).toBeGreaterThan(0);
+      expect(customer.sites.every((site) => site.contacts.length > 0)).toBe(true);
+      for (const sub of customer.subCompanies) {
+        expect(sub.sites.length).toBeGreaterThan(0);
+      }
+    }
+    const coordinates = plan.flatMap((c) => c.sites).filter((site) => site.latitude !== null);
+    expect(coordinates.length).toBeGreaterThan(0);
+  });
 });

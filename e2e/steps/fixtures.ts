@@ -7,6 +7,7 @@ export type Account = { email: string; password: string };
 export type ScenarioState = {
   otherUsersProjectUrl?: string;
   otherUsersCustomerUrl?: string;
+  otherUsersSiteUrl?: string;
   dueDate?: string;
   inviteLink?: string;
   teammate?: Page;

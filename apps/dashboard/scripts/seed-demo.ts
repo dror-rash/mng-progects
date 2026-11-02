@@ -83,6 +83,20 @@ async function main(): Promise<number> {
         .where(eq(schema.organization.id, organizationId));
       await tx.insert(schema.organizationNote).values(customer.notes.map((n) => ({ id: id(), organizationId, authorId: user.id, ...n })));
 
+      /** Sites with their on-site contacts (task 054); deleted with their customer on a rerun. */
+      // Read before the helper: narrowing doesn't carry into a nested function.
+      const createdBy = user.id;
+      const siteWorkspaceId = workspaceId;
+      async function insertSites(siteOrganizationId: string, sites: typeof customer.sites) {
+        for (const site of sites) {
+          const siteId = id();
+          const { contacts: siteContacts, ...fields } = site;
+          await tx.insert(schema.site).values({ id: siteId, workspaceId: siteWorkspaceId, organizationId: siteOrganizationId, createdBy, ...fields });
+          await tx.insert(schema.siteContact).values(siteContacts.map((c) => ({ id: id(), siteId, ...c })));
+        }
+      }
+      await insertSites(organizationId, customer.sites);
+
       // Sub-companies (task 053) carry the demo tag too, so a rerun replaces them with their parent.
       const subCompanyIds = new Map<string, string>();
       for (const sub of customer.subCompanies) {
@@ -100,6 +114,7 @@ async function main(): Promise<number> {
           about: sub.about,
           tags: [DEMO_TAG],
         });
+        await insertSites(subId, sub.sites);
       }
 
       for (const project of customer.projects) {
@@ -140,7 +155,7 @@ async function main(): Promise<number> {
   const projects = plan.reduce((n, c) => n + c.projects.length, 0);
   const tasks = plan.reduce((n, c) => n + c.projects.reduce((m, p) => m + p.tasks.length, 0), 0);
   const workspaceName = memberships.find((m) => m.workspaceId === workspaceId)!.name;
-  console.log(`Seeded "${workspaceName}": ${plan.length} customers (+${plan.reduce((n, c) => n + c.subCompanies.length, 0)} sub-companies), ${projects} projects, ${tasks} tasks${removed ? ` (replaced ${removed} demo customers)` : ""}.`);
+  console.log(`Seeded "${workspaceName}": ${plan.length} customers (+${plan.reduce((n, c) => n + c.subCompanies.length, 0)} sub-companies), ${plan.reduce((n, c) => n + c.sites.length + c.subCompanies.reduce((m, s) => m + s.sites.length, 0), 0)} sites, ${projects} projects, ${tasks} tasks${removed ? ` (replaced ${removed} demo customers)` : ""}.`);
   return 0;
 }
 

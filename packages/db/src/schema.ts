@@ -11,6 +11,7 @@ import {
   date,
   foreignKey,
   index,
+  numeric,
   pgTable,
   pgView,
   primaryKey,
@@ -333,6 +334,65 @@ export const organizationNote = pgTable(
     // The SET NULL when the author is deleted (task 033).
     index("organization_note_author_idx").on(table.authorId),
   ],
+);
+
+/**
+ * A physical site of a customer or sub-company (task 054, ADR-0008): where the work happens. Its customer is
+ * fixed once created; the composite key keeps it in the customer's workspace. Coordinates are both set or
+ * both empty. Admins change sites, auditors read them (`can_see_site` / `can_change_site`, migration 0027).
+ */
+export const site = pgTable(
+  "site",
+  {
+    id: text("id").primaryKey(),
+    workspaceId: text("workspace_id")
+      .notNull()
+      .references(() => workspace.id, { onDelete: "cascade" }),
+    organizationId: text("organization_id").notNull(),
+    name: text("name").notNull(),
+    address: text("address"),
+    /** Gate codes, opening hours, who to report to, safety notes. */
+    accessNotes: text("access_notes"),
+    latitude: numeric("latitude", { precision: 9, scale: 6 }),
+    longitude: numeric("longitude", { precision: 9, scale: 6 }),
+    createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+    deletedAt: timestamp("deleted_at"),
+    deletedBy: text("deleted_by").references(() => user.id, { onDelete: "set null" }),
+  },
+  (table) => [
+    index("site_organization_idx").on(table.organizationId),
+    index("site_workspace_idx").on(table.workspaceId),
+    foreignKey({
+      name: "site_organization_fk",
+      columns: [table.organizationId, table.workspaceId],
+      foreignColumns: [organization.id, organization.workspaceId],
+    }).onDelete("cascade"),
+    check("site_coordinates_both_or_neither", sql`(${table.latitude} is null) = (${table.longitude} is null)`),
+    check("site_latitude_range", sql`${table.latitude} between -90 and 90`),
+    check("site_longitude_range", sql`${table.longitude} between -180 and 180`),
+  ],
+);
+
+/** People to meet at a site (task 054): separate from the customer's contacts. */
+export const siteContact = pgTable(
+  "site_contact",
+  {
+    id: text("id").primaryKey(),
+    siteId: text("site_id")
+      .notNull()
+      .references(() => site.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    role: text("role"),
+    phone: text("phone"),
+    email: text("email"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+    deletedAt: timestamp("deleted_at"),
+    deletedBy: text("deleted_by").references(() => user.id, { onDelete: "set null" }),
+  },
+  (table) => [index("site_contact_site_idx").on(table.siteId, table.createdAt)],
 );
 
 /**

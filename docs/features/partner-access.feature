@@ -210,3 +210,24 @@ Feature: Partner access: a partner's user sees only their own partner's work
     And I open "/dashboard/projects"
     Then the projects shown are "NW Site"
     And the admin sees the "NW Store" project
+
+  # Task 054: sites are for admins and auditors; partners see the sites of their own projects with task 055.
+  @task:054
+  Scenario: I can't open a customer's site
+    Given the customer "Acme Ltd" has the site "Acme HQ" with the contact "Yossi Mizrahi"
+    When I open the address of the site "Acme HQ"
+    Then I see "Site not found", the same as for a made-up site address
+    And the page shows none of "Acme HQ, Yossi Mizrahi"
+
+  @task:054
+  Scenario: An auditor sees a site and its contacts but can't change them
+    Given the customer "Acme Ltd" has the site "Acme HQ" with the contact "Yossi Mizrahi"
+    When the auditor opens the address of the site "Acme HQ"
+    Then the auditor sees the text "Yossi Mizrahi"
+    And the auditor sees no "Edit site" link on the site "Acme HQ"
+    And the auditor sees no "Delete site" link on the site "Acme HQ"
+    And the auditor sees no "Add contact" button on the site "Acme HQ"
+    When the auditor opens the "Acme Ltd" customer page
+    Then the auditor sees the text "Acme HQ"
+    And the auditor sees no "New site" link on the "Acme Ltd" customer page
+

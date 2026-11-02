@@ -28,6 +28,16 @@ export function canChangeCustomer(userId: string, orgId: AnyColumn) {
   return sql<boolean>`can_change_customer(${userId}, ${orgId})`;
 }
 
+/** `userId` can see the site in `siteId` and its contacts (admins and auditors; task 055 adds project sites). */
+export function canSeeSite(userId: string, siteId: AnyColumn) {
+  return sql<boolean>`can_see_site(${userId}, ${siteId})`;
+}
+
+/** `userId` can change the site in `siteId` and its contacts (admins only). */
+export function canChangeSite(userId: string, siteId: AnyColumn) {
+  return sql<boolean>`can_change_site(${userId}, ${siteId})`;
+}
+
 /**
  * `userId` has one of `roles` in the workspace in `workspaceId` (`has_workspace_role`; a deleted
  * partner's users have none). Partner companies are seen by admins and auditors and changed by admins.
