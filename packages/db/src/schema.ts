@@ -254,6 +254,46 @@ export const projectWorker = pgTable(
   ],
 );
 
+/**
+ * A visit to a project's site (task 058, ADR-0008): when, who was there, what was found. The id comes from
+ * the browser (a UUID), so sending the same visit twice records it once; offline sync (task 063) reuses it.
+ * The site is the project's. Soft-deleted; restored by admins.
+ */
+export const siteVisit = pgTable(
+  "site_visit",
+  {
+    id: text("id").primaryKey(),
+    projectId: text("project_id")
+      .notNull()
+      .references(() => project.id, { onDelete: "cascade" }),
+    /** A calendar day (like task due dates): `date`, read as "YYYY-MM-DD". */
+    visitedOn: date("visited_on", { mode: "string" }).notNull(),
+    notes: text("notes"),
+    createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+    /** When it was recorded on the device; the server's time for visits recorded online. */
+    recordedAt: timestamp("recorded_at").notNull().defaultNow(),
+    deletedAt: timestamp("deleted_at"),
+    deletedBy: text("deleted_by").references(() => user.id, { onDelete: "set null" }),
+  },
+  (table) => [index("site_visit_project_idx").on(table.projectId, table.visitedOn)],
+);
+
+/** The people who were at a visit (task 058): users who could work on the project. */
+export const siteVisitMember = pgTable(
+  "site_visit_member",
+  {
+    visitId: text("visit_id")
+      .notNull()
+      .references(() => siteVisit.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+  },
+  (table) => [primaryKey({ columns: [table.visitId, table.userId] }), index("site_visit_member_user_idx").on(table.userId)],
+);
+
 export const task = pgTable("task", {
   id: text("id").primaryKey(),
   projectId: text("project_id")

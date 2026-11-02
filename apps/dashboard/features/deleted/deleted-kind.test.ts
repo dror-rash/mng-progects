@@ -39,6 +39,7 @@ describe("DELETED_KINDS", () => {
       "partner:Partner",
       "site:Site",
       "site_contact:Site contact",
+      "visit:Visit",
     ]);
   });
 });
