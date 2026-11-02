@@ -1,4 +1,4 @@
-@zone:dashboard @task:059 @wip
+@zone:dashboard @task:059
 Feature: Photos and files
   As someone who works at a project's site
   I want to add photos and files to the project or to a visit
