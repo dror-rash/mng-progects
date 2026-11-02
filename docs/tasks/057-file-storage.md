@@ -1,6 +1,6 @@
 # Task 057: File storage foundation
 
-- **Status:** in-progress
+- **Status:** in-review
 - **Milestone:** M13 Sites & Field Data
 - **Zone / package:** new `packages/storage` (`@repo/storage`), `docker-compose.yml`, `.env.example`, `.github/workflows/ci.yml`
 - **Feature file:** none. Nothing a user sees changes; task 059 (photos and files) adds `attachments.feature` and the first screens. This task is tested by the package's tests against a real local storage server.
@@ -28,12 +28,12 @@ Photos, files and reports need a home that isn't Postgres, reachable from phones
 - Shrinking photos in the browser, file limits and retention (open question 3; parking lot).
 
 ## Acceptance criteria
-- [ ] A file uploaded with a URL from `createUploadUrl` can be read back with a URL from `createDownloadUrl`, against the local server.
-- [ ] An upload with another content type than the URL was signed for is refused.
-- [ ] `stat` reports the uploaded size and type, and null for a missing key; `remove` deletes, and removing a missing key succeeds.
-- [ ] Download URLs carry the file name when given.
-- [ ] Expired URLs are refused (a URL signed for 1 second, used after it expires).
-- [ ] The storage tests run in CI.
+- [x] A file uploaded with a URL from `createUploadUrl` can be read back with a URL from `createDownloadUrl`, against the local server.
+- [x] An upload with another content type than the URL was signed for is refused.
+- [x] `stat` reports the uploaded size and type, and null for a missing key; `remove` deletes, and removing a missing key succeeds.
+- [x] Download URLs carry the file name when given.
+- [x] Expired URLs are refused (a URL signed for 1 second, used after it expires).
+- [x] The storage tests run in CI.
 
 ## Approach (brief)
 - Test first: `packages/storage/src/storage.storage.test.ts` (against the fake server, like the DB tests) and unit tests for `objectKey` and config parsing.
