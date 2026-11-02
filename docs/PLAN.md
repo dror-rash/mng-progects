@@ -42,7 +42,7 @@ Build a modern, full-stack Project Management application on a Next.js multi-zon
    - 057 storage → 060 form templates → 061 readings → 064 uploaded reports.
 3. 069: the `@poc` flow against the deployed preview.
 
-M13 tasks 062, 063 and 065 continue after the POC. Task 055 is in review (PR #35).
+M13 tasks 062, 063 and 065 continue after the POC.
 
 ## Risks & open questions
 - Invite tokens will appear in Cloud Run / load balancer request logs until a log exclusion is added in `infra/` (task 028 parking lot; do it with M11).

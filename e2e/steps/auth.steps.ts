@@ -2,7 +2,7 @@ import { expect } from "@playwright/test";
 
 import { Given, Then, When } from "./fixtures";
 
-const origin = process.env.BASE_URL ?? "http://localhost:3000";
+const origin = process.env.BASE_URL ?? `http://localhost:${process.env.SHELL_PORT ?? 3000}`;
 
 // `request` is a separate cookie jar from `page`, so registering doesn't sign the browser in.
 Given("an existing account", async ({ request, account }) => {

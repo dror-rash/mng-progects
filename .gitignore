@@ -19,3 +19,4 @@ infra/backend.hcl
 e2e/screenshots
 next-env.d.ts
 *.tsbuildinfo
+.claude/settings.local.json
