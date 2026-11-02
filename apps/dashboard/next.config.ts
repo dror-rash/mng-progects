@@ -8,7 +8,7 @@ loadEnvConfig(path.join(__dirname, "../../"), process.env.NODE_ENV !== "producti
 const config: NextConfig = {
   output: "standalone",
   outputFileTracingRoot: path.join(__dirname, "../../"),
-  transpilePackages: ["@repo/ui", "@repo/auth", "@repo/db"],
+  transpilePackages: ["@repo/ui", "@repo/auth", "@repo/db", "@repo/storage"],
   // basePath puts pages AND assets (/dashboard/_next/...) under one prefix, so the shell
   // only needs a single rewrite pair and assets never collide with other zones.
   basePath: "/dashboard",

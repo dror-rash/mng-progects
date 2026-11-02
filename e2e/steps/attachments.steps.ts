@@ -1,3 +1,7 @@
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
 import { expect, type Page } from "@playwright/test";
 import { sql } from "@repo/db";
 import { getMaintenanceDb } from "@repo/db/maintenance";
@@ -28,10 +32,13 @@ function fileOf(name: string, size?: number) {
 
 const section = (page: Page) => page.getByRole("region", { name: "Photos and files", exact: true });
 
-/** Picks the file with the hidden input behind the button, then waits for the upload to settle. */
-async function addFile(page: Page, button: string, file: ReturnType<typeof fileOf>) {
+/** The upload error under the buttons (Next.js also renders an empty role="alert" announcer). */
+const uploadError = (page: Page) => page.getByRole("alert").filter({ hasText: /\S/ });
+
+/** Picks the file (or a file on disk) with the hidden input behind the button, then waits for the upload to settle. */
+async function addFile(page: Page, button: string, file: ReturnType<typeof fileOf> | string) {
   await page.getByLabel(button, { exact: true }).setInputFiles(file);
-  await expect(page.getByRole("status").filter({ hasText: /^(Added|Couldn't add)/ }).or(page.getByRole("alert")).first()).toBeVisible();
+  await expect(page.getByRole("status").filter({ hasText: /^Added/ }).or(uploadError(page)).first()).toBeVisible();
 }
 
 When("I add the photo {string} with {string}", async ({ page }, name: string, button: string) => {
@@ -43,8 +50,16 @@ When("I add the file {string} with {string}", async ({ page }, name: string, but
   await addFile(page, button, fileOf(name));
 });
 
+// Playwright hands files over 50 MB to the browser only from disk.
 When("I add a {int} MB file {string} with {string}", async ({ page }, mb: number, name: string, button: string) => {
-  await addFile(page, button, fileOf(name, mb * 1024 * 1024));
+  const dir = await mkdtemp(join(tmpdir(), "e2e-upload-"));
+  const path = join(dir, name);
+  try {
+    await writeFile(path, Buffer.alloc(mb * 1024 * 1024, 1));
+    await addFile(page, button, path);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
 });
 
 Then("the {string} section shows the photo {string}", async ({ page }, region: string, name: string) => {
@@ -113,8 +128,6 @@ Then("it is not found, the same as a made-up photo address", async ({ page, stat
   expect(await real.text()).toBe(await madeUp.text());
 });
 
-/** The upload error under the buttons. */
-const uploadError = (page: Page) => page.getByRole("alert");
 
 When(
   "I start an upload on {string} with the project id of {string}",

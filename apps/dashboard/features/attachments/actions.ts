@@ -1,0 +1,147 @@
+"use server";
+
+import { and, eq, getDb, isNull, schema, sql, withAccess } from "@repo/db";
+import { createUploadUrl, objectKey, remove, stat } from "@repo/storage";
+import { revalidatePath } from "next/cache";
+
+import { requireActionSession } from "@/features/auth/require-session";
+import { cleanText } from "@/features/forms/clean-text";
+import { requireProjectWorkAccess } from "@/features/projects/require-project-access";
+import { getProjectVisit } from "@/features/visits/queries";
+
+import { parseAttachmentKind, uploadRefusal } from "./attachment-limits";
+
+// Photos and files (task 059). The browser uploads straight to storage: `startUploadAction` checks access
+// and the limits, records the upload (unconfirmed) and signs a URL; the browser sends the file; then
+// `finishUploadAction` checks the stored object and confirms it, or throws it away. Access problems (another
+// partner's project, a made-up id, someone else's upload) throw the same not-found error; the limits come
+// back as a message to show.
+
+export type UploadStart = { ok: true; uploadUrl: string } | { ok: false; error: string };
+export type UploadFinish = { ok: true } | { ok: false; error: string };
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+const MAX_NAME = 200;
+
+function revalidateProject(projectId: string) {
+  revalidatePath(`/projects/${projectId}`, "layout");
+  revalidatePath("/deleted");
+}
+
+export async function startUploadAction(input: {
+  attachmentId: string;
+  projectId: string;
+  visitId: string | null;
+  kind: string;
+  fileName: string;
+  contentType: string;
+  size: number;
+}): Promise<UploadStart> {
+  const session = await requireActionSession();
+  const kind = parseAttachmentKind(input.kind);
+  const fileName = cleanText(input.fileName).slice(0, MAX_NAME);
+  if (!kind || !UUID.test(String(input.attachmentId)) || !fileName) {
+    throw new Error("Not found");
+  }
+  const key = await withAccess(session.user.id, async (): Promise<{ refusal: string } | { storageKey: string; contentType: string }> => {
+    const project = await requireProjectWorkAccess(session.user.id, String(input.projectId));
+    if (input.visitId && !(await getProjectVisit(session.user.id, project.id, String(input.visitId)))) {
+      throw new Error("Not found");
+    }
+    const refusal = uploadRefusal(kind, String(input.contentType), Number(input.size));
+    if (refusal) {
+      return { refusal };
+    }
+    const storageKey = objectKey({ workspaceId: project.workspaceId, projectId: project.id });
+    const contentType = String(input.contentType).toLowerCase();
+    await getDb().insert(schema.attachment).values({
+      id: input.attachmentId,
+      workspaceId: project.workspaceId,
+      projectId: project.id,
+      visitId: input.visitId || null,
+      kind,
+      storageKey,
+      fileName,
+      contentType,
+      sizeBytes: Number(input.size),
+      uploadedBy: session.user.id,
+    });
+    return { storageKey, contentType };
+  });
+  if ("refusal" in key) {
+    return { ok: false, error: key.refusal };
+  }
+  return { ok: true, uploadUrl: await createUploadUrl({ key: key.storageKey, contentType: key.contentType }) };
+}
+
+/**
+ * Confirms the user's own unconfirmed upload once its stored object fits what was asked for (the signed URL
+ * can't limit size). Otherwise removes the object and the record, and says so.
+ */
+export async function finishUploadAction(input: { attachmentId: string }): Promise<UploadFinish> {
+  const session = await requireActionSession();
+  const [upload] = await withAccess(session.user.id, () =>
+    getDb()
+      .select({
+        id: schema.attachment.id,
+        projectId: schema.attachment.projectId,
+        kind: schema.attachment.kind,
+        storageKey: schema.attachment.storageKey,
+        contentType: schema.attachment.contentType,
+        fileName: schema.attachment.fileName,
+      })
+      .from(schema.attachment)
+      .where(
+        and(
+          eq(schema.attachment.id, String(input.attachmentId)),
+          eq(schema.attachment.uploadedBy, session.user.id),
+          isNull(schema.attachment.confirmedAt),
+          isNull(schema.attachment.deletedAt),
+        ),
+      ),
+  );
+  if (!upload) {
+    throw new Error("Not found");
+  }
+  const stored = await stat(upload.storageKey);
+  const kind = parseAttachmentKind(upload.kind)!;
+  const refusal = !stored
+    ? "The upload didn't arrive"
+    : stored.contentType !== upload.contentType
+      ? "The file isn't what it said it was"
+      : uploadRefusal(kind, stored.contentType, stored.size);
+  await withAccess(session.user.id, async () => {
+    if (refusal) {
+      await getDb().delete(schema.attachment).where(eq(schema.attachment.id, upload.id));
+    } else {
+      await getDb()
+        .update(schema.attachment)
+        .set({ confirmedAt: new Date(), sizeBytes: stored!.size })
+        .where(eq(schema.attachment.id, upload.id));
+    }
+  });
+  if (refusal) {
+    await remove(upload.storageKey);
+    return { ok: false, error: refusal };
+  }
+  revalidateProject(upload.projectId);
+  return { ok: true };
+}
+
+/** Soft delete through `delete_attachment` (its uploader or an admin); an admin restores it from Deleted. */
+export async function deleteAttachmentAction(formData: FormData) {
+  const session = await requireActionSession();
+  const projectId = await withAccess(session.user.id, async () => {
+    const project = await requireProjectWorkAccess(session.user.id, String(formData.get("projectId") ?? ""));
+    const attachment = getDb()
+      .select({ id: schema.attachment.id })
+      .from(schema.attachment)
+      .where(and(eq(schema.attachment.id, String(formData.get("attachmentId") ?? "")), eq(schema.attachment.projectId, project.id)));
+    const { rows } = await getDb().execute<{ deleted: boolean }>(sql`select delete_attachment(a.id) as deleted from (${attachment}) a`);
+    if (rows[0]?.deleted !== true) {
+      throw new Error("Not found");
+    }
+    return project.id;
+  });
+  revalidateProject(projectId);
+}

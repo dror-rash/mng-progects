@@ -26,7 +26,7 @@ const restored = { deletedAt: null, deletedBy: null };
  */
 async function restore(userId: string, kind: DeletedKind, id: string): Promise<string | null> {
   const db = getDb();
-  const { project, task, organization, organizationContact: contact, organizationNote: note, partner, site, siteContact, siteVisit: visit } = schema;
+  const { project, task, organization, organizationContact: contact, organizationNote: note, partner, site, siteContact, siteVisit: visit, attachment } = schema;
   const admin = (workspace: Parameters<typeof hasWorkspaceRole>[1]) => hasWorkspaceRole(userId, workspace, ["admin"]);
 
   switch (kind) {
@@ -108,6 +108,18 @@ async function restore(userId: string, kind: DeletedKind, id: string): Promise<s
       if (!row) throw new Error(NOT_FOUND);
       if (row.projectDeletedAt) return "Restore its project first";
       await db.update(visit).set(restored).where(eq(visit.id, id));
+      return null;
+    }
+    case "attachment": {
+      // A photo or file comes back only on a project that isn't deleted (task 059).
+      const [row] = await db
+        .select({ projectDeletedAt: project.deletedAt })
+        .from(attachment)
+        .innerJoin(project, eq(project.id, attachment.projectId))
+        .where(and(eq(attachment.id, id), isNotNull(attachment.deletedAt), admin(project.workspaceId)));
+      if (!row) throw new Error(NOT_FOUND);
+      if (row.projectDeletedAt) return "Restore its project first";
+      await db.update(attachment).set(restored).where(eq(attachment.id, id));
       return null;
     }
     case "partner": {
