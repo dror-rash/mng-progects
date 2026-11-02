@@ -113,3 +113,15 @@ Feature: Site visits
     When I record a visit on "NW Site" with the person id of "Globex User"
     Then I see "Choose who was there from the list", the same as with a made-up id
     And the admin sees no visits on "GX App"
+
+  Scenario: A visit form that reuses another partner's visit id is refused
+    Given a workspace with the partners "Northwind" and "Globex", an admin and an auditor
+    And the customer "Acme Ltd" is assigned to "Northwind" and "Globex"
+    And "Northwind" has the project "NW Site" for "Acme Ltd" with the task "Copy"
+    And "Globex" has the project "GX App" for "Acme Ltd" with the task "Login"
+    And the admin recorded a visit to "GX App" with the notes "Globex secret"
+    And I am signed in as a user of "Northwind"
+    When I record a visit on "NW Site" with the visit id of "Globex secret"
+    Then I see the text "Something went wrong"
+    And the admin sees no visits on "NW Site"
+    And the admin sees the visit "Globex secret" on "GX App"
