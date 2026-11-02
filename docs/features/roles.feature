@@ -30,9 +30,9 @@ Feature: Roles: admins and auditors
     When the auditor posts the edit form of the "Website Redesign" project with the name "Renamed"
     Then the "Website Redesign" project is still named "Website Redesign"
 
-  Scenario: Admins invite admins or auditors
+  Scenario: Admins invite admins, auditors or workers
     When I open "/dashboard/workspace"
-    Then the "Role" select offers "Admin, Auditor" with "Auditor" chosen
+    Then the "Role" select offers "Admin, Auditor, Worker" with "Auditor" chosen
 
   Scenario: A teammate invited as an admin joins as an admin
     Given I create an invite link for the role "Admin"
