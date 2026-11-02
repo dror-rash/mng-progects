@@ -1,6 +1,6 @@
 # Task 058: Site visits (online)
 
-- **Status:** in-progress
+- **Status:** in-review
 - **Milestone:** M13 Sites & Field Data (POC lane: 056 → 058 → 059)
 - **Zone / package:** `packages/db`, `apps/dashboard`, `e2e`
 - **Feature file:** `docs/features/site-visits.feature`
@@ -34,13 +34,13 @@ The work happens at the site, over several visits. A visit is the anchor for eve
 - A visit at another site than the project's.
 
 ## Acceptance criteria
-- [ ] Record a visit with date, people and notes; it shows on its page and in the project's Visits. ("I record a visit…")
-- [ ] Date required, not in the future; someone who was there required. ("A visit needs…")
-- [ ] Newest first. ("Visits are listed newest first")
-- [ ] The same form sent twice records one visit. ("Sending the same visit twice…")
-- [ ] Edit, delete and restore. ("I edit and delete my visit…")
-- [ ] Crew workers record; auditors read only; only the author and admins change a visit. ("A crew worker records…", "Only the visit's author…")
-- [ ] Another partner's visit stays hidden; tampered forms are refused. (last two scenarios)
+- [x] Record a visit with date, people and notes; it shows on its page and in the project's Visits. ("I record a visit…")
+- [x] Date required, not in the future; someone who was there required. ("A visit needs…")
+- [x] Newest first. ("Visits are listed newest first")
+- [x] The same form sent twice records one visit. ("Sending the same visit twice…")
+- [x] Edit, delete and restore. ("I edit and delete my visit…")
+- [x] Crew workers record; auditors read only; only the author and admins change a visit. ("A crew worker records…", "Only the visit's author…")
+- [x] Another partner's visit stays hidden; tampered forms are refused. (last two scenarios)
 
 ## Approach (brief)
 - Migration and DB tests first (`packages/db/src/site-visits.db.test.ts`): who sees, records, edits and deletes; idempotent insert; members follow the visit.
@@ -57,6 +57,8 @@ The work happens at the site, over several visits. A visit is the anchor for eve
 ## Progress log
 - 2026-11-02 – Drafted with the feature file (in review; scenarios `@wip`).
 - 2026-11-02 – Approved. Migration 0031 (`site_visit`, `site_visit_member`, `can_change_visit`, `delete_visit`, policies, a trigger keeping a visit's project and author); `features/visits/` (input, name, queries, actions, form, section with a story); visit pages; visits on the Deleted page. The heading step checks the heading's date (feature-file commit). The date field has no `max`: the browser would block a future date before the server's message. Red: DB (no tables), 9 of 9 e2e (no pages). Green: DB 93, unit (visits 7), `@task:058` 9.
+
+- 2026-11-02 – Access review: no leak. Fixed three low findings: a clashing client id is refused unless it is the sender's own visit on that project (new leak-suite scenario); migration 0032 lets a visit list only the project's people (`is_project_person`) and changes nobody on a deleted visit. Full e2e: every file passes (load failures rerun with 1 worker; task-assignees is task 066).
 
 ## Parking lot
 - Names of people at the visit who aren't users (customer staff).
