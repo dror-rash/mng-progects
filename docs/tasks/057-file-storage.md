@@ -1,6 +1,6 @@
 # Task 057: File storage foundation
 
-- **Status:** in-review
+- **Status:** done (PR #38)
 - **Milestone:** M13 Sites & Field Data
 - **Zone / package:** new `packages/storage` (`@repo/storage`), `docker-compose.yml`, `.env.example`, `.github/workflows/ci.yml`
 - **Feature file:** none. Nothing a user sees changes; task 059 (photos and files) adds `attachments.feature` and the first screens. This task is tested by the package's tests against a real local storage server.

@@ -1,6 +1,6 @@
 # Task 056: The worker role and project crews
 
-- **Status:** in-review
+- **Status:** done (PR #37)
 - **Milestone:** M13 Sites & Field Data
 - **Zone / package:** `packages/db`, `apps/dashboard`, `e2e`
 - **Feature file:** `docs/features/workers.feature`; `roles.feature` "Admins invite admins or auditors" updated (the Role select gains Worker)
