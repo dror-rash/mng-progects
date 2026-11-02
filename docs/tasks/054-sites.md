@@ -1,6 +1,6 @@
 # Task 054: Sites and on-site contacts
 
-- **Status:** in-progress
+- **Status:** in-review
 - **Milestone:** M13 Sites & Field Data
 - **Zone / package:** `packages/db`, `apps/dashboard`, `e2e`
 - **Feature file:** `docs/features/sites.feature`, plus two `@task:054` scenarios in `docs/features/partner-access.feature`
@@ -15,8 +15,9 @@ Projects happen at physical places. Technicians need the address, how to get in,
   - `site_contact`: `id`, `site_id`, `name`, `role`, `phone`, `email`, timestamps, soft-delete columns.
   - The site's workspace must be its organization's workspace (composite foreign key, as `customer_partner` does). A site's customer is fixed once created (*my call*: moving a site between customers would break task 055's rule that a project's site belongs to its customer).
 - **Access (same migration):**
-  - `can_see_site(user, site)`: admins and auditors of the site's workspace, while the site and its customer aren't deleted. Task 055 adds partners and workers for the sites of their projects.
-  - `can_change_site(user, site)`: admins, same conditions.
+  - `can_see_site(user, site)`: admins and auditors of the site's workspace. Task 055 adds partners and workers for the sites of their projects.
+  - `can_change_site(user, site)`: admins.
+  - Like the customer functions, these don't look at `deleted_at`: the Deleted page needs deleted sites. Every lookup and list filters deleted sites and sites of deleted customers itself (`visibleSites` in `features/sites/queries.ts`).
   - Row-level security on `site` and `site_contact` calls these functions. Partners can't read either table.
   - Predicates in `features/access/predicates.ts` (`canSeeSite`, `canChangeSite`) and `requireSiteChange` in `require-change.ts`.
 - **Pages:**
@@ -47,13 +48,13 @@ Projects happen at physical places. Technicians need the address, how to get in,
 - Geocoding addresses into coordinates.
 
 ## Acceptance criteria
-- [ ] An admin adds a site from the customer's page, with an address, access notes and a maps link. (`sites.feature`: "Add a site…")
-- [ ] A parent's page lists its sub-companies' sites, and a site shows "Parent › Sub-company". ("A parent's page lists…")
-- [ ] Coordinates are optional and checked; a name is required. ("Coordinates…", "Only one coordinate…", "A site needs a name")
-- [ ] On-site contacts can be added, edited and removed, and are separate from the customer's contacts. ("Add, edit and remove…", "On-site contacts are separate…")
-- [ ] Delete and restore keep sites with their customer. ("Delete a site and restore it", "A deleted customer's sites…", "A site can't be restored before its customer")
-- [ ] Other workspaces' sites and customers stay not found. ("Another workspace's site…", "A new site can't be started…")
-- [ ] Partners can't open sites; auditors see sites read-only. (`partner-access.feature`, `@task:054`)
+- [x] An admin adds a site from the customer's page, with an address, access notes and a maps link. (`sites.feature`: "Add a site…")
+- [x] A parent's page lists its sub-companies' sites, and a site shows "Parent › Sub-company". ("A parent's page lists…")
+- [x] Coordinates are optional and checked; a name is required. ("Coordinates…", "Only one coordinate…", "A site needs a name")
+- [x] On-site contacts can be added, edited and removed, and are separate from the customer's contacts. ("Add, edit and remove…", "On-site contacts are separate…")
+- [x] Delete and restore keep sites with their customer. ("Delete a site and restore it", "A deleted customer's sites…", "A site can't be restored before its customer")
+- [x] Other workspaces' sites and customers stay not found. ("Another workspace's site…", "A new site can't be started…")
+- [x] Partners can't open sites; auditors see sites read-only. (`partner-access.feature`, `@task:054`)
 
 ## Approach (brief)
 - Migration and DB tests first (`packages/db/src/sites.db.test.ts`): the policies for admin, auditor and partner; the coordinate and workspace constraints; a deleted customer hiding its sites.
@@ -69,6 +70,8 @@ Projects happen at physical places. Technicians need the address, how to get in,
 
 ## Progress log
 - 2026-11-02 – Drafted with the feature file (in review; scenarios `@wip`).
+- 2026-11-02 – Feature file approved (Google Maps link confirmed). Red: all 14 scenarios failed for the missing table and pages.
+- 2026-11-02 – Green: migration 0027 (`site`, `site_contact`, `can_see_site`, `can_change_site`, policies; coordinates both-or-neither and in range; the composite key keeps a site in its customer's workspace). Site pages, the customer page's Sites section, on-site contacts (the contact form now takes an `owner`: a customer or a site), Deleted page kinds Site and Site contact with parent-first restore, and demo sites. 14/14 scenarios, 58 DB tests and 280 dashboard unit tests pass; the demo seed was checked against a throwaway workspace.
 
 ## Parking lot
 - Moving a site to another customer (after task 055, with a rule for its projects).
