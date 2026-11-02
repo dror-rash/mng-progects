@@ -1,6 +1,6 @@
 # Task 055: A project's site
 
-- **Status:** todo (feature file in review)
+- **Status:** in-review
 - **Milestone:** M13 Sites & Field Data
 - **Zone / package:** `packages/db`, `apps/dashboard`, `e2e`
 - **Feature file:** `docs/features/project-sites.feature`; `@task:055` scenarios in `docs/features/partner-access.feature`; existing scenarios updated for the new rule (list below)
@@ -38,7 +38,7 @@ Every project is work at one physical site. The people doing the work, including
 
   For a project without a site, it shows "No site yet." and, for those who can change the project, an "Add a site" link to its edit page.
 - **Site page for partners:** the customer shows as plain text, not a link, for anyone who can't see the customer. There is no Edit, Delete or contact form, since `can_change_site` stays admins only.
-- **Deleting a site in use** is refused. The delete page says "Projects at this site: <names>. Move them to another site first." and shows no confirm button, and `deleteSiteAction` refuses the same way. Deleted and canceled projects don't count (*my call*: canceled projects keep their site).
+- **Deleting a site in use** is refused. The delete page says "Projects at this site: <names>. Move them to another site first." and shows no confirm button, and `deleteSiteAction` refuses the same way. Deleted projects don't count; canceled ones do, since they keep their site (*my call*, approved).
 - **Moving a sub-company** (task 053's "Part of") is refused when its parent's projects are at its sites: "Projects of <parent> are at its sites: <names>". Otherwise the trigger's rule would break.
 - **Demo seed:** every demo project gets a site of its customer.
 
@@ -70,7 +70,7 @@ Every project is work at one physical site. The people doing the work, including
 - [ ] Every existing scenario still passes with the updates listed above.
 
 ## Approach (brief)
-- Migration and DB tests first (`packages/db/src/project-sites.db.test.ts`): the trigger's refusals; `can_see_site` for a partner through their project and not through another partner's; `site_choice` for admin and partner.
+- Migration and DB tests first. The trigger is `project_site_check`; `organization_parent_check` also refuses moving a sub-company whose sites its parent's (not deleted) projects use (`packages/db/src/project-sites.db.test.ts`): the trigger's refusals; `can_see_site` for a partner through their project and not through another partner's; `site_choice` for admin and partner.
 - `features/sites/site-choices.ts`: `listSiteChoices(userId, workspaceId, partnerId)` (all choices with their customer group, for the client filter) and `isSiteChoice(...)` (the server check), the same pattern as `customer-names.ts`.
 - `project-input.ts` gains `siteId` parsing (unit tested). `project-owner-check.ts` gains `siteAllowed(...)`.
 - `siteOptionsFor(customerId, choices)` is a pure function the client form uses (unit tested): a group's own sites plus sub-company sites, labelled and sorted.
@@ -88,12 +88,15 @@ Every project is work at one physical site. The people doing the work, including
   - `I choose the customer and site of {string}`
   - leak suite: `the project {string} is at the site {string}`, `I post the new project with the site id of {string}`
 - **Unit:** `project-input.test.ts` (site), `site-options.test.ts`, demo plan.
+- **Step helpers:** `e2e/steps/project-form.ts` (`createProject`, `chooseCustomerAndSite`): the project form steps choose a customer and a site, adding "Everyday Client" with "Everyday site" (or "<customer> site") to the database when needed. "<customer> has a site" now fills a made-up address, so the site has a maps link.
 - **DB:** `project-sites.db.test.ts`.
-- **Storybook:** `ProjectSiteSection` (with a site, with contacts, without a site with and without "Add a site").
+- **Storybook:** `ProjectSiteSection` (with a site, with contacts, without a site with and without "Add a site") and `CustomerSiteFields` (the form's Customer and Site selects).
 
 ## Progress log
 - 2026-11-02 – Drafted with the feature file (in review; new scenarios `@wip`). The owner chose "customer and site always" over allowing projects without a customer.
+- 2026-11-02 – Approved. Migration 0028 (`project.site_id`, `project_site_check`, `can_see_site` for project viewers, `site_choice`); the project form's Customer and Site selects (`CustomerSiteFields`, `siteOptionsFor`, `customerAndSiteError`); the project page's Site section; the site page for partners (customer as text); site delete and sub-company move refusals; demo projects at sites. Red: DB tests (no `site_id`), unit tests, 12 of 13 `@task:055` scenarios (no Site select). Green: DB 71, unit 286 (dashboard), `@task:055` 13, full e2e (see PR).
 
 ## Parking lot
 - A site page list of the projects at that site.
 - Filtering the projects table by site.
+- A project restored after its site was deleted shows "No site yet." (the site stays deleted); restoring could offer to restore the site too.
