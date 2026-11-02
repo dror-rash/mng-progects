@@ -13,6 +13,14 @@ export function canChangeProject(userId: string, projectId: AnyColumn) {
   return sql<boolean>`can_change_project(${userId}, ${projectId})`;
 }
 
+/**
+ * `userId` can work on the project in `projectId`: add, edit and move its tasks (task 056). Whoever can
+ * change it, and the workers on its crew; never a deleted project.
+ */
+export function canWorkOnProject(userId: string, projectId: AnyColumn) {
+  return sql<boolean>`can_work_on_project(${userId}, ${projectId})`;
+}
+
 /** `userId` can see everything about the customer in `orgId` (admins and auditors). */
 export function canSeeCustomer(userId: string, orgId: AnyColumn) {
   return sql<boolean>`can_see_customer(${userId}, ${orgId})`;

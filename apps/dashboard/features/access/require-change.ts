@@ -3,7 +3,11 @@ import { getDb, sql, withAccess } from "@repo/db";
 import { normalizeWorkspaceRole, type WorkspaceRole } from "./roles";
 
 /** One access function's answer for this user and record (see `predicates.ts`). */
-async function allowed(check: "can_change_project" | "can_change_customer" | "can_change_site", userId: string, id: string) {
+async function allowed(
+  check: "can_change_project" | "can_work_on_project" | "can_change_customer" | "can_change_site",
+  userId: string,
+  id: string,
+) {
   const { rows } = await withAccess(userId, () =>
     getDb().execute<{ allowed: boolean }>(sql`select ${sql.raw(check)}(${userId}, ${id}) as allowed`),
   );
@@ -16,6 +20,16 @@ async function allowed(check: "can_change_project" | "can_change_customer" | "ca
  */
 export async function requireProjectChange(userId: string, projectId: string): Promise<void> {
   if (!(await allowed("can_change_project", userId, projectId))) {
+    throw new Error("Not found");
+  }
+}
+
+/**
+ * For actions that add, edit or move a project's tasks: throws unless `userId` can work on the project
+ * (`can_work_on_project`: those who can change it, and its crew's workers, task 056). Same error as missing.
+ */
+export async function requireProjectWork(userId: string, projectId: string): Promise<void> {
+  if (!(await allowed("can_work_on_project", userId, projectId))) {
     throw new Error("Not found");
   }
 }

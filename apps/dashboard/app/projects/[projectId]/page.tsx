@@ -3,6 +3,11 @@ import { Button } from "@repo/ui/button";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { isAdmin } from "@/features/access/require-change";
+import { removeCrewMemberAction } from "@/features/crews/actions";
+import { AddToCrewForm } from "@/features/crews/add-to-crew-form";
+import { CrewSection } from "@/features/crews/crew-section";
+import { listCrew, listCrewChoices } from "@/features/crews/queries";
 import { AppHeader } from "@/features/layout/app-header";
 import { recordWorkspace } from "@/features/layout/record-workspace";
 import { getOrganizationForUser } from "@/features/organizations/queries";
@@ -33,14 +38,18 @@ export default async function ProjectPage({ params }: { params: Promise<{ projec
 
   // The customer is a link only for those who can open customer pages; partners see its name only. The
   // project it was copied from shows only to those who can see that one too (rule 4a).
-  const [tasks, customerPage, copiedFrom, site] = await Promise.all([
+  const [tasks, customerPage, copiedFrom, site, crew, manageCrew] = await Promise.all([
     listProjectTasks(session.user.id, project.id),
     project.organizationId && project.customerName
       ? getOrganizationForUser(session.user.id, project.organizationId, "customer")
       : null,
     project.copiedFromId ? getProjectForUser(session.user.id, project.copiedFromId) : null,
     project.siteId ? getSiteForUser(session.user.id, project.siteId) : null,
+    listCrew(session.user.id, project.id),
+    isAdmin(session.user.id, project.workspaceId),
   ]);
+  // Admins put the workspace's workers on the crew (task 056).
+  const crewChoices = manageCrew ? await listCrewChoices(session.user.id, project) : [];
   // Where the work is (task 055); a project from before sites were required (or at a deleted site) has none.
   const siteContacts = site ? await listSiteContacts(session.user.id, site.id) : [];
   const canceled = isCanceled(project.lifecycle);
@@ -122,15 +131,22 @@ export default async function ProjectPage({ params }: { params: Promise<{ projec
           addSiteHref={project.canChange ? `/projects/${project.id}/edit` : undefined}
         />
 
-        {project.canChange && <AddTaskForm projectId={project.id} />}
+        <CrewSection
+          projectId={project.id}
+          crew={crew}
+          removeAction={manageCrew ? removeCrewMemberAction : undefined}
+          addForm={manageCrew ? <AddToCrewForm projectId={project.id} workers={crewChoices} /> : undefined}
+        />
+
+        {project.canWork && <AddTaskForm projectId={project.id} />}
 
         <TaskBoard
           projectId={project.id}
           tasks={boardTasks}
           today={todayUtc()}
           moveAction={updateTaskStatusAction}
-          deleteAction={deleteTaskAction}
-          readOnly={!project.canChange}
+          deleteAction={project.canChange ? deleteTaskAction : undefined}
+          readOnly={!project.canWork}
         />
       </main>
     </div>

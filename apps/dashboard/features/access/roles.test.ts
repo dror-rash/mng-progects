@@ -14,8 +14,8 @@ import {
 } from "./roles";
 
 describe("WORKSPACE_ROLES", () => {
-  it("has Admin, Auditor and Partner", () => {
-    expect(WORKSPACE_ROLES.map((r) => r.label)).toEqual(["Admin", "Auditor", "Partner"]);
+  it("has Admin, Auditor, Worker and Partner", () => {
+    expect(WORKSPACE_ROLES.map((r) => r.label)).toEqual(["Admin", "Auditor", "Worker", "Partner"]);
   });
 });
 
@@ -33,9 +33,10 @@ describe("parseWorkspaceRole", () => {
 
 describe("parseAssignableRole", () => {
   it("accepts the roles an admin gives on the members page or an invite link", () => {
-    expect(ASSIGNABLE_ROLES.map((r) => r.label)).toEqual(["Admin", "Auditor"]);
+    expect(ASSIGNABLE_ROLES.map((r) => r.label)).toEqual(["Admin", "Auditor", "Worker"]);
     expect(parseAssignableRole("admin")).toBe("admin");
     expect(parseAssignableRole("auditor")).toBe("auditor");
+    expect(parseAssignableRole("worker")).toBe("worker");
   });
 
   it("rejects partner, which needs a partner company, and unknown roles", () => {
