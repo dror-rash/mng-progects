@@ -180,3 +180,33 @@ Feature: Partner access: a partner's user sees only their own partner's work
     Then the admin's "Assignee" options for the task "Login" are "Unassigned, Admin"
     When the admin saves the task "Login" with the assignee id of "Globex User"
     Then the admin sees the error "Choose someone in this workspace"
+
+  # Task 053: partners are assigned per company; a parent doesn't cover its sub-companies (ADR-0008).
+  @task:053 @wip
+  Scenario: Assigning a parent doesn't give me its sub-companies
+    Given the customer "Acme Ltd" has a sub-company "Acme Retail"
+    When I open "/dashboard/projects/new"
+    Then the "Customer" select offers "Acme Ltd" with "Acme Ltd" chosen
+
+  @task:053 @wip
+  Scenario: A sub-company assigned to my partner shows with its parent's name
+    Given the customer "Acme Ltd" has a sub-company "Acme Retail"
+    And the customer "Acme Retail" is assigned to "Northwind"
+    When I open "/dashboard/projects/new"
+    Then the "Customer" select offers "Acme Ltd, Acme Ltd › Acme Retail" with "Acme Ltd" chosen
+    When I select "Acme Ltd › Acme Retail" from "Customer"
+    And I fill in "Project name" with "NW Store"
+    And I press "Create Project"
+    Then I see the text "Acme Ltd › Acme Retail"
+    And I do not see the "Acme Ltd" link
+    And I do not see the "Acme Retail" link
+
+  @task:053 @wip
+  Scenario: Taking a sub-company away from my partner hides its projects from me
+    Given the customer "Acme Ltd" has a sub-company "Acme Retail"
+    And the customer "Acme Retail" is assigned to "Northwind"
+    And "Northwind" has the project "NW Store" for "Acme Retail" with the task "Panel"
+    When the admin removes "Acme Retail" from "Northwind"
+    And I open "/dashboard/projects"
+    Then the projects shown are "NW Site"
+    And the admin sees the "NW Store" project
