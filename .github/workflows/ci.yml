@@ -48,6 +48,8 @@ jobs:
       DATABASE_URL: postgres://postgres:postgres@localhost:5432/app
       BETTER_AUTH_SECRET: ci-only-secret-that-is-at-least-32-characters-long
       BETTER_AUTH_URL: http://localhost:3000
+      STORAGE_BUCKET: app-files
+      STORAGE_LOCAL_URL: http://localhost:4443
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -63,6 +65,14 @@ jobs:
       - run: pnpm db:migrate
       # Row-level security against the migrated database (task 047).
       - run: pnpm --filter @repo/db test:db
+      # Files (task 057): the same local storage server as docker-compose.yml. Service containers can't take
+      # its flags, so it starts here.
+      - run: >-
+          docker run -d --name storage -p 4443:4443 -v "$PWD/packages/storage/dev-bucket:/data"
+          fsouza/fake-gcs-server:1.52.2 -scheme http -port 4443 -public-host localhost:4443
+          -external-url http://localhost:4443 -data /data -cors-headers Content-Type,Content-Disposition
+          && timeout 30 sh -c 'until curl -sf http://localhost:4443/storage/v1/b >/dev/null; do sleep 1; done'
+      - run: pnpm --filter @repo/storage test:storage
       - run: pnpm test:e2e
       - uses: actions/upload-artifact@v4
         if: ${{ !cancelled() }}

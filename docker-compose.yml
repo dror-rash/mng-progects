@@ -1,4 +1,5 @@
-# Local Postgres for development (Cloud SQL in the cloud). Start with: pnpm db:up
+# Local Postgres (Cloud SQL in the cloud) and a local Google Cloud Storage (task 057) for development.
+# Start both with: pnpm db:up
 services:
   db:
     image: postgres:16
@@ -16,5 +17,17 @@ services:
       timeout: 3s
       retries: 10
 
+  # Files (task 057): fake-gcs-server speaks the GCS JSON and XML APIs; it doesn't check signatures. The
+  # dev bucket comes from /data/<bucket>. Browsers upload straight to it, so CORS is open.
+  storage:
+    image: fsouza/fake-gcs-server:1.52.2
+    command: ["-scheme", "http", "-port", "4443", "-public-host", "localhost:4443", "-external-url", "http://localhost:4443", "-data", "/data", "-cors-headers", "Content-Type,Content-Disposition"]
+    ports:
+      - "4443:4443"
+    volumes:
+      - storagedata:/storage
+      - ./packages/storage/dev-bucket:/data
+
 volumes:
   dbdata:
+  storagedata:
