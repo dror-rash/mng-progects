@@ -1,4 +1,4 @@
-@zone:dashboard @task:056 @wip
+@zone:dashboard @task:056
 Feature: Workers: internal technicians on a project's crew
   As an admin
   I want to give our technicians a Worker role and put them on the crews of the projects they work on
