@@ -1,6 +1,6 @@
 # Task 059: Photos and files on a project or visit
 
-- **Status:** in-progress
+- **Status:** in-review
 - **Milestone:** M13 Sites & Field Data (POC lane: 056 → 058 → 059)
 - **Zone / package:** `packages/db`, `apps/dashboard`, `e2e`
 - **Feature file:** `docs/features/attachments.feature`
@@ -36,12 +36,12 @@ Photos of what was found and documents from the site (plans, certificates, deliv
 - Purging deleted or abandoned (never confirmed) uploads from storage.
 
 ## Acceptance criteria
-- [ ] Add a photo and open it; add a file and download it under its name. (first two scenarios)
-- [ ] Wrong type and too big are refused, with nothing left behind. ("A photo must be an image…")
-- [ ] Photos on a visit show there and in the project's gallery. ("Photos of a visit…")
-- [ ] Delete and restore. ("I delete my photo…")
-- [ ] Crew workers add; auditors read; only the uploader and admins delete. ("A crew worker adds photos…")
-- [ ] Another partner's photo address is not found; tampered uploads are refused. (last two scenarios)
+- [x] Add a photo and open it; add a file and download it under its name. (first two scenarios)
+- [x] Wrong type and too big are refused, with nothing left behind. ("A photo must be an image…")
+- [x] Photos on a visit show there and in the project's gallery. ("Photos of a visit…")
+- [x] Delete and restore. ("I delete my photo…")
+- [x] Crew workers add; auditors read; only the uploader and admins delete. ("A crew worker adds photos…")
+- [x] Another partner's photo address is not found; tampered uploads are refused. (last two scenarios)
 
 ## Approach (brief)
 - Migration and DB tests first (`packages/db/src/attachments.db.test.ts`).
@@ -59,6 +59,7 @@ Photos of what was found and documents from the site (plans, certificates, deliv
 ## Progress log
 - 2026-11-02 – Drafted with the feature file (in review; scenarios `@wip`).
 - 2026-11-02 – Approved. Migration 0033 (`attachment`, its trigger, `can_change_attachment`, `delete_attachment`, policies); `features/attachments/` (limits, actions, queries, uploader, section with a story); the `/attachments/<id>` route; sections on the project and visit pages; the Deleted page. Red: DB (no table), 8 of 8 e2e (no buttons, gallery or route). Green: DB 103, unit 298 (dashboard), `@task:059` 8. Playwright passes files over 50 MB only from disk, so that step writes one.
+- 2026-11-02 – Access review: no cross-partner or cross-crew leak. Fixed (migration 0034 and code): a deleted visit's photos are hidden like the visit (new leak-suite scenario; restore asks for the visit first); signed uploads need `x-goog-if-generation-match: 0`, so they can't replace a checked object; the app may update only `confirmed_at`, `size_bytes` and the delete columns, and the trigger keeps kind, name and type; a reused upload id is refused. Full e2e: every file passes on rerun except one task-assignees scenario that times out against dev servers (task 066).
 
 ## Parking lot
 - Shrink photos in the browser (open question 3).
