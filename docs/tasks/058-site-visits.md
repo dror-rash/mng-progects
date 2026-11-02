@@ -1,6 +1,6 @@
 # Task 058: Site visits (online)
 
-- **Status:** todo (feature file in review)
+- **Status:** in-progress
 - **Milestone:** M13 Sites & Field Data (POC lane: 056 → 058 → 059)
 - **Zone / package:** `packages/db`, `apps/dashboard`, `e2e`
 - **Feature file:** `docs/features/site-visits.feature`
@@ -56,6 +56,7 @@ The work happens at the site, over several visits. A visit is the anchor for eve
 
 ## Progress log
 - 2026-11-02 – Drafted with the feature file (in review; scenarios `@wip`).
+- 2026-11-02 – Approved. Migration 0031 (`site_visit`, `site_visit_member`, `can_change_visit`, `delete_visit`, policies, a trigger keeping a visit's project and author); `features/visits/` (input, name, queries, actions, form, section with a story); visit pages; visits on the Deleted page. The heading step checks the heading's date (feature-file commit). The date field has no `max`: the browser would block a future date before the server's message. Red: DB (no tables), 9 of 9 e2e (no pages). Green: DB 93, unit (visits 7), `@task:058` 9.
 
 ## Parking lot
 - Names of people at the visit who aren't users (customer staff).
