@@ -183,6 +183,13 @@
       "when": 1793490612682,
       "tag": "0025_access_hardening",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1793622487086,
+      "tag": "0026_customer_groups",
+      "breakpoints": true
     }
   ]
 }
