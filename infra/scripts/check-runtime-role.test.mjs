@@ -9,7 +9,8 @@ import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 
 import { buildPoolConfig } from "../../packages/db/src/pool-config.ts";
-import { checkRuntimeRole } from "./check-runtime-role.mjs";
+import { checkRuntimeRole, PIN_HEADER } from "./check-runtime-role.mjs";
+import { pinMatches } from "./rls-pins.mjs";
 
 const { Client } = createRequire(new URL("../../packages/db/package.json", import.meta.url))("pg");
 const script = fileURLToPath(new URL("./check-runtime-role.mjs", import.meta.url));
@@ -173,6 +174,50 @@ test("fails when the login can't SET ROLE app_user", async () => {
   } finally {
     await withClient(buildPoolConfig(env, null), (client) => client.query(`drop role ${login}`));
   }
+});
+
+// Round 5. The auditor's construction: the definer functions run with `search_path = public, pg_temp`, and an
+// untyped literal (`'{admin}'`) picks an exact `text` overload over `text[]`. An invoker function added in
+// public hijacks them without changing any pin, so every function is pinned, whatever its security.
+test("fails on any unpinned function, like a text overload of has_workspace_role", async () => {
+  const failures = await checkAfter(async (client) => {
+    await client.query("create function public.has_workspace_role(text, text, text) returns boolean language sql as 'select true'");
+  });
+  const text = failures.join("\n");
+  assert.match(text, /functions that aren't pinned: public\.has_workspace_role\(text,text,text\)/);
+  assert.equal(failures[0], PIN_HEADER);
+});
+
+test("fails when a pinned function's owner or security changes", async () => {
+  for (const change of ["alter function public.can_see_project(text, text) owner to role_check_owner", "alter function public.can_see_project(text, text) security invoker"]) {
+    const failures = await checkAfter(async (client) => {
+      await client.query("create role role_check_owner nologin");
+      await client.query(change);
+    });
+    assert.match(failures.join("\n"), new RegExp(`function public\\.can_see_project\\(text,text\\) changed \\(now ${HASH.source}`), change);
+  }
+});
+
+test("fails when a table's row-level security is forced or its owner changes", async () => {
+  for (const change of ["alter table public.workspace force row level security", "alter table public.workspace owner to role_check_owner"]) {
+    const failures = await checkAfter(async (client) => {
+      await client.query("create role role_check_owner nologin");
+      await client.query(change);
+    });
+    assert.match(failures.join("\n"), new RegExp(`table public\\.workspace changed \\(now ${HASH.source}`), change);
+  }
+});
+
+test("fails when a pinned function is gone", async () => {
+  const failures = await checkAfter((client) => client.query("drop function public.restore_project(text)"));
+  assert.match(failures.join("\n"), /function public\.restore_project\(text\) is gone/);
+});
+
+test("a pin may list several hashes (one per Postgres minor that deparses differently)", () => {
+  assert.equal(pinMatches(["a", "b"], "b"), true);
+  assert.equal(pinMatches("a", "a"), true);
+  assert.equal(pinMatches(["a"], "c"), false);
+  assert.equal(pinMatches(undefined, "a"), false);
 });
 
 // Round 4 (re-audit D, confirmed): rules and definer triggers run with their owner's rights, and policies and
