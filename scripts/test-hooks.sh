@@ -25,6 +25,8 @@ bash_() { jq -nc --arg c "$1" '{command:$c}'; }
 # Files
 expect 2 "refuses editing an applied migration"        Edit  "$(edit "$ROOT/packages/db/migrations/0001_modern_blindfold.sql")"
 expect 2 "refuses editing an applied migration snapshot" Write "$(write "$ROOT/packages/db/migrations/meta/0001_snapshot.json")"
+LINK_DIR="$(mktemp -d)"; ln -s "$ROOT" "$LINK_DIR/repo"
+expect 2 "refuses editing an applied migration through a symlinked path" Edit "$(edit "$LINK_DIR/repo/packages/db/migrations/0001_modern_blindfold.sql")"
 expect 0 "allows writing a new migration"               Write "$(write "$ROOT/packages/db/migrations/9999_new.sql")"
 expect 0 "allows editing the migration journal"         Edit  "$(edit "$ROOT/packages/db/migrations/meta/_journal.json")"
 expect 2 "refuses editing .env"                         Edit  "$(edit "$ROOT/.env")"
@@ -49,7 +51,7 @@ expect 0 "allows -n elsewhere in a commit command"     Bash "$(bash_ "git commit
 expect 2 "refuses --no-verify on commit"                Bash "$(bash_ "git commit --no-verify -m 'feat: x'")"
 
 # Commits, in a throwaway repo where "main" plays origin/main
-REPO="$(mktemp -d)"; trap 'rm -rf "$REPO"' EXIT
+REPO="$(mktemp -d)"; trap 'rm -rf "$REPO" "$LINK_DIR"' EXIT
 git -C "$REPO" init -q -b main && git -C "$REPO" config user.email t@example.com && git -C "$REPO" config user.name t
 mkdir -p "$REPO/packages/db/migrations" "$REPO/docs/features" "$REPO/apps/dashboard"
 echo "select 1;" > "$REPO/packages/db/migrations/0001_init.sql"; echo "Feature: x" > "$REPO/docs/features/x.feature"; touch "$REPO/apps/dashboard/.gitkeep"
