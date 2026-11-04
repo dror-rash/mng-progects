@@ -28,7 +28,7 @@ Run it with the `run-task <id>` skill. The skills are in `.claude/skills/`:
 - `lane-merge`: merge and clean up.
 
 ## Lanes
-Each task runs in its own worktree next to the repo (`../mng-progects-lanes/lane-<n>`), with its own database and ports:
+Each task runs in its own worktree next to the repo (`../mng-projects-lanes/lane-<n>`), with its own database and ports:
 
 | Lane | Shell | Example zone | Dashboard | Database |
 |---|---|---|---|---|

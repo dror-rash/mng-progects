@@ -40,7 +40,7 @@ Build a modern, full-stack Project Management application on a Next.js multi-zon
    - 068 first GCP deploy (M11);
    - M13 056 worker role → 058 site visits → 059 photos;
    - 057 storage → 060 form templates → 061 readings → 064 uploaded reports;
-   - 070 home and menu, in parallel with 071 hierarchy in the database (then `reset:local` and `seed:demo` locally) → 072 hierarchy pages (owner, 2026-11-04; drafts in review).
+   - 070 home and menu, in parallel with 071 hierarchy in the database (then `reset:local` and `seed:demo` locally) → 072 hierarchy pages (owner, 2026-11-04; all three done: PRs #41, #42, #44).
 3. 069: the `@poc` flow against the deployed preview, walking customer → site → project (after 070–072).
 
 M13 tasks 062, 063 and 065 continue after the POC.
