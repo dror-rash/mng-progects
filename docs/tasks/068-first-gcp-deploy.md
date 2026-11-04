@@ -70,6 +70,7 @@ The POC must run on the internet, not just on a laptop. Row-level security has n
   - the runtime role check gets the stronger checks listed in Scope;
   - preview Playwright traces and reports are not uploaded publicly (the repo is public);
   - the first preview is checked by hand for a client IP in Better Auth (shell logs) and for one upload and download.
+- 2026-11-04 – Follow-up planned: a separate runtime login role (amends ADR-0006's one login), task 074, after the POC.
 
 ## Parking lot
 - Neon instead of Cloud SQL to scale to zero (re-test the `app_user` setup first).
