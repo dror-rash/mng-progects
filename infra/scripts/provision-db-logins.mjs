@@ -92,42 +92,74 @@ async function setPassword(client, login, password) {
 /** How long main's preview-side step may wait (lock, statements) before it gives up with a warning. */
 export const PREVIEW_SIDE_TIMEOUT_MS = 30_000;
 
+/** Runs `step` in a savepoint; on failure (a timeout included) rolls it back and records a warning. */
+async function bestEffort(client, label, step, warnings) {
+  await client.query("savepoint best_effort");
+  try {
+    await step();
+    await client.query("release savepoint best_effort");
+  } catch (error) {
+    await client.query("rollback to savepoint best_effort");
+    warnings.push(`${label}: ${error.message}`);
+  }
+}
+
 /**
  * Main's own work, on a connection to the main database (PR code can't write there), inside the caller's
- * transaction: the preview logins, their passwords and app_user grants, and the database grants. A failure
- * fails the main deploy. Also removes every app_user grant preview_owner made (migration 0020's self-grant,
- * or one a PR made, like `grant app_user to preview_runtime with inherit true`): `app` may not revoke
- * `GRANTED BY preview_owner` (it doesn't have preview_owner's privileges), but revoking preview_owner's
- * ADMIN option with CASCADE drops every grant that depends on it; the ADMIN grant is then made again.
+ * transaction, bounded by lock_timeout (`timeoutMs`, statements twice that).
+ *   Fatal (protects `app`): CONNECT on `app` revoked from PUBLIC and the preview logins, granted to the owner.
+ *   Best effort (preview concerns; a preview login can hold its own pg_authid row, so these may time out):
+ *   the logins, passwords, connection limits, app_user grants, and the grants on app_preview. A failure is
+ *   returned as a warning; the next preview deploy's verification fails with the cause.
+ * It also removes every app_user grant preview_owner made (migration 0020's self-grant, or one a PR made,
+ * like `grant app_user to preview_runtime with inherit true`): `app` may not revoke `GRANTED BY
+ * preview_owner`, but revoking preview_owner's ADMIN option with CASCADE drops every grant made with it; the
+ * ADMIN grant is then made again.
  * @param {{ mainDb: string, previewDb: string, mainOwner: string, previewOwner: string, previewRuntime: string,
  *           previewOwnerPassword: string, previewRuntimePassword: string }} names
+ * @returns {Promise<{ warnings: string[] }>}
  */
-export async function provisionMainSide(main, names) {
+export async function provisionMainSide(main, names, { timeoutMs = PREVIEW_SIDE_TIMEOUT_MS } = {}) {
   const { mainDb, previewDb, mainOwner, previewOwner, previewRuntime } = names;
   await pinSearchPath(main);
-
-  await ensureLogin(main, previewOwner, CONNECTION_LIMITS.previewOwner);
-  await ensureLogin(main, previewRuntime, CONNECTION_LIMITS.previewRuntime);
-  await setPassword(main, previewOwner, names.previewOwnerPassword);
-  await setPassword(main, previewRuntime, names.previewRuntimePassword);
-
+  await main.query("select pg_catalog.set_config('lock_timeout', $1, true), pg_catalog.set_config('statement_timeout', $2, true)", [
+    `${Number(timeoutMs)}ms`,
+    `${2 * Number(timeoutMs)}ms`,
+  ]);
+  const warnings = [];
   const runtimeRole = ident(RUNTIME_ROLE);
-  const ownerAdmin = await main.query(
-    `select exists (select 1 from pg_catalog.pg_auth_members m
-                    where m.roleid = $1::text::pg_catalog.regrole and m.member = $2::text::pg_catalog.regrole and m.admin_option) as has_admin`,
-    [RUNTIME_ROLE, previewOwner],
-  );
-  if (ownerAdmin.rows[0].has_admin) {
-    await main.query(`revoke admin option for ${runtimeRole} from ${ident(previewOwner)} cascade`);
-  }
-  await main.query(`grant ${runtimeRole} to ${ident(previewOwner)} with admin true, inherit false, set false`);
-  await main.query(`grant ${runtimeRole} to ${ident(previewRuntime)} with inherit false, set true`);
 
-  await main.query(`revoke connect on database ${ident(mainDb)} from public, ${ident(previewOwner)}, ${ident(previewRuntime)}`);
+  await bestEffort(main, `create ${previewOwner}`, () => ensureLogin(main, previewOwner, CONNECTION_LIMITS.previewOwner), warnings);
+  await bestEffort(main, `create ${previewRuntime}`, () => ensureLogin(main, previewRuntime, CONNECTION_LIMITS.previewRuntime), warnings);
+  await bestEffort(main, `password of ${previewOwner}`, () => setPassword(main, previewOwner, names.previewOwnerPassword), warnings);
+  await bestEffort(main, `password of ${previewRuntime}`, () => setPassword(main, previewRuntime, names.previewRuntimePassword), warnings);
+  // Runs outside the preview migration lock: a fresh app_preview migrating 0020 at this very moment may fail
+  // its GRANT (ADMIN briefly revoked); rerunning that preview deploy fixes it.
+  await bestEffort(main, `${RUNTIME_ROLE} grants of ${previewOwner}`, async () => {
+    const ownerAdmin = await main.query(
+      `select exists (select 1 from pg_catalog.pg_auth_members m
+                      where m.roleid = $1::text::pg_catalog.regrole and m.member = $2::text::pg_catalog.regrole and m.admin_option) as has_admin`,
+      [RUNTIME_ROLE, previewOwner],
+    );
+    if (ownerAdmin.rows[0].has_admin) await main.query(`revoke admin option for ${runtimeRole} from ${ident(previewOwner)} cascade`);
+    await main.query(`grant ${runtimeRole} to ${ident(previewOwner)} with admin true, inherit false, set false`);
+  }, warnings);
+  await bestEffort(main, `${RUNTIME_ROLE} grant of ${previewRuntime}`, () =>
+    main.query(`grant ${runtimeRole} to ${ident(previewRuntime)} with inherit false, set true`), warnings);
+  await bestEffort(main, `grants on ${previewDb}`, async () => {
+    await main.query(`grant connect, create on database ${ident(previewDb)} to ${ident(previewOwner)}`);
+    await main.query(`grant connect on database ${ident(previewDb)} to ${ident(previewRuntime)}`);
+    await main.query(`revoke temporary on database ${ident(previewDb)} from public`);
+  }, warnings);
+
+  // Fatal: what keeps the preview logins (and everyone else) out of `app`. Only logins that exist.
+  const existing = await main.query("select rolname::text as name from pg_catalog.pg_roles where rolname = any ($1::text[])", [
+    [previewOwner, previewRuntime],
+  ]);
+  const revokeFrom = ["public", ...existing.rows.map((row) => ident(row.name))].join(", ");
+  await main.query(`revoke connect on database ${ident(mainDb)} from ${revokeFrom}`);
   await main.query(`grant connect on database ${ident(mainDb)} to ${ident(mainOwner)}`);
-  await main.query(`grant connect, create on database ${ident(previewDb)} to ${ident(previewOwner)}`);
-  await main.query(`grant connect on database ${ident(previewDb)} to ${ident(previewRuntime)}`);
-  await main.query(`revoke temporary on database ${ident(previewDb)} from public`);
+  return { warnings };
 }
 
 /**
@@ -164,10 +196,7 @@ export async function verifyMainSide(main, { mainDb, mainOwner, previewOwner, pr
   );
   for (const login of [previewOwner, previewRuntime]) {
     const role = rows.find((row) => row.name === login);
-    if (!role) {
-      failures.push(`${login} doesn't exist`);
-      continue;
-    }
+    if (!role) continue; // a login that doesn't exist can't connect; the preview verification reports it
     for (const attribute of ["rolsuper", "rolcreaterole", "rolcreatedb", "rolbypassrls", "rolreplication"]) {
       if (role[attribute]) failures.push(`${login} has ${attribute}`);
     }
@@ -313,11 +342,16 @@ async function verifyOnly(names) {
  * fails with the reason (verify-only).
  */
 async function provision(names) {
+  // One bound for everything a preview login or PR code could hold up (role rows, the preview lock).
+  const timeoutMs = Number(process.env.PREVIEW_SIDE_TIMEOUT_MS) || PREVIEW_SIDE_TIMEOUT_MS;
   const main = await connect(process.env.MAIN_DATABASE_URL, names.mainDb);
   try {
     await main.query("begin");
     try {
-      await provisionMainSide(main, names);
+      const { warnings } = await provisionMainSide(main, names, { timeoutMs });
+      for (const warning of warnings) {
+        console.log(`::warning::Preview login step skipped, main deploys anyway: ${warning}. The next preview deploy fails until a main deploy completes it.`);
+      }
       const failures = await verifyMainSide(main, names);
       if (failures.length > 0) {
         await main.query("rollback");
@@ -333,7 +367,6 @@ async function provision(names) {
   }
   console.log(`Database logins provisioned on ${names.mainDb}: ${names.previewOwner} and ${names.previewRuntime} can't connect to it.`);
 
-  const timeoutMs = Number(process.env.PREVIEW_SIDE_TIMEOUT_MS) || PREVIEW_SIDE_TIMEOUT_MS;
   let preview;
   try {
     preview = await connect(process.env.DATABASE_URL, names.previewDb, { timeoutMs });
