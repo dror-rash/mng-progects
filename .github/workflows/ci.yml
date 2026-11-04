@@ -26,6 +26,7 @@ jobs:
       - run: pnpm build-storybook
       # Deploy names per environment (task 068); no GCP access.
       - run: bash infra/scripts/test-environment.sh
+      - run: bash infra/scripts/test-deploy-service.sh
 
   e2e:
     needs: verify
