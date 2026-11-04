@@ -123,3 +123,12 @@ Feature: Workers: internal technicians on a project's crew
     Then the admin sees the tasks of "NW Site" are "Copy"
     When I post the edit form of the "NW Site" project with the name "Renamed"
     Then the admin sees the "NW Site" project
+
+  @task:072
+  Scenario: A site page lists only my crew's projects at it
+    Given the project "GX App" is at the site "Acme HQ"
+    When I am on the "NW Site" project page
+    And I follow the "Acme HQ" link
+    Then the "Projects" section shows "NW Site"
+    And the page shows none of "GX App, Login, HQ Plan, Budget"
+    And I do not see the "New project" link
