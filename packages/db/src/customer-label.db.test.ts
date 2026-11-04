@@ -16,8 +16,15 @@ const run = crypto.randomUUID().slice(0, 8);
 const ids = {
   workspace: `${run}-ws`,
   admin: `${run}-admin`,
+  partnerUser: `${run}-partner-user`,
+  worker: `${run}-worker`,
+  partner: `${run}-partner`,
   parent: `${run}-parent`,
   sub: `${run}-sub`,
+  /** Assigned to the partner, with no crew project. */
+  assigned: `${run}-assigned`,
+  /** Deleted (soft). */
+  deleted: `${run}-deleted`,
   project: `${run}-project`,
 };
 /** Other customers in the workspace, enough that reading all of them shows. */
@@ -41,6 +48,14 @@ function customersRead(node: PlanNode): number {
   return own + (node.Plans ?? []).reduce((n, child) => n + customersRead(child), 0);
 }
 
+/** The label `userId` reads for the customer `organizationId` in the workspace. */
+async function labelAs(userId: string, organizationId: string) {
+  const { rows } = await withAccess(userId, () =>
+    getDb().execute<{ label: string | null }>(sql`select ${customerLabelOf(sql`${organizationId}`, sql`${ids.workspace}`)} as label`),
+  );
+  return rows[0]!.label;
+}
+
 const labelQuery = () =>
   getDb()
     .select({ label: customerLabelOf(schema.project.organizationId, schema.project.workspaceId) })
@@ -49,11 +64,23 @@ const labelQuery = () =>
 
 beforeAll(async () => {
   const db = getMaintenanceDb();
-  await db.insert(schema.user).values({ id: ids.admin, name: "Admin", email: `${ids.admin}@example.test` });
+  await db.insert(schema.user).values(
+    [ids.admin, ids.partnerUser, ids.worker].map((id) => ({ id, name: id, email: `${id}@example.test` })),
+  );
   await db.insert(schema.workspace).values({ id: ids.workspace, name: `Customer label ${run}` });
-  await db.insert(schema.workspaceMember).values({ workspaceId: ids.workspace, userId: ids.admin, role: "admin" });
+  await db.insert(schema.partner).values({ id: ids.partner, workspaceId: ids.workspace, name: "Northwind" });
+  await db.insert(schema.workspaceMember).values([
+    { workspaceId: ids.workspace, userId: ids.admin, role: "admin" },
+    { workspaceId: ids.workspace, userId: ids.partnerUser, role: "partner", partnerId: ids.partner },
+    { workspaceId: ids.workspace, userId: ids.worker, role: "worker" },
+  ]);
   await db.insert(schema.organization).values({ id: ids.parent, workspaceId: ids.workspace, name: "Acme Ltd" });
   await db.insert(schema.organization).values({ id: ids.sub, workspaceId: ids.workspace, name: "Acme Retail", parentId: ids.parent });
+  await db.insert(schema.organization).values([
+    { id: ids.assigned, workspaceId: ids.workspace, name: "Initech" },
+    { id: ids.deleted, workspaceId: ids.workspace, name: "Gone Co", deletedAt: new Date() },
+  ]);
+  await db.insert(schema.customerPartner).values({ organizationId: ids.assigned, partnerId: ids.partner, workspaceId: ids.workspace });
   await db.execute(
     sql`insert into organization (id, workspace_id, name)
         select ${run} || '-other-' || n, ${ids.workspace}, 'Other ' || n from generate_series(1, ${OTHERS}) n`,
@@ -66,13 +93,15 @@ beforeAll(async () => {
     organizationId: ids.sub,
     siteId,
   });
+  // The worker is on the crew of the project for Acme Retail, so they read that customer's name only.
+  await db.insert(schema.projectWorker).values({ projectId: ids.project, userId: ids.worker, workspaceId: ids.workspace });
   await db.execute(sql`analyze organization`);
 });
 
 afterAll(async () => {
   const db = getMaintenanceDb();
   await db.execute(sql`delete from workspace where id = ${ids.workspace}`);
-  await db.execute(sql`delete from "user" where id = ${ids.admin}`);
+  await db.execute(sql`delete from "user" where id in (${ids.admin}, ${ids.partnerUser}, ${ids.worker})`);
 });
 
 describe("customerLabelOf", () => {
@@ -85,6 +114,22 @@ describe("customerLabelOf", () => {
     const plan = await withAccess(ids.admin, () =>
       getDb().execute<{ "QUERY PLAN": [{ Plan: PlanNode }] }>(sql`explain (analyze, format json) ${labelQuery().getSQL()}`),
     );
-    expect(customersRead(plan.rows[0]!["QUERY PLAN"][0].Plan)).toBe(1);
+    // A join on the view reads all of them (and every other workspace's); the lookup reads about one.
+    expect(customersRead(plan.rows[0]!["QUERY PLAN"][0].Plan)).toBeLessThan(OTHERS / 10);
+  });
+
+  it("is null for a partner, for a customer not assigned to their partner", async () => {
+    expect(await labelAs(ids.partnerUser, ids.assigned)).toBe("Initech");
+    expect(await labelAs(ids.partnerUser, ids.parent)).toBeNull();
+  });
+
+  it("is null for a worker, for a customer with no project of their crews", async () => {
+    expect(await labelAs(ids.worker, ids.sub)).toBe("Acme Ltd › Acme Retail");
+    expect(await labelAs(ids.worker, ids.assigned)).toBeNull();
+  });
+
+  it("is null for a deleted customer, even for an admin", async () => {
+    expect(await labelAs(ids.admin, ids.assigned)).toBe("Initech");
+    expect(await labelAs(ids.admin, ids.deleted)).toBeNull();
   });
 });
