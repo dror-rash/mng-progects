@@ -24,6 +24,8 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm build-storybook
+      # Deploy names per environment (task 068); no GCP access.
+      - run: bash infra/scripts/test-environment.sh
 
   e2e:
     needs: verify
@@ -65,8 +67,11 @@ jobs:
       - run: pnpm db:migrate
       # Row-level security against the migrated database (task 047).
       - run: pnpm --filter @repo/db test:db
-      # The deploy's runtime role check (infra/scripts, task 068) passes here and fails without the role option.
-      - run: node --experimental-strip-types --test infra/scripts/check-runtime-role.test.mjs
+      # The deploy's database scripts (task 068): the runtime role check and the preview login. One file at
+      # a time: both alter app_user inside rolled-back transactions.
+      - run: >-
+          node --experimental-strip-types --test --test-concurrency=1
+          infra/scripts/check-runtime-role.test.mjs infra/scripts/provision-db-logins.test.mjs
       # Files (task 057): the same local storage server as docker-compose.yml. Service containers can't take
       # its flags, so it starts here.
       - run: >-
