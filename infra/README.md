@@ -70,7 +70,7 @@ ones: `bash infra/scripts/test-environment.sh` fails when they differ.
 | GitHub event (Workload Identity) | push to `refs/heads/main` | `pull_request` of this repository |
 | Deployer | `deployer-main` | `deployer-preview` |
 | Cloud Run services | `shell`, `example-zone`, `dashboard` | `shell-preview`, `example-zone-preview`, `dashboard-preview` |
-| Revisions | 100% traffic | no traffic, tag `pr-<N>`; at most 1 instance per service |
+| Revisions | 100% traffic | no traffic, tag `pr-<N>`; at most 1 instance per revision (every open PR's revision can scale) |
 | Image repository | `<region>-docker.pkg.dev/<PROJECT_ID>/images` | `…/images-preview` |
 | Runtime identity | `<zone>-runtime` | `<zone>-preview` |
 | Database | `app` | `app_preview` |
@@ -87,19 +87,35 @@ ones: `bash infra/scripts/test-environment.sh` fails when they differ.
   `main` services never get preview revisions. `deployer-preview` reads only the two preview
   database passwords. `deployer-main` reads `db-password` and, because it provisions the preview logins, their two
   passwords. No deployer reads an auth secret.
-- **Preview logins.** `infra/scripts/provision-db-logins.mjs` creates them on `main` deploys only, as `app`. Role
-  and database statements run on a connection to `app`, which PR code can't write to; only the schema grant runs
-  on `app_preview`, while that connection holds the preview migration lock (the same `migrate-app_preview` lock
-  `with-db-lock.mjs` takes). Not Terraform: Cloud SQL makes every
+- **Preview logins.** `infra/scripts/provision-db-logins.mjs` creates them on `main` deploys only, as `app`, in two
+  parts:
+  - **Main side**, on a connection to `app` (PR code can't write there): the logins, passwords, `app_user` grants
+    and database grants, then a check that neither preview login (nor `PUBLIC`) can connect to `app`. A failure
+    here fails the main deploy.
+  - **Preview side**, on `app_preview`: the preview migration lock (the same `migrate-app_preview` lock
+    `with-db-lock.mjs` takes), the schema grant and the full verification, bounded by `lock_timeout` (30 s;
+    statements 60 s). **Any failure here is a `::warning::` and the main deploy goes on**: nothing a PR does to
+    `app_preview` (holding the lock, odd grants, planted functions) can stall or fail `main`. The next preview
+    deploy then fails with the reason.
+
+  Not Terraform: Cloud SQL makes every
   API-created user a member of `cloudsqlsuperuser`, which owns the databases (so it could connect to `app`). Both are
   `LOGIN NOINHERIT`, no `CREATEROLE`/`CREATEDB`, with SCRAM-SHA-256 verifiers computed in Node, and a
-  `CONNECTION LIMIT` (`preview_owner` 4, `preview_runtime` 8; `db-f1-micro` allows 25 connections in all):
+  `CONNECTION LIMIT`:
+  - `preview_runtime` 6. Each open PR's revision can scale to 1 instance per zone, and the app's pool is fixed at
+    5 (`packages/db`, not configurable yet), so the worst case is 3 × 1 × 5 = 15 per active PR; the `@smoke` set
+    (one worker) keeps about 5 busy, plus the role check's 1. Assumed: one preview tested at a time; a second at
+    once may hit the limit and fail its own e2e, never `main`.
+  - `preview_owner` 3: one PR migrating (lock + migration) and one waiting on the lock.
+  - Previews take at most 9 of `db-f1-micro`'s 22 login connections (25, 3 reserved); `main` keeps 13.
   - `preview_owner` owns `app_preview`'s objects. It holds ADMIN on `app_user` (migration 0020 runs
     `GRANT app_user TO current_user`), `CONNECT`/`CREATE` on `app_preview` (drizzle-kit creates its `drizzle`
     schema) and `CREATE` on its `public` schema. The database itself stays owned by `cloudsqlsuperuser`.
-    Migration 0020 then grants it `app_user` once more, as itself (SET, no ADMIN). Verification allows exactly
-    that grant besides the provisioned one: it is harmless (`preview_owner` owns more than `app_user` can do), and
-    revoking it from `main` would race the next preview's migration.
+    Migration 0020 then grants it `app_user` once more, as itself (SET, no ADMIN); verification allows exactly that
+    one besides the provisioned grant. Any other `app_user` grant `preview_owner` makes (say, to `preview_runtime`
+    with `INHERIT`) fails the preview verification, and the next main deploy removes it: `app` may not
+    `REVOKE … GRANTED BY preview_owner`, but revoking `preview_owner`'s ADMIN option with `CASCADE` drops every
+    grant made with it, and ADMIN is granted again.
   - **A future migration that creates a role fails on previews**: `preview_owner` has no `CREATEROLE`. Create the
     role in `provision-db-logins.mjs` (main deploys) first, guarded like 0020's `IF NOT EXISTS`.
   - `preview_runtime` is a `SET`-only member of `app_user` with `CONNECT` on `app_preview`.
@@ -151,13 +167,21 @@ ones: `bash infra/scripts/test-environment.sh` fails when they differ.
 - `app_user` owns no public table and isn't a member of any table's owner;
 - row-level security is on for every public table except Better Auth's (`account`, `session`, `user`, `verification`);
 - `app_user` can use no view, materialized view or `SECURITY DEFINER` function except the migrations' own, and no
-  table outside `public` (column-only grants count): the views `customer_name` and `site_choice` are pinned by a
-  hash of their definition (a redefinition fails), the 24 access functions by exact signature (an overload fails);
+  table outside `public` (column-only grants count);
+- no rule on any table (rule actions run with the table owner's rights);
+- no `SECURITY DEFINER` trigger except the migrations' 7 (triggers fire without `EXECUTE`);
+- what row-level security depends on is the migrations' definition, pinned by a sha256 of how Postgres deparses
+  it (`infra/scripts/rls-pins.mjs`): the 2 views, the 24 definer functions `app_user` may run (by exact
+  signature, so an overload fails), the 7 definer trigger functions and all 45 policies. An added, changed or
+  missing one fails;
 - `app_user` has no `TRUNCATE`, `TRIGGER` or `REFERENCES` on any table (`TRUNCATE` ignores row-level security);
 - with `app.user_id` unset, `select count(*) from workspace` is 0.
 
-A migration that adds or changes a view or a `SECURITY DEFINER` function app_user can use fails the deploy until
-the allowlist in the script is updated on purpose (the failure says which).
+A migration that adds or changes a view, policy, definer function or definer trigger fails the deploy (preview
+first) until its pin in `rls-pins.mjs` is updated on purpose: the failure prints the object and its new hash, and
+`node --experimental-strip-types infra/scripts/rls-pins.mjs --print` lists them all from a migrated database. CI
+runs Postgres `16.15`, the version the pins were computed on; Cloud SQL's `POSTGRES_16` minor is only visible
+after the instance exists. If it deparses differently, the first deploy fails safe and prints the hashes to pin.
 
 CI runs the tests of all these scripts against the migrated database, and `test-preview-migrate.sh`.
 
@@ -195,6 +219,8 @@ CI runs the tests of all these scripts against the migrated database, and `test-
 ## Known limits / follow-ups
 - `main` runs up to 5 instances per zone with a pool of 5 connections each, more than `db-f1-micro`'s 25. Fine at
   POC traffic; lower `max_instances` or the pool size before real load.
+- The pool size is fixed at 5 in `packages/db` (`pool-config.ts`). An env setting (e.g. `DB_POOL_MAX`) would let
+  previews use 2 and raise how many previews fit (app follow-up).
 - Services are public (`allUsers`). If org policy forbids that, put a load balancer with IAP in front.
 - Previews share the production project and Cloud SQL instance. Use a separate project for staging if data
   isolation must not depend on database grants.
