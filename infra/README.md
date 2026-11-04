@@ -89,9 +89,12 @@ ones: `bash infra/scripts/test-environment.sh` fails when they differ.
   passwords. No deployer reads an auth secret.
 - **Preview logins.** `infra/scripts/provision-db-logins.mjs` creates them on `main` deploys only, as `app`, in two
   parts:
-  - **Main side**, on a connection to `app` (PR code can't write there): the logins, passwords, `app_user` grants
-    and database grants, then a check that neither preview login (nor `PUBLIC`) can connect to `app`. A failure
-    here fails the main deploy.
+  - **Main side**, on a connection to `app` (PR code can't write there), bounded by `lock_timeout` (30 s;
+    statements 60 s). Statements on the preview roles (create, password, connection limit, `app_user` grants)
+    and the grants on `app_preview` are best effort: a preview login can hold its own role row, so on a timeout
+    or error they print `::warning::` and main goes on. Fatal is only what protects `app`: `CONNECT` on `app`
+    revoked from `PUBLIC` and the preview logins, the owner's `CONNECT`, and the check that neither preview login
+    (nor `PUBLIC`) can connect to `app`.
   - **Preview side**, on `app_preview`: the preview migration lock (the same `migrate-app_preview` lock
     `with-db-lock.mjs` takes), the schema grant and the full verification, bounded by `lock_timeout` (30 s;
     statements 60 s). **Any failure here is a `::warning::` and the main deploy goes on**: nothing a PR does to
@@ -171,17 +174,24 @@ ones: `bash infra/scripts/test-environment.sh` fails when they differ.
 - no rule on any table (rule actions run with the table owner's rights);
 - no `SECURITY DEFINER` trigger except the migrations' 7 (triggers fire without `EXECUTE`);
 - what row-level security depends on is the migrations' definition, pinned by a sha256 of how Postgres deparses
-  it (`infra/scripts/rls-pins.mjs`): the 2 views, the 24 definer functions `app_user` may run (by exact
-  signature, so an overload fails), the 7 definer trigger functions and all 45 policies. An added, changed or
-  missing one fails;
+  it, owner included (`infra/scripts/rls-pins.mjs`): the 2 views, **every** function in non-system schemas (31,
+  whatever their security: an invoker `text` overload of `has_workspace_role` would otherwise hijack the
+  definer functions' untyped `'{admin}'` calls), the 7 definer trigger functions, all 45 policies, and every
+  table's owner and `ROW LEVEL SECURITY`/`FORCE` flags (21). An added, changed or missing one fails. The login
+  that ran the migrations hashes as `<migrator>`, so `app`, `preview_owner` and a local `postgres` match;
 - `app_user` has no `TRUNCATE`, `TRIGGER` or `REFERENCES` on any table (`TRUNCATE` ignores row-level security);
 - with `app.user_id` unset, `select count(*) from workspace` is 0.
 
-A migration that adds or changes a view, policy, definer function or definer trigger fails the deploy (preview
-first) until its pin in `rls-pins.mjs` is updated on purpose: the failure prints the object and its new hash, and
+A migration that adds or changes a view, function, trigger, policy or table fails the deploy (preview first) until
+its pin in `rls-pins.mjs` is updated on purpose. The failure starts with "A migration changed RLS-relevant
+objects: update infra/scripts/rls-pins.mjs" and prints each object with its new hash;
 `node --experimental-strip-types infra/scripts/rls-pins.mjs --print` lists them all from a migrated database. CI
-runs Postgres `16.15`, the version the pins were computed on; Cloud SQL's `POSTGRES_16` minor is only visible
-after the instance exists. If it deparses differently, the first deploy fails safe and prints the hashes to pin.
+and `docker-compose.yml` run Postgres `16.15`, the version the pins were computed on; Cloud SQL's `POSTGRES_16`
+minor is only visible after the instance exists. If it deparses differently, the first deploy fails safe and
+prints the hashes: add them next to the existing ones (a pin may be a list of hashes).
+
+`pnpm test:infra` runs all the infra script tests locally (needs `DATABASE_URL` of a superuser on a migrated
+database, e.g. `scripts/lane.sh exec <n> -- pnpm test:infra`).
 
 CI runs the tests of all these scripts against the migrated database, and `test-preview-migrate.sh`.
 
@@ -220,7 +230,8 @@ CI runs the tests of all these scripts against the migrated database, and `test-
 - `main` runs up to 5 instances per zone with a pool of 5 connections each, more than `db-f1-micro`'s 25. Fine at
   POC traffic; lower `max_instances` or the pool size before real load.
 - The pool size is fixed at 5 in `packages/db` (`pool-config.ts`). An env setting (e.g. `DB_POOL_MAX`) would let
-  previews use 2 and raise how many previews fit (app follow-up).
+  previews use 2 and raise how many previews fit (app follow-up). Until then `main`'s worst case (3 zones × 1
+  busy instance × 5 = 15 connections) exceeds its share (13 of 22) when previews are at their connection limits.
 - Services are public (`allUsers`). If org policy forbids that, put a load balancer with IAP in front.
 - Previews share the production project and Cloud SQL instance. Use a separate project for staging if data
   isolation must not depend on database grants.
