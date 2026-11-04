@@ -1,8 +1,8 @@
 @zone:shell @task:002
-Feature: Shell Landing and Login Experience
+Feature: Login page and theme
   As a visitor or user
   I want a login page, and the dashboard as home
-  So that I understand the project management product and can sign in effortlessly
+  So that I can sign in and see my work in the theme I chose
 
   @task:036
   Scenario: Choosing dark mode carries across zones and reloads
