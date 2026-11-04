@@ -43,6 +43,7 @@ case "$tool" in
         deny "$name is Terraform config/state the owner keeps out of the repo (CLAUDE.md rule 10). Change variables.tf or the .example files." ;;
     esac
     dir="$(dirname "$path")"; while [ ! -d "$dir" ]; do dir="$(dirname "$dir")"; done
+    path="$(cd "$dir" && pwd -P)${path#"$dir"}" # resolve symlinks, as git does for the root
     root="$(git -C "$dir" rev-parse --show-toplevel 2>/dev/null || true)"
     if [ -n "$root" ] && is_applied_migration "$root" "${path#"$root"/}"; then
       deny "${path#"$root"/} is an applied migration (it is in $(base_ref "$root")). Never edit applied migrations (CLAUDE.md rule 12): change packages/db/src/schema.ts and run pnpm db:generate for a new one."
