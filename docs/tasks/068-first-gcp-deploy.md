@@ -27,9 +27,13 @@ The POC must run on the internet, not just on a laptop. Row-level security has n
     - A preview database login that can `CONNECT` only to `app_preview` (`REVOKE CONNECT ON DATABASE app FROM PUBLIC`).
     - A separate preview Better Auth secret.
   - **Two deployers (owner, 2026-11-04):**
-    - main's deployer: usable only by a push to `main` (a Workload Identity Federation condition); acts as `*-runtime` service accounts only; reads main's secrets only;
-    - the preview deployer: used by PR runs; acts as `*-preview` service accounts only; reads the preview secrets only.
-  - **Previews never touch the database `app` nor use the owner login:** a SQL-created `preview_owner` login runs the migrations on `app_preview`. Login provisioning runs only on `main` deploys; previews only verify. So one `main` deploy is needed before the first preview.
+    - main's deployer (`deployer-main`): usable only by a push to `main` (a Workload Identity Federation condition); acts as `*-runtime` service accounts only; reads `db-password` and, because it provisions the preview logins, the two preview database passwords; no auth secret;
+    - the preview deployer (`deployer-preview`): used by PR runs; acts as `*-preview` service accounts only; reads the two preview database passwords only;
+    - Workload Identity accepts only this repository, by name and by its numeric id (`github_repository_id`).
+  - **Preview services and image repository (owner, 2026-11-04):** previews deploy to their own Cloud Run services (`shell-preview`, `example-zone-preview`, `dashboard-preview`) and push to their own repository (`images-preview`; main's is `images`). Each deployer deploys only to its environment's services and pushes only to its environment's repository. Deploys pin the image digest their build pushed (`deploy-service.sh` refuses a tag). `preview-cleanup.yml` removes a closed PR's `pr-<N>` tags.
+  - **Deployer role:** a custom role `runDeployer` on the deployer's own services only: the `run.*` permissions of `roles/run.developer` that a deploy and a tag cleanup use, without `run.developer` itself (it includes SSH into running instances, whose environment holds the database password and auth secret), IAM policy changes, jobs or worker pools.
+  - **Previews never touch the database `app` nor use the owner login:** a SQL-created `preview_owner` login runs the migrations on `app_preview`. Login provisioning (`infra/scripts/provision-db-logins.mjs`) runs only on `main` deploys: role and database statements on a connection to `app`, only the schema grant on `app_preview`. Previews verify the logins, then migrate. So one `main` deploy is needed before the first preview. The preview logins have connection limits (`preview_owner` 4, `preview_runtime` 8) and SCRAM-SHA-256 passwords.
+  - **Migration lock:** migrations run under a Postgres advisory lock (`infra/scripts/with-db-lock.mjs`, shared with the provisioning's schema grant), so two PRs never migrate `app_preview` at once.
   - **Preview test output:** Playwright traces and reports from preview runs are not uploaded anywhere public (the repo is public).
   - **`deploy.yml`:** deploys all three zones and builds the shell with both zone URLs.
   - **PR:** shows the `terraform plan` output.
@@ -39,7 +43,9 @@ The POC must run on the internet, not just on a laptop. Row-level security has n
   - no table in `public` is owned by a role whose privileges `app_user` has;
   - row-level security is enabled on every app table (the Better Auth tables excepted);
   - a probe: with `app.user_id` unset, `select count(*) from workspace` returns 0;
-  - migration 0025's `REVOKE TEMPORARY … FROM PUBLIC` applied.
+  - migration 0025's `REVOKE TEMPORARY … FROM PUBLIC` applied;
+  - added in the review rounds: `app_user` can use no view, materialized view or `SECURITY DEFINER` function but the migrations' own (the views `customer_name` and `site_choice` pinned by a hash of their definition, the access functions by exact signature, so a redefinition or an overload fails), no table outside `public` (column-only grants count), and has no `TRUNCATE`, `TRIGGER` or `REFERENCES` on any table;
+  - the check and the provisioning pin `search_path` to `pg_catalog, pg_temp` and call catalog functions schema-qualified, so functions planted by a PR's migration in `app_preview` never run in their place.
 - **CI:** `deploy` goes green on PRs (preview) and on `main`.
 
 ## Out of scope
@@ -58,6 +64,14 @@ The POC must run on the internet, not just on a laptop. Row-level security has n
 - [ ] Previews run as their own service account, database login and Better Auth secret; the preview login can't connect to `app`.
 - [ ] Preview Playwright traces and reports are not published.
 - [ ] A PR deploy can't read main's secrets or deploy as a `*-runtime` service account, shown on the first preview (for example the preview deployer's IAM bindings, or an access check that fails as expected).
+- [ ] Previews deploy to the `-preview` services from `images-preview`; the preview deployer can't deploy to main's services, push to `images` or read main's secrets.
+- [ ] Checked by hand on the first deploys (main, then the first preview):
+  - `runDeployer` is enough to deploy, tag a revision and remove tags (the cleanup job);
+  - every service runs the image by digest;
+  - Cloud SQL accepts the preview logins' SCRAM-SHA-256 passwords;
+  - Better Auth sees a client IP (criterion above);
+  - an upload and download by hand on the preview (criterion above);
+  - the preview deployer is refused on main's services, repository and secrets.
 - [ ] The preview job never connects to the database `app`: it migrates `app_preview` as `preview_owner` and doesn't provision logins.
 
 ## Test plan
@@ -78,7 +92,18 @@ The POC must run on the internet, not just on a laptop. Row-level security has n
   - the first preview is checked by hand for a client IP in Better Auth (shell logs) and for one upload and download.
 - 2026-11-04 – Follow-up planned: a separate runtime login role (amends ADR-0006's one login), task 074, after the POC.
 - 2026-11-04 – Owner's decision after the re-review: split the deployers now (it was parked). Main's deployer only from a push to `main`, acting as `*-runtime` and reading main's secrets; the preview deployer from PR runs, acting as `*-preview` and reading the preview secrets. Previews never connect to `app` or use the owner login: `preview_owner` (created by SQL) migrates `app_preview`; logins are provisioned on `main` deploys only and previews only verify them, so the first preview needs one `main` deploy before it. ADR-0006 is unchanged.
+- 2026-11-04 – Owner's decision: previews get their own Cloud Run services (`shell-preview`, `example-zone-preview`, `dashboard-preview`) and image repository (`images-preview`); each deployer deploys only to its own environment's services and pushes only to its own repository.
+- 2026-11-04 – Review rounds 2–3, changes the implementer made beyond the decisions (now in Scope):
+  - main's deployer also reads the two preview database passwords, because it provisions the preview logins;
+  - images are kept apart by repository (and deployed by digest), not by a `main-` tag prefix;
+  - the deployers get a custom `runDeployer` role without SSH (`roles/run.developer` includes root SSH into instances);
+  - the role check covers views pinned by hash, exact definer-function signatures, column grants and `TRUNCATE`/`TRIGGER`/`REFERENCES`, and ignores planted functions through a pinned `search_path`;
+  - `with-db-lock.mjs` serializes migrations (replaces the parked concurrency concern);
+  - provisioning connects to `app` for roles and to `app_preview` only for the schema grant;
+  - the preview logins have connection limits;
+  - Workload Identity is pinned to the repository id as well as its name.
 
 ## Parking lot
 - Neon instead of Cloud SQL to scale to zero (re-test the `app_user` setup first).
-- Two PRs deploying at once both migrate `app_preview` concurrently (unless the deploy workflow gets a concurrency group for it).
+- PRs with different unmerged migrations share `app_preview`: drizzle applies one PR's migrations on top of another PR's schema.
+- `main` runs up to 5 instances per zone with a pool of 5 connections each, more than `db-f1-micro`'s 25 connections; lower `max_instances` or the pool size before real load.
