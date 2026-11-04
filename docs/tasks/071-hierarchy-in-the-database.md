@@ -1,6 +1,6 @@
 # Task 071: Every project has a customer and a site, in the database; local data reset
 
-- **Status:** in-progress
+- **Status:** in-review
 - **Milestone:** POC (2026-11-13)
 - **Zone / package:** `packages/db` (migration 0035), `apps/dashboard`, `e2e`
 - **Feature file:** `docs/features/project-hierarchy.feature`; existing scenarios changed or retired (list below)
@@ -111,14 +111,14 @@ The hierarchy customer → (sub-company) → site → project is mandatory for t
 - A database rule that a project that isn't deleted can't be at a deleted site or customer. That stays in the app: the delete and restore rules above, as for tasks and visits.
 
 ## Acceptance criteria
-- [ ] The database refuses a project without a customer or a site, and the migration removes existing ones. (DB test `project-hierarchy.db.test.ts`; no Gherkin scenario: users can't reach it through the forms.)
-- [ ] Deleting a workspace still deletes its projects, sites and customers. (DB test)
-- [ ] A customer with projects can't be deleted until they are deleted. (`project-hierarchy.feature`: "A customer with projects can't be deleted")
-- [ ] A sub-company whose sites have its parent's projects can't be deleted. ("A sub-company whose sites have projects can't be deleted")
-- [ ] A deleted project comes back only after its customer and after its site. ("…only after its customer", "…only after its site")
-- [ ] The projects filter has no "No customer" choice. ("The projects filter offers only customers")
-- [ ] `reset:local` refuses a non-local database, does a dry run without `--yes`, and keeps only accounts that aren't `@example.com`. (unit tests on the guard and the kept-account rule; checked once by hand on the local database, output in the PR)
-- [ ] Every changed scenario above passes; the retired ones are deleted.
+- [x] The database refuses a project without a customer or a site, and the migration removes existing ones. (DB test `project-hierarchy.db.test.ts`; no Gherkin scenario: users can't reach it through the forms.)
+- [x] Deleting a workspace still deletes its projects, sites and customers. (DB test)
+- [x] A customer with projects can't be deleted until they are deleted. (`project-hierarchy.feature`: "A customer with projects can't be deleted")
+- [x] A sub-company whose sites have its parent's projects can't be deleted. ("A sub-company whose sites have projects can't be deleted")
+- [x] A deleted project comes back only after its customer and after its site. ("…only after its customer", "…only after its site")
+- [x] The projects filter has no "No customer" choice. ("The projects filter offers only customers")
+- [x] `reset:local` refuses a non-local database, does a dry run without `--yes`, and keeps only accounts that aren't `@example.com`. (unit tests on the guard and the kept-account rule; checked once by hand on the local database, output in the PR)
+- [x] Every changed scenario above passes; the retired ones are deleted.
 
 ## Approach (brief)
 - **DB test first** (`packages/db/src/project-hierarchy.db.test.ts`):
@@ -163,3 +163,4 @@ The hierarchy customer → (sub-company) → site → project is mandatory for t
 - A database rule against a live project at a deleted site or customer, if the app rules prove not enough.
 - DB tests create users at `@example.test` and some are left behind (`reset:local` keeps them as real accounts, e.g. `…-promoted@example.test`). Either clean them up in the tests or have `isTestAccount` include `example.test`.
 - Other reads that join a security-barrier view per row (`site_choice`; customer choices filtered by workspace) may also scale with the whole database. Check them with `explain analyze` as a partner.
+- 2026-11-04 – QA: full e2e 279/279 on production builds (2.7 min), DB 118, unit 404, lint, typecheck, build. In review.
