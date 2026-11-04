@@ -37,6 +37,8 @@ Rules:
 - Every zone validates sessions itself with `getSession()` (same DB, same `BETTER_AUTH_SECRET`).
 - Protecting a page in a zone: add `middleware.ts` using `redirectToLoginIfNoSession` for the fast path, **and** call `getSession()` in the page. See `apps/example-zone` (`/example/account`).
 - Cross-zone redirects use relative `Location`/`window.location.assign`, never `next/link`, and `next` targets pass through `safeNext`.
+- Home is the dashboard (task 070): the shell's `/` has no page of its own and redirects to `/dashboard` when signed in, `/login` otherwise. Login and sign-up without `next` land on `/dashboard` (`safeNext(next, "/dashboard")`); logging out goes to `/`, so to the login page.
+- The dashboard menu (`navFor` in `apps/dashboard/features/layout/nav.ts`) is Overview, All projects and Customers (admins and auditors). Partners, My tasks and Deleted are out of the menu but open by address with their own access rules.
 - Cookie settings (`useSecureCookies`) must match in all zones.
 - Better Auth rate-limits sign-up/sign-in in production builds. Only the Playwright test servers set `AUTH_DISABLE_RATE_LIMIT=true` (in `e2e/playwright.config.ts`); never set it in a deployed environment.
 - Schema changes: edit `packages/db/src/schema.ts` → `pnpm db:generate` → commit the migration. CI/CD applies migrations before deploy.

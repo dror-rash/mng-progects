@@ -91,17 +91,6 @@ Feature: Task assignees and My tasks
     When I reload the page
     Then my tasks are "Alpha, Bravo"
 
-  @task:031
-  Scenario: A task I just assigned to myself shows in My tasks without a refresh
-    Given I open "/dashboard/my-tasks"
-    And I am on the "Website Redesign" project page
-    And the project has a task "Write copy"
-    And I am on the "Write copy" task page
-    When I select "Test User" from "Assignee"
-    And I press "Save changes"
-    And I follow the "My tasks" link
-    Then the "My tasks" section shows "Write copy"
-
   @task:052
   Scenario: Making an admin an auditor clears their assignments
     Given I create an invite link for the role "Admin"

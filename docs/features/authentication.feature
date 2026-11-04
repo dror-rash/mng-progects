@@ -35,4 +35,4 @@ Feature: Authentication
     Given I am signed in with an existing account
     And I am on the home page
     When I log out
-    Then I see the "Log in" link
+    Then I am sent to the login page

@@ -31,7 +31,7 @@ Build a modern, full-stack Project Management application on a Next.js multi-zon
 | M9 | Polish & Hardening | Open parking-lot items: members-page errors, invite hygiene, workspace settings, header, cross-workspace reads, request caching, indexes, test cleanup, SQL counts, dark mode, drag-and-drop, primary contact, chart tooltips (tasks 027–039) | done |
 | M12 | Partner Access | Admin / Auditor / Partner roles; partner companies with assigned customers; partners see only their own projects and customer names; enforced by SQL access functions and row-level security; project cancel/copy; soft delete everywhere (ADR-0006, tasks 046–052, plan `docs/superpowers/plans/2026-10-31-partner-access.md`) | done |
 | M13 | Sites & Field Data | Customers get sub-companies (one level); physical sites with on-site contacts; every project has a site; a Worker role for internal technicians; site visits, photos and files, admin-built reading forms, uploaded and generated reports; offline capture with sync and no data loss; partners and workers see their projects' sites (amends ADR-0004 and ADR-0006; ADR-0008, ADR-0009 offline; design `docs/superpowers/specs/2026-11-02-sites-and-field-data-design.md`, proposed tasks 053–065) | in progress |
-| POC | POC, deployed (2026-11-13) | One flow from customer to report on the public `run.app` URL: agent team (067), first GCP deploy (068, M11), M13 tasks 056–061 and 064, end-to-end `@poc` scenario and demo data (069). Out: offline capture (062–063), generated PDF (065), custom domain. ADR-0010 | in progress |
+| POC | POC, deployed (2026-11-13) | One flow from customer to report on the public `run.app` URL: agent team (067), first GCP deploy (068, M11), M13 tasks 056–061 and 064, the dashboard as home with a short menu (070), every project under a customer and site in the database (071), customer → site → project pages (072), end-to-end `@poc` scenario and demo data (069). Out: offline capture (062–063), generated PDF (065), custom domain. ADR-0010 | in progress |
 
 ## Current milestone
 **POC, due 2026-11-13** (owner, 2026-11-02): deployed on GCP, demo data only, no custom domain. Order:
@@ -39,8 +39,9 @@ Build a modern, full-stack Project Management application on a Next.js multi-zon
 2. In parallel lanes:
    - 068 first GCP deploy (M11);
    - M13 056 worker role → 058 site visits → 059 photos;
-   - 057 storage → 060 form templates → 061 readings → 064 uploaded reports.
-3. 069: the `@poc` flow against the deployed preview.
+   - 057 storage → 060 form templates → 061 readings → 064 uploaded reports;
+   - 070 home and menu, in parallel with 071 hierarchy in the database (then `reset:local` and `seed:demo` locally) → 072 hierarchy pages (owner, 2026-11-04; drafts in review).
+3. 069: the `@poc` flow against the deployed preview, walking customer → site → project (after 070–072).
 
 M13 tasks 062, 063 and 065 continue after the POC.
 
@@ -89,3 +90,4 @@ M13 tasks 062, 063 and 065 continue after the POC.
 - 2026-11-02 – Task 057: `@repo/storage` (signed upload and download URLs, `stat`, `remove`, `objectKey`) on Google Cloud Storage, `fake-gcs-server` locally and in CI. The real bucket comes with task 068.
 - 2026-11-02 – Task 058: site visits (migrations 0031–0032): record a visit with who was there and notes, edit, delete and restore; client ids make a resent form record one visit; only the author and admins change a visit.
 - 2026-11-02 – Task 059: photos and files on a project or visit (migrations 0033–0034): uploads go straight to storage through signed URLs and are checked after; `/attachments/<id>` opens them for whoever may see them; the uploader and admins delete, admins restore.
+- 2026-11-04 – Planned at the owner's request for the POC: the dashboard is home (`/` goes to the overview, or to the login page when signed out; the landing page goes) and the menu is Overview, All projects and Customers (Partners, My tasks and Deleted stay reachable by address): task 070. The hierarchy customer → (sub-company) → site → project becomes mandatory in the database (migration 0035: customer and site `NOT NULL`, projects without them removed; a customer with projects can't be deleted, pending the owner's answer) with a guarded `reset:local` script and a fresh demo seed: task 071. A Customers table of top-level customers and site pages that list their projects: task 072. Split in three because together they exceeded one reviewable change.

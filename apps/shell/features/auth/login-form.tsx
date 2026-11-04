@@ -26,7 +26,7 @@ export function LoginForm({ next }: { next?: string }) {
       setPending(false);
       return;
     }
-    window.location.assign(safeNext(next)); // hard navigation: the target may be another zone
+    window.location.assign(safeNext(next, "/dashboard")); // hard navigation: the target may be another zone
   }
 
   return (

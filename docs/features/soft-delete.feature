@@ -91,7 +91,7 @@ Feature: Soft delete, the Deleted page and restore
 
   Scenario: Auditors see the Deleted page without Restore
     Given the project "NW Site" was deleted by the admin
-    When the auditor opens the Deleted page from the header
+    When the auditor opens "/dashboard/deleted"
     Then the auditor's deleted items are "NW Site (Project)"
     And the auditor sees no "Restore" button
 
