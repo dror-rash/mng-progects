@@ -49,29 +49,18 @@ Feature: Soft delete, the Deleted page and restore
     And I am on the "Homepage" task page
     Then I see the "Delete task" button
 
-  Scenario: Deleting a customer hides its partner projects from the partner
-    When the admin deletes the customer "Acme Ltd"
-    And I open "/dashboard/projects"
-    Then I see the text "No projects yet."
-    When I open the address of the "NW Site" project
-    Then I see "Project not found", the same as for a made-up project address
-    And the admin sees the "NW Site" project
-    And the admin's deleted items are "Acme Ltd (Customer)"
-    When the admin restores "Acme Ltd"
-    And I open "/dashboard/projects"
-    Then the projects shown are "NW Site"
-
   Scenario: A contact or note comes back only after its customer
-    Given the customer "Acme Ltd" has the contact "Jane Roe" and the note "Call on Monday"
+    Given the project "NW Site" was deleted by the admin
+    And the customer "Acme Ltd" has the contact "Jane Roe" and the note "Call on Monday"
     When the admin removes the contact "Jane Roe" and deletes the note "Call on Monday"
     And the admin deletes the customer "Acme Ltd"
-    Then the admin's deleted items are "Acme Ltd (Customer), Call on Monday (Note), Jane Roe (Contact)"
+    Then the admin's deleted items are "Acme Ltd (Customer), Call on Monday (Note), Jane Roe (Contact), NW Site (Project)"
     When the admin restores "Jane Roe"
     Then the admin sees the error "Restore its customer first"
     When the admin restores "Acme Ltd"
     And the admin restores "Jane Roe"
     And the admin restores "Call on Monday"
-    Then the admin's Deleted page is empty
+    Then the admin's deleted items are "NW Site (Project)"
     And the admin sees the customer "Acme Ltd" with the contact "Jane Roe" and the note "Call on Monday"
 
   Scenario: Deleting a partner removes its users' access

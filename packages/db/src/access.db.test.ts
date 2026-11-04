@@ -2,6 +2,7 @@ import { inArray, sql } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { getDb, withAccess } from "./client";
+import { insertSiteOf } from "./db-test-fixtures";
 import { getMaintenanceDb } from "./maintenance";
 import * as schema from "./schema";
 
@@ -26,6 +27,8 @@ const ids = {
   pa1: `${run}-pa1`,
   pb1: `${run}-pb1`,
   int: `${run}-int`,
+  /** The site of "Shared", where every project here is (task 071). */
+  site: `${run}-shared-site`,
 };
 const users = [ids.admin, ids.auditor, ids.pa, ids.pb, ids.leaver, ids.removed, ids.mover];
 
@@ -84,10 +87,12 @@ beforeAll(async () => {
     { organizationId: ids.shared, partnerId: ids.partnerB, workspaceId: ids.workspace },
     { organizationId: ids.onlyB, partnerId: ids.partnerB, workspaceId: ids.workspace },
   ]);
+  await insertSiteOf(ids.workspace, ids.shared);
+  const at = { organizationId: ids.shared, siteId: ids.site };
   await db.insert(schema.project).values([
-    { id: ids.pa1, name: "PA1", workspaceId: ids.workspace, organizationId: ids.shared, visibility: "partner", partnerId: ids.partnerA },
-    { id: ids.pb1, name: "PB1", workspaceId: ids.workspace, organizationId: ids.shared, visibility: "partner", partnerId: ids.partnerB },
-    { id: ids.int, name: "INT", workspaceId: ids.workspace },
+    { id: ids.pa1, name: "PA1", workspaceId: ids.workspace, ...at, visibility: "partner", partnerId: ids.partnerA },
+    { id: ids.pb1, name: "PB1", workspaceId: ids.workspace, ...at, visibility: "partner", partnerId: ids.partnerB },
+    { id: ids.int, name: "INT", workspaceId: ids.workspace, ...at },
   ]);
   await db.insert(schema.task).values([
     { id: `${run}-task-pa1`, projectId: ids.pa1, title: "A task" },
@@ -161,8 +166,8 @@ describe("row-level security", () => {
   it("refuses a partner's insert into another partner", async () => {
     const insert = withAccess(ids.pa, () =>
       getDb().execute(
-        sql`insert into project (id, name, workspace_id, organization_id, visibility, partner_id)
-            values (${`${run}-sneaky`}, 'Sneaky', ${ids.workspace}, ${ids.shared}, 'partner', ${ids.partnerB})`,
+        sql`insert into project (id, name, workspace_id, organization_id, site_id, visibility, partner_id)
+            values (${`${run}-sneaky`}, 'Sneaky', ${ids.workspace}, ${ids.shared}, ${ids.site}, 'partner', ${ids.partnerB})`,
       ),
     );
 
@@ -173,7 +178,8 @@ describe("row-level security", () => {
 
   it("refuses every write by an auditor", async () => {
     const writes = {
-      "insert project": sql`insert into project (id, name, workspace_id) values (${`${run}-audit`}, 'Audit', ${ids.workspace})`,
+      "insert project": sql`insert into project (id, name, workspace_id, organization_id, site_id)
+        values (${`${run}-audit`}, 'Audit', ${ids.workspace}, ${ids.shared}, ${ids.site})`,
       "update project": sql`update project set name = 'x' where id = ${ids.int}`,
       "delete project": sql`delete from project where id = ${ids.int}`,
       "insert task": sql`insert into task (id, project_id, title) values (${`${run}-audit-task`}, ${ids.int}, 'Audit')`,

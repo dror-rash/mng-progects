@@ -50,6 +50,7 @@ export function nextSort(current: ProjectSort, column: ProjectSortColumn): Proje
 
 type SortableProject = {
   name: string;
+  /** Null only when the user may not see the customer's name; sorts as an empty name. */
   customerName: string | null;
   status: ProjectStatus;
   /** Percent of tasks done. */
@@ -70,13 +71,8 @@ const compare: Record<ProjectSortColumn, (a: SortableProject, b: SortableProject
   started: (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
 };
 
-/** A sorted copy. Ties keep their order; projects without a customer stay last when sorting by customer. */
+/** A sorted copy. Ties keep their order. */
 export function sortProjects<T extends SortableProject>(projects: T[], sort: ProjectSort): T[] {
   const sign = sort.dir === "asc" ? 1 : -1;
-  return [...projects].sort((a, b) => {
-    if (sort.column === "customer" && (a.customerName === null) !== (b.customerName === null)) {
-      return a.customerName === null ? 1 : -1;
-    }
-    return sign * compare[sort.column](a, b);
-  });
+  return [...projects].sort((a, b) => sign * compare[sort.column](a, b));
 }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { filterParams, filterProjects, NO_CUSTOMER, parseProjectFilters } from "./project-filters";
+import { filterParams, filterProjects, parseProjectFilters } from "./project-filters";
 
 const customers = ["acme", "globex"];
 
@@ -15,8 +15,8 @@ describe("parseProjectFilters", () => {
     ).toEqual({ customer: "acme", status: "done", overdue: true, q: "web", view: "tiles" });
   });
 
-  it("accepts projects without a customer", () => {
-    expect(parseProjectFilters({ customer: NO_CUSTOMER }, customers).customer).toBe(NO_CUSTOMER);
+  it("ignores an old link to projects without a customer, which no longer exist (task 071)", () => {
+    expect(parseProjectFilters({ customer: "none" }, customers)).toEqual({ overdue: false, view: "table" });
   });
 
   it("ignores a customer that isn't one of the workspace's, an unknown status and an unknown view", () => {
@@ -50,7 +50,7 @@ describe("filterParams", () => {
 describe("filterProjects", () => {
   const projects = [
     { name: "Website Redesign", organizationId: "acme", status: "in_progress" as const, overdue: 0 },
-    { name: "Internal Ops", organizationId: null, status: "not_started" as const, overdue: 2 },
+    { name: "Internal Ops", organizationId: "acme", status: "not_started" as const, overdue: 2 },
     { name: "Mobile App", organizationId: "globex", status: "done" as const, overdue: 0 },
   ];
   const names = (filters: Parameters<typeof filterProjects>[1]) => filterProjects(projects, filters).map((p) => p.name);
@@ -59,9 +59,9 @@ describe("filterProjects", () => {
     expect(names({ overdue: false, view: "table" })).toEqual(["Website Redesign", "Internal Ops", "Mobile App"]);
   });
 
-  it("filters by customer, or by having none", () => {
-    expect(names({ customer: "acme", overdue: false, view: "table" })).toEqual(["Website Redesign"]);
-    expect(names({ customer: NO_CUSTOMER, overdue: false, view: "table" })).toEqual(["Internal Ops"]);
+  it("filters by customer", () => {
+    expect(names({ customer: "acme", overdue: false, view: "table" })).toEqual(["Website Redesign", "Internal Ops"]);
+    expect(names({ customer: "globex", overdue: false, view: "table" })).toEqual(["Mobile App"]);
   });
 
   it("filters by status", () => {
@@ -77,7 +77,7 @@ describe("filterProjects", () => {
   });
 
   it("combines filters", () => {
-    expect(names({ q: "o", customer: NO_CUSTOMER, overdue: true, view: "table" })).toEqual(["Internal Ops"]);
-    expect(names({ q: "web", customer: NO_CUSTOMER, overdue: false, view: "table" })).toEqual([]);
+    expect(names({ q: "o", customer: "acme", overdue: true, view: "table" })).toEqual(["Internal Ops"]);
+    expect(names({ q: "web", customer: "globex", overdue: false, view: "table" })).toEqual([]);
   });
 });

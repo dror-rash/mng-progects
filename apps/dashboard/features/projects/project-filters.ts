@@ -2,13 +2,10 @@ import { firstParam } from "@/features/navigation/search-params";
 
 import { parseProjectStatus, type ProjectStatus } from "./project-status";
 
-/** The customer filter's value for projects without a customer. */
-export const NO_CUSTOMER = "none";
-
 export type ProjectView = "table" | "tiles";
 
 export type ProjectFilters = {
-  /** A customer id, or `NO_CUSTOMER`. */
+  /** A customer id (every project has one, task 071). */
   customer?: string;
   status?: ProjectStatus;
   /** Only projects with an open task due before today. */
@@ -26,7 +23,7 @@ export function parseProjectFilters(params: SearchParams, customerIds: string[])
   const status = parseProjectStatus(firstParam(params.status));
   const q = firstParam(params.q);
   return {
-    ...(customer && (customer === NO_CUSTOMER || customerIds.includes(customer)) && { customer }),
+    ...(customer && customerIds.includes(customer) && { customer }),
     ...(status && { status }),
     overdue: firstParam(params.overdue) === "1",
     ...(q && { q }),
@@ -45,14 +42,14 @@ export function filterParams(filters: ProjectFilters): Record<string, string> {
   };
 }
 
-type FilterableProject = { name: string; organizationId: string | null; status: ProjectStatus; overdue: number };
+type FilterableProject = { name: string; organizationId: string; status: ProjectStatus; overdue: number };
 
 /** The projects matching every filter, in their original order. */
 export function filterProjects<T extends FilterableProject>(projects: T[], filters: ProjectFilters): T[] {
   const q = filters.q?.toLowerCase();
   return projects.filter(
     (p) =>
-      (!filters.customer || (filters.customer === NO_CUSTOMER ? p.organizationId === null : p.organizationId === filters.customer)) &&
+      (!filters.customer || p.organizationId === filters.customer) &&
       (!filters.status || p.status === filters.status) &&
       (!filters.overdue || p.overdue > 0) &&
       (!q || p.name.toLowerCase().includes(q)),

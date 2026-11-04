@@ -31,7 +31,7 @@ export default async function VisitPage({ params }: { params: Promise<{ projectI
     notFound();
   }
   const [site, attachments] = await Promise.all([
-    project.siteId ? getSiteForUser(session.user.id, project.siteId) : null,
+    getSiteForUser(session.user.id, project.siteId),
     listVisitAttachments(session.user.id, project.id, visit.id),
   ]);
 

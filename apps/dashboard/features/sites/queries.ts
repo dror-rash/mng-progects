@@ -1,4 +1,4 @@
-import { alias, and, asc, eq, getDb, getTableColumns, isNull, schema, sql, withAccess } from "@repo/db";
+import { alias, and, asc, customerLabelOf, eq, getDb, getTableColumns, isNull, schema, sql, withAccess } from "@repo/db";
 
 import { canChangeSite, canSeeCustomer, canSeeSite } from "@/features/access/predicates";
 import { inCompanyGroup } from "@/features/organizations/queries";
@@ -24,13 +24,12 @@ export async function getSiteForUser(userId: string, siteId: string) {
     getDb()
       .select({
         ...getTableColumns(schema.site),
-        customerName: schema.customerName.label,
+        customerName: customerLabelOf(schema.site.organizationId, schema.site.workspaceId),
         canSeeCustomer: canSeeCustomer(userId, schema.site.organizationId),
         canChange: canChangeSite(userId, schema.site.id),
       })
       .from(schema.site)
       .leftJoin(customer, eq(customer.id, schema.site.organizationId))
-      .leftJoin(schema.customerName, eq(schema.customerName.id, schema.site.organizationId))
       .where(
         and(
           eq(schema.site.id, siteId),

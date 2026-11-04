@@ -19,7 +19,7 @@ Feature: Partner access: a partner's user sees only their own partner's work
   Scenario: Lists show only my partner's projects
     When I open "/dashboard/projects"
     Then the projects shown are "NW Site"
-    And the "Customer" select offers "Any customer, No customer, Acme Ltd" with "Any customer" chosen
+    And the "Customer" select offers "Any customer, Acme Ltd" with "Any customer" chosen
     And the page shows none of "GX App, Login, HQ Plan, Budget, Globex, Initech"
     When I select "Acme Ltd" from "Customer"
     Then the projects shown are "NW Site"
@@ -89,7 +89,7 @@ Feature: Partner access: a partner's user sees only their own partner's work
     And the customer "Initech" has the site "Initech Lab" with the contact "Dana Levi"
     When I open "/dashboard/projects/new"
     Then the "Customer" select offers "Acme Ltd" with "Acme Ltd" chosen
-    And the "Site" select offers "Choose a site, Acme HQ" with "Choose a site" chosen
+    And the "Site" select offers "Choose a site, Acme HQ, Main site" with "Choose a site" chosen
     And there is no "Owner" field
     When I fill in "Project name" with "NW App"
     And I select "Acme HQ" from "Site"

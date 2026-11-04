@@ -1,8 +1,8 @@
-import { expect, type Page } from "@playwright/test";
+import { expect } from "@playwright/test";
 import { sql } from "@repo/db";
 import { getMaintenanceDb } from "@repo/db/maintenance";
 
-import { Given, userId, When } from "./fixtures";
+import { Given, When } from "./fixtures";
 import { chooseValue, idOf } from "./partner-access.steps";
 import { chooseSite, createProject } from "./project-form";
 import { myRecordId } from "./sites.steps";
@@ -20,21 +20,6 @@ async function customerLabelOfSite(siteId: string) {
   return rows[0]!.label;
 }
 
-/** My workspace: the one I joined first. */
-async function myWorkspaceId(page: Page) {
-  const { rows } = await getMaintenanceDb().execute<{ workspace_id: string }>(
-    sql`select workspace_id from workspace_member where user_id = ${await userId(page)} order by joined_at limit 1`,
-  );
-  return rows[0]!.workspace_id;
-}
-
-/** A project written straight to the database, as projects were before every project needed a site. */
-async function insertOldProject(workspaceId: string, name: string, organizationId: string | null) {
-  await getMaintenanceDb().execute(
-    sql`insert into project (id, name, workspace_id, organization_id) values (${crypto.randomUUID()}, ${name}, ${workspaceId}, ${organizationId})`,
-  );
-}
-
 Given("I have a project named {string} at the site {string}", async ({ page }, name: string, site: string) => {
   const customer = await customerLabelOfSite(await myRecordId(page, "site", site));
   await createProject(page, name, customer, site);
@@ -46,17 +31,6 @@ Given(
     await createProject(page, name, customer, site);
   },
 );
-
-Given(
-  "a project {string} for {string} from before sites were required, with no site",
-  async ({ page }, name: string, customer: string) => {
-    await insertOldProject(await myWorkspaceId(page), name, await myRecordId(page, "organization", customer));
-  },
-);
-
-Given("a project {string} from before sites were required, with no customer or site", async ({ page }, name: string) => {
-  await insertOldProject(await myWorkspaceId(page), name, null);
-});
 
 When("I open the copy page of the project {string}", async ({ page }, name: string) => {
   await page.goto(`/dashboard/projects/${await myRecordId(page, "project", name)}/copy`);

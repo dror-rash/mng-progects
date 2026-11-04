@@ -1,13 +1,10 @@
-import { and, desc, eq, getDb, getTableColumns, isNull, schema, withAccess } from "@repo/db";
+import { and, customerLabelOf, desc, eq, getDb, getTableColumns, isNull, schema, withAccess } from "@repo/db";
 
 import { canChangeProject, canSeeProject, canWorkOnProject } from "@/features/access/predicates";
 import { inCompanyGroup } from "@/features/organizations/queries";
 
-/** Join condition: the project's customer in `customer_name` (its own workspace's only). */
-const projectCustomerName = and(
-  eq(schema.project.organizationId, schema.customerName.id),
-  eq(schema.customerName.workspaceId, schema.project.workspaceId),
-);
+/** The project's customer's label from `customer_name` (its own workspace's only), one lookup per project. */
+const projectCustomerName = () => customerLabelOf(schema.project.organizationId, schema.project.workspaceId);
 
 /**
  * Project columns plus the linked customer's name, when the user may see it (null otherwise or without
@@ -15,9 +12,8 @@ const projectCustomerName = and(
  */
 function selectWithCustomer() {
   return getDb()
-    .select({ ...getTableColumns(schema.project), customerName: schema.customerName.label })
-    .from(schema.project)
-    .leftJoin(schema.customerName, projectCustomerName);
+    .select({ ...getTableColumns(schema.project), customerName: projectCustomerName() })
+    .from(schema.project);
 }
 
 /**
@@ -29,12 +25,11 @@ export async function getProjectForUser(userId: string, projectId: string) {
     getDb()
       .select({
         ...getTableColumns(schema.project),
-        customerName: schema.customerName.label,
+        customerName: projectCustomerName(),
         canChange: canChangeProject(userId, schema.project.id),
         canWork: canWorkOnProject(userId, schema.project.id),
       })
       .from(schema.project)
-      .leftJoin(schema.customerName, projectCustomerName)
       .where(and(eq(schema.project.id, projectId), isNull(schema.project.deletedAt), canSeeProject(userId, schema.project.id))),
   );
   return project ?? null;

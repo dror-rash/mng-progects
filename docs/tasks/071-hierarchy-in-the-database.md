@@ -1,6 +1,6 @@
 # Task 071: Every project has a customer and a site, in the database; local data reset
 
-- **Status:** ready (approved 2026-11-04)
+- **Status:** in-review
 - **Milestone:** POC (2026-11-13)
 - **Zone / package:** `packages/db` (migration 0035), `apps/dashboard`, `e2e`
 - **Feature file:** `docs/features/project-hierarchy.feature`; existing scenarios changed or retired (list below)
@@ -111,14 +111,14 @@ The hierarchy customer → (sub-company) → site → project is mandatory for t
 - A database rule that a project that isn't deleted can't be at a deleted site or customer. That stays in the app: the delete and restore rules above, as for tasks and visits.
 
 ## Acceptance criteria
-- [ ] The database refuses a project without a customer or a site, and the migration removes existing ones. (DB test `project-hierarchy.db.test.ts`; no Gherkin scenario: users can't reach it through the forms.)
-- [ ] Deleting a workspace still deletes its projects, sites and customers. (DB test)
-- [ ] A customer with projects can't be deleted until they are deleted. (`project-hierarchy.feature`: "A customer with projects can't be deleted")
-- [ ] A sub-company whose sites have its parent's projects can't be deleted. ("A sub-company whose sites have projects can't be deleted")
-- [ ] A deleted project comes back only after its customer and after its site. ("…only after its customer", "…only after its site")
-- [ ] The projects filter has no "No customer" choice. ("The projects filter offers only customers")
-- [ ] `reset:local` refuses a non-local database, does a dry run without `--yes`, and keeps only accounts that aren't `@example.com`. (unit tests on the guard and the kept-account rule; checked once by hand on the local database, output in the PR)
-- [ ] Every changed scenario above passes; the retired ones are deleted.
+- [x] The database refuses a project without a customer or a site, and the migration removes existing ones. (DB test `project-hierarchy.db.test.ts`; no Gherkin scenario: users can't reach it through the forms.)
+- [x] Deleting a workspace still deletes its projects, sites and customers. (DB test)
+- [x] A customer with projects can't be deleted until they are deleted. (`project-hierarchy.feature`: "A customer with projects can't be deleted")
+- [x] A sub-company whose sites have its parent's projects can't be deleted. ("A sub-company whose sites have projects can't be deleted")
+- [x] A deleted project comes back only after its customer and after its site. ("…only after its customer", "…only after its site")
+- [x] The projects filter has no "No customer" choice. ("The projects filter offers only customers")
+- [x] `reset:local` refuses a non-local database, does a dry run without `--yes`, and keeps only accounts that aren't `@example.com`. (unit tests on the guard and the kept-account rule; checked once by hand on the local database, output in the PR)
+- [x] Every changed scenario above passes; the retired ones are deleted.
 
 ## Approach (brief)
 - **DB test first** (`packages/db/src/project-hierarchy.db.test.ts`):
@@ -150,8 +150,19 @@ The hierarchy customer → (sub-company) → site → project is mandatory for t
 ## Progress log
 - 2026-11-04 – Drafted from the owner's request and answers (split from the home and menu work, task 070, and the hierarchy pages, task 072).
 - 2026-11-04 – Approved by the owner; open question 1 answered: deleting a customer with projects is refused.
+- 2026-11-04 – Red: the changed scenarios (own `docs(features):` commit), `@wip` off the five `project-hierarchy.feature` scenarios, steps for deleting a project and a site, projects written straight to the database get a site ("<customer> site" in the user's own workspace, "Main site" in the leak suite), `project-hierarchy.db.test.ts` plus customer-and-site fixtures (`db-test-fixtures.ts`) in the existing DB tests. Two open points for the planner: partner-access "I create a project for an assigned customer only, at one of its sites" can't hold as written (NW Site now needs a site of Acme Ltd, which the site select lists), and cancel/reopen of a partner's project at a site renders a blank page (project-cancel-copy).
+- 2026-11-04 – Green. Migration 0035 (`0035_project_hierarchy.sql`) removed 9567 of 12291 projects on the local database and none on a fresh `db:migrate`. Then: customers in use can't be deleted (`customerInUseMessage`, `listProjectsOfCustomer`); a project is restored after its customer, then its site, then the site's sub-company (`projectRestoreBlock`; the third message, "Restore its site's customer first", covers a project at a deleted sub-company's site); "No customer" is gone from the filter, sorting and project page; `reset:local` (`isLocalDatabase`, `isTestAccount`) was dry-run on the local database and run with `--yes` on a throwaway local database only. Two fixes the new data showed. First, a refused task customer showed "No customer" (`edit-task-form`). Second, the blank page after Cancel / Reopen: joins on the security-barrier `customer_name` view checked every customer in the database, about 1.1 s per query. Every project now has a site, so the project page made two of them and the action's redirect took over 5 s. Labels are now read per record (`customerLabelOf`, `customer-label.db.test.ts`), about 2 ms. Unit 402, DB 114, e2e 279/279 (production build, 3 workers, 3.1 min).
+- 2026-11-04 – Review fixes. Not every red run got its own `test:` commit: the tests for `reset:local` (060e11e), the edit-task customer (c31660d), `customerLabelOf` (0fd5424), `projectRestoreBlock` and `customerInUseMessage` were each seen failing first, but went in with their code. The fixes:
+  - `isLocalDatabase` reads `DATABASE_URL` with pg-connection-string, so a `host` or `hostaddr` in the query string counts, and it accepts only the databases `app` and `app_lane<n>`.
+  - `deleteCustomerAction` locks the customer and its sites (`for update`) before its checks, and a refused delete returns to the delete page.
+  - Migration 0036: `project_site_check` leaves a null customer or site to `NOT NULL` (23502). The DB tests assert error codes: 23502, 23503 for hard deletes, 23514 for the trigger.
+  - `customerLabelOf` tests cover partners, workers and deleted customers, and the plan assertion is a threshold.
+  - The third restore message stays until the owner answers.
+- 2026-11-04 – QA: full e2e 279/279 on production builds (2.7 min), DB 118, unit 404, lint, typecheck, build. In review.
 
 ## Parking lot
 - Purging the stored files of projects removed by the migration or the reset (with task 059's purge item).
 - A `reset:local` option that keeps the real accounts' workspaces and memberships, empties them, and seeds in one go.
 - A database rule against a live project at a deleted site or customer, if the app rules prove not enough.
+- DB tests create users at `@example.test` and some are left behind (`reset:local` keeps them as real accounts, e.g. `…-promoted@example.test`). Either clean them up in the tests or have `isTestAccount` include `example.test`.
+- Other reads that join a security-barrier view per row (`site_choice`; customer choices filtered by workspace) may also scale with the whole database. Check them with `explain analyze` as a partner.

@@ -1,6 +1,6 @@
 import { alias, and, type AnyColumn, asc, eq, getDb, getTableColumns, isNull, ne, schema, sql, withAccess } from "@repo/db";
 
-import { canChangeCustomer, canSeeCustomer } from "@/features/access/predicates";
+import { canChangeCustomer, canSeeCustomer, canSeeProject } from "@/features/access/predicates";
 
 import type { OrganizationKind, OrganizationStatus } from "./organization-kinds";
 import { distinctTags } from "./tag-list";
@@ -121,6 +121,29 @@ export async function listSubCompanies(userId: string, workspaceId: string, pare
       .where(and(visibleOrganizations(userId, workspaceId, "customer"), eq(schema.organization.parentId, parentId)))
       .orderBy(asc(schema.organization.name)),
   );
+}
+
+/**
+ * The names of the projects (not deleted; canceled ones too) for the customer `organizationId` or at one of
+ * its sites, by name: a customer or sub-company in use can't be deleted (task 071). Inside the caller's
+ * `withAccess` or on its own.
+ */
+export async function listProjectsOfCustomer(userId: string, organizationId: string) {
+  const rows = await withAccess(userId, async () =>
+    getDb()
+      .select({ name: schema.project.name })
+      .from(schema.project)
+      .where(
+        and(
+          isNull(schema.project.deletedAt),
+          canSeeProject(userId, schema.project.id),
+          sql`(${schema.project.organizationId} = ${organizationId}
+            or ${schema.project.siteId} in (select ${schema.site.id} from ${schema.site} where ${schema.site.organizationId} = ${organizationId}))`,
+        ),
+      )
+      .orderBy(asc(schema.project.name), asc(schema.project.id)),
+  );
+  return rows.map((r) => r.name);
 }
 
 /** The companies `userId` may choose as "Part of": top-level customers they can see, not deleted, not `excludeId`. */

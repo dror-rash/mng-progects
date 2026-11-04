@@ -9,7 +9,7 @@ type Project = {
   name: string;
   description: string | null;
   createdAt: Date;
-  organizationId?: string | null;
+  organizationId?: string;
   customerName?: string | null;
 };
 

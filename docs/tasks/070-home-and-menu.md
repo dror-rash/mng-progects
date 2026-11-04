@@ -1,6 +1,6 @@
 # Task 070: The dashboard is home; a short menu for the POC
 
-- **Status:** in-review
+- **Status:** done (PR #41)
 - **Milestone:** POC (2026-11-13)
 - **Zone / package:** `apps/shell`, `apps/dashboard` (header), `e2e`
 - **Feature file:** `docs/features/home-and-menu.feature`; one `@task:070` scenario in `docs/features/partner-access.feature`; existing scenarios changed or retired (list below)

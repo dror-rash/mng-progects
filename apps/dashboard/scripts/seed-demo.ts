@@ -55,7 +55,7 @@ async function main(): Promise<number> {
       .where(and(eq(schema.organization.workspaceId, workspaceId), sql`${schema.organization.tags} @> array[${DEMO_TAG}]::text[]`));
     const previousIds = previous.map((o) => o.id);
     if (previousIds.length > 0) {
-      // Projects only lose their customer when it's deleted, so remove the demo projects (and their tasks) first.
+      // A customer or site in use can't be deleted (task 071), so remove the demo projects (and their tasks) first.
       // Sub-companies' projects too: previousIds has the sub-companies (they carry the demo tag).
       await tx.delete(schema.project).where(inArray(schema.project.organizationId, previousIds));
       await tx.delete(schema.organization).where(inArray(schema.organization.id, previousIds));

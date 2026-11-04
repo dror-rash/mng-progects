@@ -191,8 +191,13 @@ export const project = pgTable("project", {
   workspaceId: text("workspace_id")
     .notNull()
     .references(() => workspace.id, { onDelete: "cascade" }),
-  /** The customer this project is for (task 016). Cleared if the customer is deleted. */
-  organizationId: text("organization_id").references(() => organization.id, { onDelete: "set null" }),
+  /**
+   * The customer this project is for (task 016), required (task 071). A customer in use can't be hard-deleted
+   * (`no action`): only a whole workspace's cascade removes it, together with its projects.
+   */
+  organizationId: text("organization_id")
+    .notNull()
+    .references(() => organization.id, { onDelete: "no action" }),
   /** The fixed owner (ADR-0006): `internal`, or `partner` with `partnerId` set (and a customer). */
   visibility: text("visibility").notNull().default("internal"),
   partnerId: text("partner_id"),
@@ -204,16 +209,18 @@ export const project = pgTable("project", {
   /** The project this one was copied from, if any (ADR-0006). */
   copiedFromId: text("copied_from_id").references((): AnyPgColumn => project.id, { onDelete: "set null" }),
   /**
-   * The site the work is at (task 055, ADR-0008): one of the customer's sites or its sub-companies'. Null only
-   * for projects from before sites were required. Cleared if the site is deleted for good.
+   * The site the work is at (task 055, ADR-0008): one of the customer's sites or its sub-companies', required
+   * (task 071). A site in use can't be hard-deleted (`no action`), except by its workspace's cascade.
    */
-  siteId: text("site_id").references((): AnyPgColumn => site.id, { onDelete: "set null" }),
+  siteId: text("site_id")
+    .notNull()
+    .references((): AnyPgColumn => site.id, { onDelete: "no action" }),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
   deletedAt: timestamp("deleted_at"),
   deletedBy: text("deleted_by").references(() => user.id, { onDelete: "set null" }),
 }, (table) => [
-  // A workspace's projects, a customer's projects, and the SET NULL when a customer is deleted.
+  // A workspace's projects, a customer's projects, and the check that a customer is not in use when deleted.
   index("project_workspace_organization_idx").on(table.workspaceId, table.organizationId),
   index("project_partner_idx").on(table.partnerId),
   index("project_site_idx").on(table.siteId),

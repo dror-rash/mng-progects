@@ -12,7 +12,8 @@ type Project = {
   id: string;
   name: string;
   createdAt: Date;
-  organizationId: string | null;
+  organizationId: string;
+  /** Null when the user may not see the customer's name. */
   customerName: string | null;
   status: ProjectStatus;
   overdue: number;
@@ -68,7 +69,7 @@ export function ProjectTable({
                 </Link>
               </TableHead>
               <TableCell>
-                {project.organizationId && project.customerName ? (
+                {project.customerName ? (
                   linkCustomers ? (
                     <Link href={`/customers/${project.organizationId}`} className="hover:underline">
                       {project.customerName}

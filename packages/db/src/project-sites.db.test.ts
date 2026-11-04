@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { getDb, withAccess } from "./client";
+import { CHECK, errorCode, NOT_NULL } from "./db-test-fixtures";
 import { getMaintenanceDb } from "./maintenance";
 import * as schema from "./schema";
 
@@ -92,22 +93,25 @@ describe("which site a project may be at", () => {
     await db.execute(insertProject(`${run}-ok3`, ids.acmeRetail, ids.retailSite));
   });
 
-  it("takes no site at all, for a project from before sites were required", async () => {
-    await getMaintenanceDb().execute(insertProject(`${run}-old`, null, null));
+  it("refuses no site at all: every project has one (task 071)", async () => {
+    expect(await errorCode(getMaintenanceDb().execute(insertProject(`${run}-old`, ids.acme, null)))).toBe(NOT_NULL);
   });
 
-  it("refuses another customer's site, its parent's site, a site with no customer, or another workspace's", async () => {
+  it("refuses another customer's site, its parent's site, or another workspace's (project_site_check)", async () => {
     const db = getMaintenanceDb();
-    await expect(db.execute(insertProject(`${run}-x1`, ids.acme, ids.globexSite))).rejects.toThrow();
-    await expect(db.execute(insertProject(`${run}-x2`, ids.acmeRetail, ids.acmeSite))).rejects.toThrow();
-    await expect(db.execute(insertProject(`${run}-x3`, null, ids.acmeSite))).rejects.toThrow();
-    await expect(db.execute(insertProject(`${run}-x4`, ids.acme, ids.foreignSite))).rejects.toThrow();
+    expect(await errorCode(db.execute(insertProject(`${run}-x1`, ids.acme, ids.globexSite)))).toBe(CHECK);
+    expect(await errorCode(db.execute(insertProject(`${run}-x2`, ids.acmeRetail, ids.acmeSite)))).toBe(CHECK);
+    expect(await errorCode(db.execute(insertProject(`${run}-x4`, ids.acme, ids.foreignSite)))).toBe(CHECK);
+  });
+
+  it("refuses a site with no customer: every project has one (task 071)", async () => {
+    expect(await errorCode(getMaintenanceDb().execute(insertProject(`${run}-x3`, null, ids.acmeSite)))).toBe(NOT_NULL);
   });
 
   it("refuses changing the customer away from the project's site", async () => {
-    await expect(
-      getMaintenanceDb().execute(sql`update project set organization_id = ${ids.globex} where id = ${ids.projectA}`),
-    ).rejects.toThrow();
+    expect(
+      await errorCode(getMaintenanceDb().execute(sql`update project set organization_id = ${ids.globex} where id = ${ids.projectA}`)),
+    ).toBe(CHECK);
   });
 
   it("refuses moving a sub-company while its parent's projects are at its sites", async () => {

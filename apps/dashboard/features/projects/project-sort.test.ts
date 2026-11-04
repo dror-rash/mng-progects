@@ -48,7 +48,7 @@ describe("nextSort", () => {
 
 const project = (name: string, extra: Partial<Parameters<typeof sortProjects>[0][number]> = {}) => ({
   name,
-  customerName: null,
+  customerName: "Acme",
   status: "no_tasks" as const,
   progress: 0,
   overdue: 0,
@@ -65,10 +65,10 @@ describe("sortProjects", () => {
     expect(names(sortProjects(rows, { column: "name", dir: "desc" }))).toEqual(["gamma", "beta", "Alpha"]);
   });
 
-  it("puts projects without a customer last in both directions", () => {
-    const rows = [project("none"), project("b", { customerName: "Globex" }), project("a", { customerName: "Acme" })];
-    expect(names(sortProjects(rows, { column: "customer", dir: "asc" }))).toEqual(["a", "b", "none"]);
-    expect(names(sortProjects(rows, { column: "customer", dir: "desc" }))).toEqual(["b", "a", "none"]);
+  it("sorts by customer ignoring case, every project having one (task 071)", () => {
+    const rows = [project("c", { customerName: "globex" }), project("b", { customerName: "Initech" }), project("a")];
+    expect(names(sortProjects(rows, { column: "customer", dir: "asc" }))).toEqual(["a", "c", "b"]);
+    expect(names(sortProjects(rows, { column: "customer", dir: "desc" }))).toEqual(["b", "c", "a"]);
   });
 
   it("sorts statuses in their own order, not alphabetically", () => {

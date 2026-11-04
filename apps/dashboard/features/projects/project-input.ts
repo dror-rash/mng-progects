@@ -2,7 +2,7 @@ import { cleanText } from "@/features/forms/clean-text";
 
 /**
  * `organizationId` is the chosen customer and `siteId` one of its sites (task 055); null when left empty.
- * The actions require both, after checking the customer (`checkCustomerAndSite`).
+ * The actions require both, after checking the customer (`checkCustomerAndSite`, which narrows both to strings).
  */
 export type ProjectInput = { name: string; description: string | null; organizationId: string | null; siteId: string | null };
 

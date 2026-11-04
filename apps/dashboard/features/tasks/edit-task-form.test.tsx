@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 // The server action is the form's boundary here; these tests are about what the form posts.
 vi.mock("./actions", () => ({ updateTaskAction: vi.fn() }));
 
+import { updateTaskAction } from "./actions";
 import { EditTaskForm } from "./edit-task-form";
 
 const task = (organizationId: string | null) => ({
@@ -59,6 +60,20 @@ describe("EditTaskForm", () => {
     await userEvent.selectOptions(screen.getByLabelText("Customer"), "Acme Ltd");
 
     expect(posted().get("customerId")).toBe("acme");
+  });
+
+  it("keeps the task's customer after a refused save of one that isn't among my choices (a tampered form)", async () => {
+    vi.mocked(updateTaskAction).mockResolvedValueOnce({
+      error: "Choose one of your customers",
+      field: "customerId",
+      values: { title: "Copy", customerId: "someone-elses" },
+    });
+    render(<EditTaskForm projectId="p" task={task("acme")} customers={customers} members={[]} />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Save changes" }));
+
+    expect(await screen.findByText("Choose one of your customers")).toBeTruthy();
+    expect(screen.getByLabelText("Customer")).toHaveProperty("value", "acme");
   });
 
   it("posts the chosen assignee", () => {

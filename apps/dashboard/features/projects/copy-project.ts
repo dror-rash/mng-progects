@@ -8,7 +8,7 @@ import { requireWorkspaceForAction } from "@/features/workspaces/require-workspa
 
 import { copyProject } from "./copy";
 import { parseProjectInput } from "./project-input";
-import { customerAndSiteError, newProjectOwner } from "./project-owner-check";
+import { checkCustomerAndSite, newProjectOwner } from "./project-owner-check";
 import { getProjectForUser } from "./queries";
 import { revalidateOverviews } from "./revalidate";
 
@@ -35,15 +35,15 @@ export async function copyProjectAction(_prev: FormState, formData: FormData): P
       return invalid(input.error, formData);
     }
     const customerError = owner.partnerId && workspace.role === "admin" ? "Choose a customer assigned to this partner" : "Choose one of your customers";
-    const refused = await customerAndSiteError(workspace.id, owner.partnerId, input.value, formData, customerError);
-    if (refused) {
-      return refused;
+    const checked = await checkCustomerAndSite(workspace.id, owner.partnerId, input.value, formData, customerError);
+    if (!checked.ok) {
+      return checked.state;
     }
     const id = await copyProject(session.user.id, source.id, {
-      name: input.value.name,
+      name: checked.value.name,
       ownerPartnerId: owner.partnerId,
-      customerId: input.value.organizationId!,
-      siteId: input.value.siteId!,
+      customerId: checked.value.organizationId,
+      siteId: checked.value.siteId,
     });
     return { id };
   });

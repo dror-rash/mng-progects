@@ -11,7 +11,7 @@ import { listParentProjectsAtSitesOf } from "@/features/sites/queries";
 import { requireWorkspaceForAction } from "@/features/workspaces/require-workspace";
 
 import { parseOrganizationInput } from "./organization-input";
-import { isParentChoice, listSubCompanies } from "./queries";
+import { isParentChoice, listProjectsOfCustomer, listSubCompanies } from "./queries";
 import { requireOrganizationAccess } from "./require-organization-access";
 
 /** The "Part of" error for a parent the form wouldn't offer (task 053). */
@@ -89,14 +89,33 @@ export async function updateCustomerAction(_prev: FormState, formData: FormData)
 
 /**
  * Soft delete (design rule 8b): the customer, its contacts and notes disappear (they stay as they are and
- * come back when it is restored); its projects stay, hidden from partners. Admins only. A company with
- * sub-companies that aren't deleted stays (task 053): back to its delete page, which says why.
+ * come back when it is restored). Admins only. A company with sub-companies that aren't deleted stays (task
+ * 053): back to its delete page, which says why. So does one with projects (not deleted) for it or at its
+ * sites (task 071): the page offers no button then, and a posted form goes back to it too.
  */
 export async function deleteCustomerAction(formData: FormData) {
   const session = await requireActionSession();
   const blocked = await withAccess(session.user.id, async () => {
     const customer = await requireOrganizationAccess(session.user.id, String(formData.get("customerId") ?? ""), "customer");
+    // Lock the customer and its sites first. A project (for it or at one of its sites) or a sub-company
+    // being added holds a key-share lock on one of these rows (its foreign key) until it commits, so the
+    // lock waits for it and the checks below then see it. One that starts after this lock but checked the
+    // customer before it can still land after the delete: the app's checks aren't a database rule (parked).
+    await getDb()
+      .select({ id: schema.organization.id })
+      .from(schema.organization)
+      .where(eq(schema.organization.id, customer.id))
+      .for("update");
+    await getDb()
+      .select({ id: schema.site.id })
+      .from(schema.site)
+      .where(eq(schema.site.organizationId, customer.id))
+      .for("update");
     if ((await listSubCompanies(session.user.id, customer.workspaceId, customer.id)).length > 0) {
+      return customer.id;
+    }
+    // The delete page offers no button for a customer in use (task 071) and says why.
+    if ((await listProjectsOfCustomer(session.user.id, customer.id)).length > 0) {
       return customer.id;
     }
     await getDb()
