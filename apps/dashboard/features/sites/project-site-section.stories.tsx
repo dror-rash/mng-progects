@@ -27,5 +27,3 @@ type Story = StoryObj<typeof meta>;
 export const WithSite: Story = {};
 export const NoContactsOrNotes: Story = { args: { site: { ...site, accessNotes: null, contacts: [] } } };
 export const NoAddress: Story = { args: { site: { ...site, address: null, mapsHref: null } } };
-export const NoSiteYet: Story = { args: { site: null, addSiteHref: "/projects/p1/edit" } };
-export const NoSiteYetReadOnly: Story = { args: { site: null } };

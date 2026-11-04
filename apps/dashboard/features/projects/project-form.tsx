@@ -14,8 +14,8 @@ import { createProjectAction, updateProjectAction } from "./actions";
 import { copyProjectAction } from "./copy-project";
 import { CustomerSiteFields } from "./customer-site-fields";
 
-type Project = { id: string; name: string; description: string | null; organizationId: string | null; siteId: string | null };
-type Source = { id: string; name: string; organizationId: string | null; siteId: string | null };
+type Project = { id: string; name: string; description: string | null; organizationId: string; siteId: string };
+type Source = { id: string; name: string; organizationId: string; siteId: string };
 type CustomerOption = { id: string; name: string };
 type OwnerOption = { value: string; label: string };
 

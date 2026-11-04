@@ -5,7 +5,7 @@ import { Input } from "@repo/ui/input";
 import { NativeSelect } from "@repo/ui/native-select";
 import Form from "next/form";
 
-import { NO_CUSTOMER, type ProjectFilters } from "./project-filters";
+import type { ProjectFilters } from "./project-filters";
 import { PROJECT_STATUSES } from "./project-status";
 
 type CustomerOption = { id: string; name: string };
@@ -41,7 +41,6 @@ export function ProjectFilterForm({
         <label htmlFor="customer" className="text-sm font-medium">Customer</label>
         <NativeSelect id="customer" name="customer" defaultValue={filters.customer ?? ""} onChange={applyNow}>
           <option value="">Any customer</option>
-          <option value={NO_CUSTOMER}>No customer</option>
           {customers.map((c) => (
             <option key={c.id} value={c.id}>{c.name}</option>
           ))}

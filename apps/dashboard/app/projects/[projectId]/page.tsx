@@ -46,11 +46,9 @@ export default async function ProjectPage({ params }: { params: Promise<{ projec
   // project it was copied from shows only to those who can see that one too (rule 4a).
   const [tasks, customerPage, copiedFrom, site, crew, manageCrew, visits, attachments] = await Promise.all([
     listProjectTasks(session.user.id, project.id),
-    project.organizationId && project.customerName
-      ? getOrganizationForUser(session.user.id, project.organizationId, "customer")
-      : null,
+    project.customerName ? getOrganizationForUser(session.user.id, project.organizationId, "customer") : null,
     project.copiedFromId ? getProjectForUser(session.user.id, project.copiedFromId) : null,
-    project.siteId ? getSiteForUser(session.user.id, project.siteId) : null,
+    getSiteForUser(session.user.id, project.siteId),
     listCrew(session.user.id, project.id),
     isAdmin(session.user.id, project.workspaceId),
     listProjectVisits(session.user.id, project.id),
@@ -58,7 +56,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ projec
   ]);
   // Admins put the workspace's workers on the crew (task 056).
   const crewChoices = manageCrew ? await listCrewChoices(session.user.id, project) : [];
-  // Where the work is (task 055); a project from before sites were required (or at a deleted site) has none.
+  // Where the work is (task 055). Every project has a site (task 071); it shows while it isn't deleted.
   const siteContacts = site ? await listSiteContacts(session.user.id, site.id) : [];
   const canceled = isCanceled(project.lifecycle);
   // Most urgent first in each column; tasks arrive oldest first, and the sort keeps that within a priority.
@@ -79,22 +77,19 @@ export default async function ProjectPage({ params }: { params: Promise<{ projec
               {canceled && <Badge variant="outline">{projectLifecycleLabel(project.lifecycle)}</Badge>}
             </div>
             {project.description && <p className="text-muted-foreground">{project.description}</p>}
-            <p className="text-sm text-muted-foreground">
-              {project.customerName ? (
-                <>
-                  Customer:{" "}
-                  {customerPage ? (
-                    <Link href={`/customers/${customerPage.id}`} className="font-medium text-foreground hover:underline">
-                      {project.customerName}
-                    </Link>
-                  ) : (
-                    <span className="font-medium text-foreground">{project.customerName}</span>
-                  )}
-                </>
-              ) : (
-                "No customer"
-              )}
-            </p>
+            {/* Every project has a customer (task 071); its name shows to whoever may see it. */}
+            {project.customerName && (
+              <p className="text-sm text-muted-foreground">
+                Customer:{" "}
+                {customerPage ? (
+                  <Link href={`/customers/${customerPage.id}`} className="font-medium text-foreground hover:underline">
+                    {project.customerName}
+                  </Link>
+                ) : (
+                  <span className="font-medium text-foreground">{project.customerName}</span>
+                )}
+              </p>
+            )}
             {copiedFrom && (
               <p className="text-sm text-muted-foreground">
                 Copied from{" "}
@@ -125,19 +120,18 @@ export default async function ProjectPage({ params }: { params: Promise<{ projec
           )}
         </section>
 
-        <ProjectSiteSection
-          site={
-            site && {
+        {site && (
+          <ProjectSiteSection
+            site={{
               id: site.id,
               name: site.name,
               address: site.address,
               accessNotes: site.accessNotes,
               mapsHref: mapsLink(site),
               contacts: siteContacts,
-            }
-          }
-          addSiteHref={project.canChange ? `/projects/${project.id}/edit` : undefined}
-        />
+            }}
+          />
+        )}
 
         <VisitsSection projectId={project.id} visits={visits} canRecord={project.canWork} />
 
