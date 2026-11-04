@@ -1,4 +1,4 @@
-import { alias, and, asc, desc, eq, getDb, getTableColumns, gte, isNull, lt, lte, ne, schema, type SQL, sql, withAccess } from "@repo/db";
+import { alias, and, asc, customerLabelOf, desc, eq, getDb, getTableColumns, gte, isNull, lt, lte, ne, schema, type SQL, sql, withAccess } from "@repo/db";
 
 import { canSeeProject } from "@/features/access/predicates";
 import { inCompanyGroup } from "@/features/organizations/queries";
@@ -24,13 +24,13 @@ const assigneeMembership = alias(schema.workspaceMember, "assignee_membership");
  */
 function selectWithNames() {
   return getDb()
-    .select({ ...getTableColumns(schema.task), customerName: schema.customerName.label, assigneeName: assignee.name })
+    .select({
+      ...getTableColumns(schema.task),
+      customerName: customerLabelOf(schema.task.organizationId, schema.project.workspaceId),
+      assigneeName: assignee.name,
+    })
     .from(schema.task)
     .innerJoin(schema.project, eq(schema.task.projectId, schema.project.id))
-    .leftJoin(
-      schema.customerName,
-      and(eq(schema.task.organizationId, schema.customerName.id), eq(schema.customerName.workspaceId, schema.project.workspaceId)),
-    )
     .leftJoin(
       assigneeMembership,
       and(eq(assigneeMembership.userId, schema.task.assigneeId), eq(assigneeMembership.workspaceId, schema.project.workspaceId)),
