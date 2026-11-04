@@ -1,11 +1,11 @@
 # Infrastructure (GCP)
 
-Terraform for: Artifact Registry, one Cloud Run service per zone (`shell`, `example-zone`, `dashboard`, each with
-its own runtime service account), Cloud SQL, Secret Manager, the file buckets, a log exclusion, and GitHub
-Actions → GCP auth via Workload Identity Federation (no long-lived keys).
+Terraform for: Artifact Registry, one Cloud Run service per zone (`shell`, `example-zone`, `dashboard`), runtime
+service accounts per zone and environment, Cloud SQL, Secret Manager, the file buckets, a log exclusion, and
+GitHub Actions → GCP auth via Workload Identity Federation (no long-lived keys).
 
-Every resource is regional in `var.region` (the project uses `me-west1`, Tel Aviv): Cloud Run, Artifact
-Registry (`<region>-docker.pkg.dev`), Cloud SQL and the buckets.
+Every resource is regional in `var.region` (required; this project uses `me-west1`, Tel Aviv): Cloud Run,
+Artifact Registry (`<region>-docker.pkg.dev`), Cloud SQL and the buckets.
 
 ## One-time bootstrap
 ```bash
@@ -25,7 +25,7 @@ gcloud storage buckets update gs://<PROJECT_ID>-tfstate --versioning
 
 cd infra
 cp backend.hcl.example backend.hcl            # edit
-cp terraform.tfvars.example terraform.tfvars  # edit
+cp terraform.tfvars.example terraform.tfvars  # edit (region = "me-west1")
 terraform init -backend-config=backend.hcl
 terraform plan
 terraform apply
@@ -43,46 +43,103 @@ After `apply`, set these **repository variables** (Settings → Secrets and vari
 | `GCP_WIF_PROVIDER` | `terraform output gcp_wif_provider` |
 | `GCP_DEPLOYER_SA` | `terraform output gcp_deployer_sa` |
 | `GCP_CLOUDSQL_CONNECTION` | `terraform output gcp_cloudsql_connection` |
-| `APP_URL` (optional) | public origin, e.g. `https://app.example.com`. Defaults to the shell's `run.app` URL |
+| `APP_URL` (optional) | public origin behind a custom domain. Leave unset for the `run.app` origin |
 
 No secrets are needed for GCP auth.
 
+## The app's origin
+Without `APP_URL`, the origin is the shell's **`status.url`**: the URL printed by
+`gcloud run services describe shell --region me-west1 --format='value(status.url)'`. `deploy-service.sh` sets it as
+`BETTER_AUTH_URL` on every `main` revision. Cloud Run answers on a second `run.app` URL for the same service
+(`shell-<hash>-<region code>.a.run.app` and `shell-<project number>.me-west1.run.app`); pages load on both, but
+sign-in only works on `status.url`, because Better Auth trusts only its base URL on `main`.
+
+## Environments: main and PR previews
+Same project and Cloud Run services; nothing else is shared. `infra/scripts/environment.sh` is the one place the
+workflow picks the names (tests: `bash infra/scripts/test-environment.sh`); Terraform creates the same names.
+
+| | main | PR preview |
+|---|---|---|
+| Revisions | 100% traffic | no traffic, tag `pr-<N>` |
+| Runtime identity | `<zone>-runtime` | `<zone>-preview` |
+| Database | `app` | `app_preview` |
+| Database login | `app` (owner; runtime switches to `app_user`) | `preview_runtime` (switches to `app_user`) |
+| Secrets | `db-password`, `better-auth-secret` | `db-preview-password`, `better-auth-secret-preview` |
+| Files bucket | `<PROJECT_ID>-files` | `<PROJECT_ID>-files-preview` |
+
+- Each runtime identity reads only its environment's two secrets. `deploy-service.sh` sets the revision's identity,
+  env vars, secrets and Cloud SQL instance with `--set-*`, so a revision never inherits the other environment's.
+- `preview_runtime` is created by `infra/scripts/provision-db-logins.mjs` on every deploy, as the owner login, not
+  by Terraform: Cloud SQL makes every API-created user a member of `cloudsqlsuperuser`, which owns the databases
+  (so it could connect to `app`). The script makes it `LOGIN NOINHERIT`, no `CREATEROLE`/`CREATEDB`, a `SET`-only
+  member of `app_user`, with `CONNECT` on `app_preview` only; revokes `CONNECT` on `app` from `PUBLIC`; then verifies
+  all of it and fails the deploy otherwise. Terraform generates its password (`db-preview-password`).
+
 ## How deploys work
-- Terraform creates the services with a placeholder image and ignores image/traffic drift.
-- `.github/workflows/deploy.yml` builds each zone image, pushes to Artifact Registry, and runs `gcloud run deploy`.
-- **PRs:** a no-traffic revision tagged `pr-<N>` is deployed per zone; Playwright runs against the shell's tagged URL; the URL is posted on the PR. `preview-cleanup.yml` removes the tags when the PR closes.
-- **main:** new revisions get 100% traffic.
-- The shell proxies to the other zones via `EXAMPLE_ZONE_URL` and `DASHBOARD_ZONE_URL`. Next.js bakes rewrites in at **build time**, so the workflow deploys the example zone and the dashboard first and builds the shell with their URLs (on PRs, their tagged `pr-<N>` URLs).
-- After migrating, `infra/scripts/check-runtime-role.mjs` connects like the runtime pool (same login, `-c role=app_user`) and fails the deploy unless `current_user = app_user`, `pg_has_role('app_user', 'MEMBER')` and `app_user` has no `TEMPORARY` (ADR-0006, migration 0025). CI runs its tests against the migrated database.
-- **PR previews run the `@smoke` scenarios only**, one worker: the full suite needs `AUTH_DISABLE_RATE_LIMIT`, which a deployment never sets (rule 13).
+- Terraform creates the services with a placeholder image and ignores image, traffic and identity drift.
+- `.github/workflows/deploy.yml`:
+  1. Through the Cloud SQL Auth Proxy: `drizzle-kit migrate` as the owner on the environment's database, then
+     `provision-db-logins.mjs`, then `check-runtime-role.mjs` as the environment's runtime login.
+  2. Builds and deploys `example-zone` and `dashboard`, resolves their URLs (tagged `pr-<N>` URLs on PRs).
+  3. Builds the shell with `EXAMPLE_ZONE_URL` and `DASHBOARD_ZONE_URL` (Next.js bakes rewrites in at **build
+     time**) and deploys it.
+  4. PRs: checks the shell URL, runs the `@smoke` scenarios against it, and posts it on the PR.
+- **PR previews run the `@smoke` scenarios only**, one worker, no traces and no uploaded report (public
+  repository; traces would hold the test accounts' passwords and cookies). The full suite needs
+  `AUTH_DISABLE_RATE_LIMIT`, which a deployment never sets (rule 13).
+- `preview-cleanup.yml` removes the `pr-<N>` tags of all three zones when the PR closes.
+- The deployer has `roles/run.developer` (deploy, traffic and tags; no IAM policy changes), acts as the six runtime
+  identities, pushes images, connects to Cloud SQL and reads the two database passwords (not the auth secrets).
+
+## Runtime role check
+`infra/scripts/check-runtime-role.mjs` connects like the runtime pool (`buildPoolConfig`: the login and
+`-c role=app_user`) and fails the deploy unless (ADR-0006: row-level security isn't forced):
+- `current_user = app_user`, and the login may `SET ROLE app_user`;
+- `app_user` is no superuser and has no `BYPASSRLS` or `TEMPORARY` (migration 0025);
+- `app_user` owns no public table and isn't a member of any table's owner;
+- row-level security is on for every public table except Better Auth's (`account`, `session`, `user`, `verification`);
+- with `app.user_id` unset, `select count(*) from workspace` is 0.
+
+CI runs its tests and `provision-db-logins.mjs`'s against the migrated database.
 
 ## Files (GCS)
-- `<PROJECT_ID>-files` for `main` (no lifecycle rule: attachments are soft-deleted in the database and stay restorable) and `<PROJECT_ID>-files-preview` for all PRs (objects deleted 14 days after upload, no soft-delete retention).
-- `deploy-service.sh` sets `STORAGE_BUCKET` on the dashboard to the matching bucket. `STORAGE_LOCAL_URL` is local-only.
-- Only the dashboard's runtime account has object access (`roles/storage.objectUser` on each bucket), and it can sign URLs as itself (`roles/iam.serviceAccountTokenCreator` on itself; signing goes through the IAM Credentials API, no key).
-- CORS allows `PUT` and `GET` with `Content-Type` and `x-goog-if-generation-match`. Main: the shell's `run.app` URLs. Preview: `*`, because tagged origins (`https://pr-<N>---shell-….run.app`) change per PR and GCS has no wildcard inside a host. Every request still needs a URL the app signed, and the bucket holds test data only.
+- `<PROJECT_ID>-files` for `main` (no lifecycle rule: attachments are soft-deleted in the database and stay
+  restorable) and `<PROJECT_ID>-files-preview` for all PRs (objects deleted 14 days after upload, no soft-delete
+  retention).
+- `deploy-service.sh` sets `STORAGE_BUCKET` on the dashboard. `STORAGE_LOCAL_URL` is local-only.
+- Of the app's identities, only the dashboard's have object access: `dashboard-runtime` on the main bucket,
+  `dashboard-preview` on the preview bucket (`roles/storage.objectUser`). Each signs URLs as itself
+  (`roles/iam.serviceAccountTokenCreator` on itself, through the IAM Credentials API; no key). People with
+  project Owner/Editor/Viewer still reach both buckets through GCS's legacy project bindings.
+- CORS allows `PUT` and `GET` with `Content-Type` and `x-goog-if-generation-match`. Main: the shell's `run.app`
+  URLs. Preview: `*`, because tagged origins (`https://pr-<N>---shell-….run.app`) change per PR and GCS has no
+  wildcard inside a host. Every request still needs a URL the app signed, and the bucket holds test data only.
 
 ## Logs
-- A log exclusion drops Cloud Run request logs of `/dashboard/invite/<token>` on `shell` and `dashboard` (the path carries the invite secret, task 028).
+- A log exclusion drops Cloud Run request logs of `/dashboard/invite/<token>` on `shell` and `dashboard` (the path
+  carries the invite secret, task 028), in any case and with repeated slashes.
 
 ## Artifact Registry
-- Cleanup keeps the 10 newest versions of each image and deletes untagged versions older than 30 days. Deploys tag every image with its commit SHA, so tagged versions are never deleted by age; storage grows by about three images per deploy (first 0.5 GB free, then US$0.10/GB-month).
+- Cleanup keeps the 10 newest versions of each image and deletes any other version older than 30 days. A `main`
+  revision older than that whose image isn't among the 10 newest loses its image: redeploy `main` if that matters.
 
 ## Database & auth
-- Cloud SQL Postgres 16 (`db-f1-micro`, about US$11–14/month in `me-west1` with 10 GB SSD and backups, **does not scale to zero**). Databases: `app` (production) and `app_preview` (shared by all PR previews).
-- Terraform generates the DB password and the Better Auth secret into Secret Manager. Values also sit in Terraform state, so keep the state bucket private.
-- Every zone gets both secrets and the Cloud SQL connection; any zone can validate a session.
-- `deploy.yml` runs `drizzle-kit migrate` through the Cloud SQL Auth Proxy before deploying (previews migrate `app_preview`, `main` migrates `app`).
+- Cloud SQL Postgres 16 (`db-f1-micro`, about US$11–14/month in `me-west1` with 10 GB SSD and backups, **does not
+  scale to zero**). Databases: `app` (production) and `app_preview` (shared by all PR previews).
+- Terraform generates the database passwords and the Better Auth secrets into Secret Manager. Values also sit in
+  Terraform state, so keep the state bucket private.
 - Generate and commit migrations locally with `pnpm db:generate` whenever `packages/db/src/schema.ts` changes.
 - Behind a custom domain, set `APP_URL` so Better Auth's base URL and origin checks match.
 
 ## Known limits / follow-ups
-- Preview and production share one deployer service account. Split them if you need stricter separation.
+- Preview and production share one deployer service account, which can read both database passwords and
+  deploy either environment. Split them if you need stricter separation.
 - Services are public (`allUsers`). If org policy forbids that, put a load balancer with IAP in front.
-- Preview and `main` revisions are one service per zone, so the dashboard's single runtime account can reach both buckets.
-- Previews share the production project. Use a separate project for staging if data isolation matters.
+- Previews share the production project and Cloud SQL instance. Use a separate project for staging if data
+  isolation must not depend on database grants.
 - Always deploys all three zones; add change detection with `turbo --filter=...[origin/main]` later.
 
 ## Monthly cost (POC, `me-west1`)
 Cloud SQL is most of it (about US$11–14). Cloud Run scales to zero; buckets, logs and the registry stay within
-or near the free tiers at POC volume. Target: about US$15/month.
+or near the free tiers at POC volume. The preview identities and secrets add nothing at this size (four secret
+versions in all, within Secret Manager's 6 free; service accounts are free). Target: about US$15/month.
