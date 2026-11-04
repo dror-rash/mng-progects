@@ -270,3 +270,27 @@ Feature: Partner access: a partner's user sees only their own partner's work
     And I post the new project with the site id of "Initech Lab"
     Then I see "Choose a site of this customer", the same as with a made-up id
 
+  @wip @task:070
+  Scenario: My menu is Overview and All projects
+    When I open "/dashboard"
+    Then the dashboard menu links are "Overview, All projects"
+
+  @wip @task:072
+  Scenario: A site page lists only my partner's projects at it
+    Given the customer "Acme Ltd" has the site "Acme HQ" with the contact "Yossi Mizrahi"
+    And the project "NW Site" is at the site "Acme HQ"
+    And the project "GX App" is at the site "Acme HQ"
+    When I am on the "NW Site" project page
+    And I follow the "Acme HQ" link
+    Then the "Projects" section shows "NW Site"
+    And the page shows none of "GX App, Login, HQ Plan, Budget, Initech"
+
+  @wip @task:072
+  Scenario: An auditor sees every project at a site but can't start one there
+    Given the customer "Acme Ltd" has the site "Acme HQ" with the contact "Yossi Mizrahi"
+    And the project "NW Site" is at the site "Acme HQ"
+    And the project "GX App" is at the site "Acme HQ"
+    When the auditor opens the address of the site "Acme HQ"
+    Then the auditor sees "NW Site"
+    And the auditor sees "GX App"
+    And the auditor sees no "New project" link

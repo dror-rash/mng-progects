@@ -4,7 +4,7 @@
 - **Milestone:** POC (2026-11-13)
 - **Zone / package:** `e2e`, `apps/dashboard` (demo seed)
 - **Feature file:** `docs/features/poc-flow.feature` (written by the planner and spec-writer when tasks 056–061 and 064 are done)
-- **Depends on:** tasks 056, 057, 058, 059, 060, 061, 064, 068
+- **Depends on:** tasks 056, 057, 058, 059, 060, 061, 064, 068, and 070–072 (the flow walks customer → site → project, 2026-11-04)
 
 ## Why
 The POC is one story that a viewer can follow, from a customer to a report, on a public URL. This task proves that the story works as a whole, not just piece by piece.
