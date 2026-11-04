@@ -8,12 +8,13 @@ import { requireActionSession } from "@/features/auth/require-session";
 import { type FormState, invalid } from "@/features/forms/form-state";
 
 import { type DeletedKind, parseDeletedKind } from "./deleted-kind";
+import { projectRestoreBlock } from "./restore-order";
 
 // Restoring from the Deleted page (design rule 8): admins only. Anyone else, an unknown kind, a made-up id
 // and an item that isn't deleted all get the same "Not found". An item whose parent is still deleted
-// can't come back before it (a task without its project, a contact or note without its customer, a
-// sub-company without its parent, a site without its customer, a site contact without its site, a visit
-// without its project).
+// can't come back before it (a project without its customer or site, a task without its project, a
+// contact or note without its customer, a sub-company without its parent, a site without its customer, a
+// site contact without its site, a visit without its project).
 
 const NOT_FOUND = "Not found";
 
@@ -31,6 +32,22 @@ async function restore(userId: string, kind: DeletedKind, id: string): Promise<s
 
   switch (kind) {
     case "project": {
+      // Not before its customer, its site, or the site's sub-company (task 071).
+      const siteCompany = alias(organization, "site_company");
+      const [row] = await db
+        .select({ customerDeletedAt: organization.deletedAt, siteDeletedAt: site.deletedAt, siteCompanyDeletedAt: siteCompany.deletedAt })
+        .from(project)
+        .innerJoin(organization, eq(organization.id, project.organizationId))
+        .innerJoin(site, eq(site.id, project.siteId))
+        .innerJoin(siteCompany, eq(siteCompany.id, site.organizationId))
+        .where(and(eq(project.id, id), isNotNull(project.deletedAt), admin(project.workspaceId)));
+      if (!row) throw new Error(NOT_FOUND);
+      const blocked = projectRestoreBlock({
+        customerDeleted: row.customerDeletedAt !== null,
+        siteDeleted: row.siteDeletedAt !== null,
+        siteCompanyDeleted: row.siteCompanyDeletedAt !== null,
+      });
+      if (blocked) return blocked;
       // Through `restore_project`: nobody may update a deleted project under row-level security.
       const { rows } = await db.execute<{ restored: boolean }>(sql`select restore_project(${id}) as restored`);
       if (rows[0]?.restored !== true) throw new Error(NOT_FOUND);

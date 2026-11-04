@@ -11,7 +11,8 @@ import { listParentProjectsAtSitesOf } from "@/features/sites/queries";
 import { requireWorkspaceForAction } from "@/features/workspaces/require-workspace";
 
 import { parseOrganizationInput } from "./organization-input";
-import { isParentChoice, listSubCompanies } from "./queries";
+import { customerInUseMessage } from "./customer-in-use";
+import { isParentChoice, listProjectsOfCustomer, listSubCompanies } from "./queries";
 import { requireOrganizationAccess } from "./require-organization-access";
 
 /** The "Part of" error for a parent the form wouldn't offer (task 053). */
@@ -89,8 +90,9 @@ export async function updateCustomerAction(_prev: FormState, formData: FormData)
 
 /**
  * Soft delete (design rule 8b): the customer, its contacts and notes disappear (they stay as they are and
- * come back when it is restored); its projects stay, hidden from partners. Admins only. A company with
- * sub-companies that aren't deleted stays (task 053): back to its delete page, which says why.
+ * come back when it is restored). Admins only. A company with sub-companies that aren't deleted stays (task
+ * 053): back to its delete page, which says why. So does one with projects (not deleted) for it or at its
+ * sites (task 071): the page offers no button then, and a posted form is refused.
  */
 export async function deleteCustomerAction(formData: FormData) {
   const session = await requireActionSession();
@@ -98,6 +100,11 @@ export async function deleteCustomerAction(formData: FormData) {
     const customer = await requireOrganizationAccess(session.user.id, String(formData.get("customerId") ?? ""), "customer");
     if ((await listSubCompanies(session.user.id, customer.workspaceId, customer.id)).length > 0) {
       return customer.id;
+    }
+    // The delete page offers no button for a customer in use (task 071); a posted form is refused the same way.
+    const projects = await listProjectsOfCustomer(session.user.id, customer.id);
+    if (projects.length > 0) {
+      throw new Error(customerInUseMessage(projects));
     }
     await getDb()
       .update(schema.organization)
