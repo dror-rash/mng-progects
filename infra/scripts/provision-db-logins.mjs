@@ -14,10 +14,11 @@
 // checks all of it. Passwords go in as SCRAM-SHA-256 verifiers computed here, never in plain text.
 //
 // Two connections, because PR migrations can write to app_preview (functions planted in its `public`): the
-// role and database statements run on a connection to `app`, which PR code can't touch; only the schema grant
-// runs on app_preview. Both pin search_path and call catalog functions qualified (pg-safe.mjs). The app_preview
-// connection holds the preview migration lock (with-db-lock.mjs, same name) for the whole run, so a preview
-// never migrates halfway through.
+// role and database statements run on a connection to `app`, which PR code can't touch, and a failure there
+// fails the main deploy. Only the schema grant runs on app_preview, under the preview migration lock
+// (with-db-lock.mjs, same name), bounded by lock_timeout/statement_timeout; any failure on that side is a
+// warning, so nothing a PR does to app_preview can stall or fail a main deploy (the next preview deploy fails
+// instead). Both connections pin search_path and call catalog functions qualified (pg-safe.mjs).
 //
 // Previews run `--verify-only` on app_preview: read-only, and it fails the deploy until a main deploy has
 // provisioned.
@@ -81,19 +82,22 @@ async function setPassword(client, login, password) {
   await client.query(`alter role ${ident(login)} password ${client.escapeLiteral(scramVerifier(password))}`);
 }
 
+/** How long main's preview-side step may wait (lock, statements) before it gives up with a warning. */
+export const PREVIEW_SIDE_TIMEOUT_MS = 30_000;
+
 /**
- * Creates or updates the preview logins and the grants. The caller opens a transaction on each client, and
- * commits `main` before `preview` (the preview grant names roles `main` creates).
- * @param {{ main: Client, preview: Client }} clients main: connected to the main database; preview: to the
- *   preview database. The tests pass one client for both.
+ * Main's own work, on a connection to the main database (PR code can't write there), inside the caller's
+ * transaction: the preview logins, their passwords and app_user grants, and the database grants. A failure
+ * fails the main deploy. Also removes every app_user grant preview_owner made (migration 0020's self-grant,
+ * or one a PR made, like `grant app_user to preview_runtime with inherit true`): `app` may not revoke
+ * `GRANTED BY preview_owner` (it doesn't have preview_owner's privileges), but revoking preview_owner's
+ * ADMIN option with CASCADE drops every grant that depends on it; the ADMIN grant is then made again.
  * @param {{ mainDb: string, previewDb: string, mainOwner: string, previewOwner: string, previewRuntime: string,
  *           previewOwnerPassword: string, previewRuntimePassword: string }} names
  */
-export async function provisionDbLogins({ main, preview }, names) {
+export async function provisionMainSide(main, names) {
   const { mainDb, previewDb, mainOwner, previewOwner, previewRuntime } = names;
-  await pinSearchPath(preview);
   await pinSearchPath(main);
-  await preview.query("select pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtext($1::text))", [migrationLockName(previewDb)]);
 
   await ensureLogin(main, previewOwner, CONNECTION_LIMITS.previewOwner);
   await ensureLogin(main, previewRuntime, CONNECTION_LIMITS.previewRuntime);
@@ -101,6 +105,14 @@ export async function provisionDbLogins({ main, preview }, names) {
   await setPassword(main, previewRuntime, names.previewRuntimePassword);
 
   const runtimeRole = ident(RUNTIME_ROLE);
+  const ownerAdmin = await main.query(
+    `select exists (select 1 from pg_catalog.pg_auth_members m
+                    where m.roleid = $1::text::pg_catalog.regrole and m.member = $2::text::pg_catalog.regrole and m.admin_option) as has_admin`,
+    [RUNTIME_ROLE, previewOwner],
+  );
+  if (ownerAdmin.rows[0].has_admin) {
+    await main.query(`revoke admin option for ${runtimeRole} from ${ident(previewOwner)} cascade`);
+  }
   await main.query(`grant ${runtimeRole} to ${ident(previewOwner)} with admin true, inherit false, set false`);
   await main.query(`grant ${runtimeRole} to ${ident(previewRuntime)} with inherit false, set true`);
 
@@ -109,13 +121,61 @@ export async function provisionDbLogins({ main, preview }, names) {
   await main.query(`grant connect, create on database ${ident(previewDb)} to ${ident(previewOwner)}`);
   await main.query(`grant connect on database ${ident(previewDb)} to ${ident(previewRuntime)}`);
   await main.query(`revoke temporary on database ${ident(previewDb)} from public`);
+}
 
-  return {
-    /** Run after `main` commits: the schema grant, on the preview database. */
-    async grantPreviewSchema() {
-      await preview.query(`grant usage, create on schema public to ${ident(previewOwner)}`);
-    },
-  };
+/**
+ * The preview side, on a connection to the preview database, inside the caller's transaction and after main's
+ * work committed: the preview migration lock (same name as with-db-lock.mjs), then the schema grant. Bounded:
+ * lock_timeout of `timeoutMs` (statements twice that), so PR code holding the lock or a lock on the schema
+ * can't stall a main deploy.
+ */
+export async function provisionPreviewSide(preview, { previewDb, previewOwner }, { timeoutMs = PREVIEW_SIDE_TIMEOUT_MS } = {}) {
+  await pinSearchPath(preview);
+  // Statements get twice the lock bound, so a held lock reports as a lock timeout.
+  await preview.query("select pg_catalog.set_config('lock_timeout', $1, true), pg_catalog.set_config('statement_timeout', $2, true)", [
+    `${Number(timeoutMs)}ms`,
+    `${2 * Number(timeoutMs)}ms`,
+  ]);
+  await preview.query("select pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtext($1::text))", [migrationLockName(previewDb)]);
+  await preview.query(`grant usage, create on schema public to ${ident(previewOwner)}`);
+}
+
+/**
+ * What protects the main database, read on main's own connection (failures fail the main deploy): the
+ * preview logins exist without owner-level attributes, can't connect to the main database, PUBLIC can't
+ * either, and main's owner can.
+ */
+export async function verifyMainSide(main, { mainDb, mainOwner, previewOwner, previewRuntime }) {
+  await pinSearchPath(main);
+  const failures = [];
+  const { rows } = await main.query(
+    `select r.rolname::text as name, r.rolsuper, r.rolcreaterole, r.rolcreatedb, r.rolbypassrls, r.rolreplication,
+            pg_catalog.pg_has_role(r.oid, $3::text::pg_catalog.name, 'MEMBER') as main_owner_member,
+            pg_catalog.has_database_privilege(r.oid, $2::text::pg_catalog.name, 'CONNECT') as main_connect
+     from pg_catalog.pg_roles r where r.rolname = any ($1::text[])`,
+    [[previewOwner, previewRuntime], mainDb, mainOwner],
+  );
+  for (const login of [previewOwner, previewRuntime]) {
+    const role = rows.find((row) => row.name === login);
+    if (!role) {
+      failures.push(`${login} doesn't exist`);
+      continue;
+    }
+    for (const attribute of ["rolsuper", "rolcreaterole", "rolcreatedb", "rolbypassrls", "rolreplication"]) {
+      if (role[attribute]) failures.push(`${login} has ${attribute}`);
+    }
+    if (role.main_owner_member) failures.push(`${login} is a member of main's owner login ${mainOwner}`);
+    if (role.main_connect) failures.push(`${login} can connect to the main database ${mainDb}`);
+  }
+  const database = await main.query(
+    `select exists (select 1 from pg_catalog.pg_database d, pg_catalog.aclexplode(coalesce(d.datacl, pg_catalog.acldefault('d', d.datdba))) a
+                    where d.datname = $1::text and a.grantee = 0 and a.privilege_type = 'CONNECT') as public_connect,
+            pg_catalog.has_database_privilege($2::text::pg_catalog.name, $1::text::pg_catalog.name, 'CONNECT') as owner_connect`,
+    [mainDb, mainOwner],
+  );
+  if (database.rows[0].public_connect) failures.push(`PUBLIC can connect to the main database ${mainDb}`);
+  if (!database.rows[0].owner_connect) failures.push(`main's owner login ${mainOwner} can't connect to ${mainDb}`);
+  return failures;
 }
 
 /**
@@ -209,9 +269,10 @@ function namesFromEnv(env, { withPasswords }) {
 }
 
 /** An open client from `url` (the login's own connection, no role switch, search_path pinned) on `database`. */
-async function connect(url, database) {
+async function connect(url, database, { timeoutMs } = {}) {
   if (!url) throw new Error(`missing the connection URL for ${database}`);
-  const client = new Client(withPinnedSearchPath(buildPoolConfig({ DATABASE_URL: url }, null)));
+  const config = withPinnedSearchPath(buildPoolConfig({ DATABASE_URL: url }, null));
+  const client = new Client(timeoutMs ? { ...config, connectionTimeoutMillis: timeoutMs, statement_timeout: 2 * timeoutMs } : config);
   await client.connect();
   const { rows } = await client.query("select pg_catalog.current_database()::text as db");
   if (rows[0].db !== database) {
@@ -221,45 +282,75 @@ async function connect(url, database) {
   return client;
 }
 
-async function main() {
-  const verifyOnly = process.argv.includes("--verify-only");
-  const names = namesFromEnv(process.env, { withPasswords: !verifyOnly });
+function report(failures, label) {
+  console.error(`Database logins check FAILED (${label}):`);
+  for (const failure of failures) console.error(`  - ${failure}`);
+  process.exitCode = 1;
+}
+
+/** Previews: read-only, everything must hold (fails the preview deploy). */
+async function verifyOnly(names) {
   const preview = await connect(process.env.DATABASE_URL, names.previewDb);
-  let mainClient;
   try {
-    let failures;
-    if (verifyOnly) {
-      failures = await verifyDbLogins(preview, names);
-    } else {
-      mainClient = await connect(process.env.MAIN_DATABASE_URL, names.mainDb);
-      await preview.query("begin");
-      try {
-        await mainClient.query("begin");
-        const { grantPreviewSchema } = await provisionDbLogins({ main: mainClient, preview }, names);
-        await mainClient.query("commit");
-        await grantPreviewSchema();
-        await preview.query("commit");
-      } catch (error) {
-        await mainClient.query("rollback").catch(() => {});
-        await preview.query("rollback").catch(() => {});
-        throw error;
-      }
-      failures = await verifyDbLogins(preview, names);
-    }
-    if (failures.length > 0) {
-      console.error("Database logins check FAILED:");
-      for (const failure of failures) console.error(`  - ${failure}`);
-      process.exitCode = 1;
-      return;
-    }
-    console.log(
-      `Database logins ok${verifyOnly ? " (verified)" : " (provisioned)"}: ${names.previewOwner} and ${names.previewRuntime} ` +
-        `reach ${names.previewDb}, not ${names.mainDb}; ${names.mainDb} is closed to PUBLIC.`,
-    );
+    const failures = await verifyDbLogins(preview, names);
+    if (failures.length > 0) return report(failures, "preview");
+    console.log(`Database logins ok (verified): ${names.previewOwner} and ${names.previewRuntime} reach ${names.previewDb}, not ${names.mainDb}.`);
   } finally {
     await preview.end();
-    await mainClient?.end();
   }
+}
+
+/**
+ * Main: its own work on the main database must succeed (else the deploy fails). The preview side is bounded
+ * and best-effort: whatever PR code did to app_preview, main deploys; it warns, and the next preview deploy
+ * fails with the reason (verify-only).
+ */
+async function provision(names) {
+  const main = await connect(process.env.MAIN_DATABASE_URL, names.mainDb);
+  try {
+    await main.query("begin");
+    try {
+      await provisionMainSide(main, names);
+      const failures = await verifyMainSide(main, names);
+      if (failures.length > 0) {
+        await main.query("rollback");
+        return report(failures, "main");
+      }
+      await main.query("commit");
+    } catch (error) {
+      await main.query("rollback").catch(() => {});
+      throw error;
+    }
+  } finally {
+    await main.end();
+  }
+  console.log(`Database logins provisioned on ${names.mainDb}: ${names.previewOwner} and ${names.previewRuntime} can't connect to it.`);
+
+  const timeoutMs = Number(process.env.PREVIEW_SIDE_TIMEOUT_MS) || PREVIEW_SIDE_TIMEOUT_MS;
+  let preview;
+  try {
+    preview = await connect(process.env.DATABASE_URL, names.previewDb, { timeoutMs });
+    await preview.query("begin");
+    await provisionPreviewSide(preview, names, { timeoutMs });
+    await preview.query("commit");
+    const failures = await verifyDbLogins(preview, names);
+    if (failures.length > 0) throw new Error(failures.join("; "));
+    console.log(`Preview side ok: ${names.previewDb}'s schema grant made, preview logins verified.`);
+  } catch (error) {
+    await preview?.query("rollback").catch(() => {});
+    console.log(
+      `::warning::Preview database step skipped, main deploys anyway: ${error.message}. ` +
+        "The next preview deploy fails until a main deploy completes this step.",
+    );
+  } finally {
+    await preview?.end().catch(() => {});
+  }
+}
+
+async function main() {
+  const isVerifyOnly = process.argv.includes("--verify-only");
+  const names = namesFromEnv(process.env, { withPasswords: !isVerifyOnly });
+  await (isVerifyOnly ? verifyOnly(names) : provision(names));
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {

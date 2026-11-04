@@ -63,6 +63,35 @@ check "preview: preview_owner owns the preview tables" \
   test "$(psql "$(url "$OWNER" "$OWNER_PW" "$PREVIEW_DB")" -qtAc "select pg_get_userbyid(relowner) from pg_class where oid = 'public.workspace'::regclass")" = "$OWNER"
 check "preview: role check passes as preview_runtime" \
   env DATABASE_URL="$(url "$RUNTIME" "$RUNTIME_PW" "$PREVIEW_DB")" "${NODE[@]}" "$ROOT/infra/scripts/check-runtime-role.mjs"
+provision() { # extra env…
+  env MAIN_DATABASE_URL="$(url "$APP" "$APP_PW" "$MAIN_DB")" DATABASE_URL="$(url "$APP" "$APP_PW" "$PREVIEW_DB")" \
+    PREVIEW_OWNER_PASSWORD="$OWNER_PW" PREVIEW_RUNTIME_PASSWORD="$RUNTIME_PW" "$@" "${NODE[@]}" "$ROOT/infra/scripts/provision-db-logins.mjs"
+}
+verify_preview() { env DATABASE_URL="$(url "$OWNER" "$OWNER_PW" "$PREVIEW_DB")" "${NODE[@]}" "$ROOT/infra/scripts/provision-db-logins.mjs" --verify-only; }
+
+# A PR (as preview_owner) grants app_user to preview_runtime with INHERIT: previews fail, main doesn't, and
+# main's provisioning removes the grant.
+psql "$(url "$OWNER" "$OWNER_PW" "$PREVIEW_DB")" -qtAc "grant app_user to $RUNTIME with inherit true, set true" >/dev/null
+fails() { ! "$@"; }
+check "preview: verify fails after preview_owner grants app_user with INHERIT" fails verify_preview
+check "main: provisioning still passes" provision
+check "main: and removed every grant preview_owner made" \
+  test "$(su_sql "select count(*) from pg_auth_members where grantor = '$OWNER'::regrole")" = 0
+check "preview: verify passes again" verify_preview
+
+# Another session holds the preview migration lock (a stuck PR migration): main gives up on the preview side
+# within its bound, warns, and exits 0.
+psql "${BASE}/$PREVIEW_DB" -qtAc "select pg_advisory_lock(hashtext('migrate-$PREVIEW_DB')), pg_sleep(30)" >/dev/null 2>&1 &
+holder=$!
+sleep 1
+started=$(date +%s)
+lock_out="$(provision PREVIEW_SIDE_TIMEOUT_MS=2000 2>&1)"; lock_code=$?
+elapsed=$(( $(date +%s) - started ))
+kill "$holder" 2>/dev/null; wait "$holder" 2>/dev/null
+check "main: exits 0 while a PR holds the preview migration lock" test "$lock_code" = 0
+check "main: warns that the preview step was skipped" sh -c "printf '%s' \"\$1\" | grep -q '::warning::Preview database step skipped'" _ "$lock_out"
+check "main: gives up within its bound (${elapsed}s)" test "$elapsed" -lt 15
+
 check "preview_runtime can't connect to the main database" refused "$(url "$RUNTIME" "$RUNTIME_PW" "$MAIN_DB")"
 check "preview_owner can't connect to the main database" refused "$(url "$OWNER" "$OWNER_PW" "$MAIN_DB")"
 check "a function planted by a preview migration doesn't run during main's provisioning" \
