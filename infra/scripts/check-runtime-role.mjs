@@ -24,7 +24,11 @@ import { fileURLToPath } from "node:url";
 
 import { buildPoolConfig, RUNTIME_ROLE } from "../../packages/db/src/pool-config.ts";
 import { Client, pinSearchPath, withPinnedSearchPath } from "./pg-safe.mjs";
-import { PINS, readPinnable, SYSTEM_SCHEMAS } from "./rls-pins.mjs";
+import { PINS, pinMatches, readPinnable, SYSTEM_SCHEMAS } from "./rls-pins.mjs";
+
+/** The first line of the output whenever a pin fails. */
+export const PIN_HEADER =
+  "A migration changed RLS-relevant objects: update infra/scripts/rls-pins.mjs (`node --experimental-strip-types infra/scripts/rls-pins.mjs --print`)";
 
 /** Better Auth's tables: grants and no row-level security (ADR-0006). Any other public table needs it. */
 export const TABLES_WITHOUT_RLS = ["account", "session", "user", "verification"];
@@ -112,34 +116,34 @@ export async function checkRuntimeRole(client, role = RUNTIME_ROLE) {
   if (rules.rows.length > 0) failures.push(`rules on tables: ${rules.rows.map((r) => r.name).join(", ")}`);
 
   // Pinned definitions (rls-pins.mjs). Every mismatch prints the computed hash, so a reviewed change is a
-  // one-line update of PINS.
+  // one-line update of PINS; PIN_HEADER says where.
   const current = await readPinnable(client, role);
-  for (const view of Object.keys(current.views).filter((key) => Object.hasOwn(PINS.views, key))) {
-    if (current.views[view] !== PINS.views[view]) {
-      failures.push(`view ${view} isn't the migrations' definition (now sha256 ${current.views[view]}; update PINS.views only for a reviewed migration)`);
+  const pinFailures = [];
+  const compare = (kind, label, { unpinned }) => {
+    for (const [key, hash] of Object.entries(current[kind])) {
+      if (!Object.hasOwn(PINS[kind], key)) {
+        if (unpinned) unpinned(key, hash);
+      } else if (!pinMatches(PINS[kind][key], hash)) {
+        pinFailures.push(kind === "views" ? `view ${key} isn't the migrations' definition (now sha256 ${hash})` : `${label} ${key} changed (now sha256 ${hash})`);
+      }
     }
-  }
-  const unknownDefiners = Object.keys(current.functions).filter((key) => !Object.hasOwn(PINS.functions, key));
-  if (unknownDefiners.length > 0) {
-    failures.push(`SECURITY DEFINER functions ${role} can run that aren't allowlisted: ${unknownDefiners.map((key) => `${key} (sha256 ${current.functions[key]})`).join(", ")}`);
-  }
-  for (const key of Object.keys(current.functions).filter((key) => Object.hasOwn(PINS.functions, key))) {
-    if (current.functions[key] !== PINS.functions[key]) failures.push(`function ${key} changed (now sha256 ${current.functions[key]})`);
-  }
-  const unknownTriggers = Object.keys(current.triggers).filter((key) => !Object.hasOwn(PINS.triggers, key));
-  if (unknownTriggers.length > 0) {
-    failures.push(`SECURITY DEFINER triggers that aren't allowlisted: ${unknownTriggers.map((key) => `${key} (sha256 ${current.triggers[key]})`).join(", ")}`);
-  }
-  for (const key of Object.keys(current.triggers).filter((key) => Object.hasOwn(PINS.triggers, key))) {
-    if (current.triggers[key] !== PINS.triggers[key]) failures.push(`trigger function of ${key} changed (now sha256 ${current.triggers[key]})`);
-  }
-  for (const [key, hash] of Object.entries(current.policies)) {
-    if (!Object.hasOwn(PINS.policies, key)) failures.push(`policy ${key} isn't pinned (sha256 ${hash})`);
-    else if (hash !== PINS.policies[key]) failures.push(`policy ${key} changed (now sha256 ${hash})`);
-  }
-  for (const key of Object.keys(PINS.policies).filter((key) => !Object.hasOwn(current.policies, key))) {
-    failures.push(`policy ${key} is gone (pinned in PINS.policies)`);
-  }
+    for (const key of Object.keys(PINS[kind]).filter((key) => !Object.hasOwn(current[kind], key))) pinFailures.push(`${label} ${key} is gone`);
+  };
+  const list = (entries) => entries.map(([key, hash]) => `${key} (sha256 ${hash})`).join(", ");
+  const unpinnedDefiners = [];
+  const unpinnedFunctions = [];
+  const unpinnedTriggers = [];
+  compare("views", "view", {}); // an unpinned view app_user can use already fails above
+  compare("functions", "function", {
+    unpinned: (key, hash) => (current.definerExecutable.includes(key) ? unpinnedDefiners : unpinnedFunctions).push([key, hash]),
+  });
+  compare("triggers", "trigger function of", { unpinned: (key, hash) => unpinnedTriggers.push([key, hash]) });
+  compare("policies", "policy", { unpinned: (key, hash) => pinFailures.push(`policy ${key} isn't pinned (sha256 ${hash})`) });
+  compare("tables", "table", { unpinned: (key, hash) => pinFailures.push(`table ${key} isn't pinned (sha256 ${hash})`) });
+  if (unpinnedDefiners.length > 0) pinFailures.push(`SECURITY DEFINER functions ${role} can run that aren't allowlisted: ${list(unpinnedDefiners)}`);
+  if (unpinnedFunctions.length > 0) pinFailures.push(`functions that aren't pinned: ${list(unpinnedFunctions)}`);
+  if (unpinnedTriggers.length > 0) pinFailures.push(`SECURITY DEFINER triggers that aren't allowlisted: ${list(unpinnedTriggers)}`);
+  if (pinFailures.length > 0) failures.unshift(PIN_HEADER, ...pinFailures);
 
   // The probe, last: an error here aborts a surrounding transaction.
   try {

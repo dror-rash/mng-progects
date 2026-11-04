@@ -19,30 +19,49 @@ const sha256 = (text) => createHash("sha256").update(text).digest("hex");
 
 export const SYSTEM_SCHEMAS = ["pg_catalog", "information_schema", "pg_toast"];
 
+/** Whether `hash` matches `pin`: one hash, or a list (one per Postgres minor that deparses differently). */
+export const pinMatches = (pin, hash) => pin !== undefined && [].concat(pin).includes(hash);
+
 /**
- * The pinnable objects in the database `client` is connected to, with their hashes:
- * views and definer functions app_user can use, definer triggers, and all policies.
+ * The pinnable objects in the database `client` is connected to, with their hashes. Owners are part of the
+ * hash (a SECURITY DEFINER function or a view runs with its owner's rights, and a table's owner bypasses
+ * row-level security unless it is forced):
+ *   views, every function (whatever its security: an invoker overload can hijack a definer function's
+ *   untyped call), definer triggers, policies, and every table's owner and RLS/FORCE flags.
+ * `definerExecutable`: the functions that are SECURITY DEFINER and app_user may run.
  */
 export async function readPinnable(client, role = RUNTIME_ROLE) {
   await pinSearchPath(client);
+  // Owners differ per environment (app, preview_owner, postgres locally): the login that ran the migrations
+  // (it created drizzle's table) is hashed as <migrator>, any other owner by name.
+  const migratorRow = await client.query(
+    `select pg_catalog.pg_get_userbyid(c.relowner)::text as name
+     from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid = c.relnamespace
+     where n.nspname = 'drizzle' and c.relname = '__drizzle_migrations'`,
+  );
+  const migrator = migratorRow.rows[0]?.name;
+  const owner = (name) => (name === migrator ? "<migrator>" : name);
   const views = await client.query(
-    `select n.nspname || '.' || c.relname as key,
+    `select n.nspname || '.' || c.relname as key, pg_catalog.pg_get_userbyid(c.relowner)::text as owner,
             coalesce(pg_catalog.array_to_string(c.reloptions, ','), '') as options, pg_catalog.pg_get_viewdef(c.oid) as definition
      from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid = c.relnamespace
      where c.relkind = 'v' and n.nspname <> all ($1::text[]) order by 1`,
     [SYSTEM_SCHEMAS],
   );
   const functions = await client.query(
-    `select p.oid::pg_catalog.regprocedure::text as key, pg_catalog.pg_get_functiondef(p.oid) as definition
+    `select p.oid::pg_catalog.regprocedure::text as key, pg_catalog.pg_get_userbyid(p.proowner)::text as owner, p.prokind::text as kind,
+            case when p.prokind <> 'a' then pg_catalog.pg_get_functiondef(p.oid) else '' end as definition,
+            p.prosecdef and pg_catalog.has_function_privilege($1::text::pg_catalog.name, p.oid, 'EXECUTE') as definer_executable
      from pg_catalog.pg_proc p join pg_catalog.pg_namespace n on n.oid = p.pronamespace
-     where p.prosecdef and n.nspname <> all ($2::text[])
-       and pg_catalog.has_function_privilege($1::text::pg_catalog.name, p.oid, 'EXECUTE')
+     where n.nspname <> all ($2::text[])
+       and not exists (select 1 from pg_catalog.pg_depend d where d.classid = 'pg_catalog.pg_proc'::pg_catalog.regclass
+                       and d.objid = p.oid and d.deptype = 'e')
      order by 1`,
     [role, SYSTEM_SCHEMAS],
   );
   const triggers = await client.query(
     `select n.nspname || '.' || c.relname || ' ' || t.tgname || ' ' || t.tgfoid::pg_catalog.regprocedure::text as key,
-            pg_catalog.pg_get_functiondef(t.tgfoid) as definition
+            pg_catalog.pg_get_userbyid(p.proowner)::text as owner, pg_catalog.pg_get_functiondef(t.tgfoid) as definition
      from pg_catalog.pg_trigger t join pg_catalog.pg_class c on c.oid = t.tgrelid
        join pg_catalog.pg_namespace n on n.oid = c.relnamespace join pg_catalog.pg_proc p on p.oid = t.tgfoid
      where not t.tgisinternal and p.prosecdef and n.nspname <> all ($1::text[]) order by 1`,
@@ -53,55 +72,74 @@ export async function readPinnable(client, role = RUNTIME_ROLE) {
      from pg_catalog.pg_policies where schemaname <> all ($1::text[]) order by 1`,
     [SYSTEM_SCHEMAS],
   );
+  const tables = await client.query(
+    `select n.nspname || '.' || c.relname as key, pg_catalog.pg_get_userbyid(c.relowner)::text as owner,
+            c.relrowsecurity as rls, c.relforcerowsecurity as force
+     from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid = c.relnamespace
+     where c.relkind in ('r', 'p') and n.nspname <> all ($1::text[]) order by 1`,
+    [SYSTEM_SCHEMAS],
+  );
   const hashed = (rows, hash) => Object.fromEntries(rows.map((row) => [row.key, hash(row)]));
   return {
-    views: hashed(views.rows, (v) => sha256(`${v.options}\n${v.definition}`)),
-    functions: hashed(functions.rows, (f) => sha256(f.definition)),
-    triggers: hashed(triggers.rows, (t) => sha256(t.definition)),
+    views: hashed(views.rows, (v) => sha256(`${v.options}\n${v.definition}\nowner=${owner(v.owner)}`)),
+    functions: hashed(functions.rows, (f) => sha256(`${f.kind}\n${f.definition}\nowner=${owner(f.owner)}`)),
+    triggers: hashed(triggers.rows, (t) => sha256(`${t.definition}\nowner=${owner(t.owner)}`)),
     policies: hashed(policies.rows, (p) => sha256(JSON.stringify([p.cmd, p.permissive, [...p.roles].sort(), p.qual, p.with_check]))),
+    tables: hashed(tables.rows, (t) => sha256(JSON.stringify([owner(t.owner), t.rls, t.force]))),
+    definerExecutable: functions.rows.filter((f) => f.definer_executable).map((f) => f.key),
   };
 }
 
-/** The pins, from the migrations (printed with --print from a database migrated up to 0036). */
+/**
+ * The pins, from the migrations (printed with --print from a database migrated up to 0036, Postgres 16.15).
+ * A value may be a list of hashes when another Postgres minor (Cloud SQL's) deparses an object differently.
+ */
 export const PINS = {
   views: {
-    "public.customer_name": "478a4519a010373bdf60a2d8c9bc542b89d9ebd867609dd5f0f754043874ad2c",
-    "public.site_choice": "4c1e7434991881a250ab2b3d2747a1a0eef114004a5c97d87a087693b56c37f0",
+    "public.customer_name": "ee252de29d2b660f62216c0be55fa697d048bc57eaa95360e7d63053f1c20245",
+    "public.site_choice": "fe51a264e794e41f2c2a21f2a8fa12594431aac81f0d8b65c93ff6c43f16e7f2",
   },
   functions: {
-    "public.access_role(text,text)": "2d88b8fe768f105e9d6c9b4f2dcc354e3c3d3e1db56952750779aa218c37d62f",
-    "public.can_change_attachment(text,text)": "a852629c42a82aa19eefeb60bcf1288f0c890025b4329986a3298392b695b55f",
-    "public.can_change_customer(text,text)": "fd75855da2b505b082db308027d21d560f5ddf29ba31c6633485b7c0a48622bc",
-    "public.can_change_project(text,text)": "91f8afe6170315ba612bc5720b99a36b9479745994b7b740ba1e2a609cd523c9",
-    "public.can_change_site(text,text)": "a7b43babc2e5fb0f4cb3b0c9ed5cd33b09437ea3070bbb575237bbc62fdebb67",
-    "public.can_change_visit(text,text)": "c5b4a9cda4b5b2f168d1b87fc665ef211bd8ac6f2146e387258d0378137686f3",
-    "public.can_see_customer_name(text,text)": "4bda4229088d270f224d4699f99cb8b40c2447a2e5f0fb9421382886257e2259",
-    "public.can_see_customer(text,text)": "dfdaf32fa55610872adc2db92667dac1264042c144875982979c49b382027159",
-    "public.can_see_project(text,text)": "935931dd73aae5696b7dd074669ce7ce27dd6b51ca1034d358e0ef9548be3c83",
-    "public.can_see_site(text,text)": "5f326beb690ae47111c70ba59da4654dc977833bbbcf9a075027391426c91af5",
-    "public.can_work_on_project(text,text)": "63278c8ae33b62923721a1a145e03f6d35ba045fdd9d8f46e4eef90b7d11a59c",
-    "public.clear_assignments(text,text)": "616ee508ceb6c591a3a6ca4275b6eb741e6135e2babf7ab30b6b0431fd1aae5b",
-    "public.clear_unseen_assignments(text,text)": "13bf81bca18520b58c2951b8d24f15654b8bd507d403d83950f68fcc0ffeee44",
-    "public.create_workspace(text,text)": "9bebba1e3b008672301a10de1a0ceda76648dcf31f5e1c1568ef3d9981dcab0b",
-    "public.delete_attachment(text)": "66d16d3cf938c5e808db3aa66aa77e1e52f1b22d20a6bb11247410d1681737ac",
-    "public.delete_task(text)": "1dc7002d73bd738450cc254d58b59bad4d46a8493c57c48519f0aa92b4584344",
-    "public.delete_visit(text)": "c63e0623ec5a66d6016b690a23c5791dc52ed6602154103349960a07eb7c1adc",
-    "public.find_invite(text)": "8cc95120e252deb2e324f6ab78f2ae2e8410969d93948b7630f6b85231da4afb",
-    "public.has_workspace_role(text,text,text[])": "e3c11a57f3279d62d6303ec8c26d015aed996e6f1b0c4a8d6b4ba5f81eee0c2c",
-    "public.is_on_crew(text,text)": "c17b7d884092db2de04ec4f09b3aa47d46efcec13e08327aed3ba67e0514119f",
-    "public.is_project_person(text,text)": "08f14e63e59eb94f586214e132aec711d04654dd9192db70f976f2e2bf5779cc",
-    "public.join_workspace(text,text)": "f944c96197cbff736989364b432ad470d700c0c151f29a5f02e073a2f96ec4e5",
-    "public.partner_serves_customer(text,text)": "24d5bfdd68787287f234e9ad4d06e80759d29fc11926cbae991c4434c205cc98",
-    "public.restore_project(text)": "56f0145471d1bc6016aac1782b45f733a9b747ccd76258e1f10993e4ee53f89f",
+    "public.access_role(text,text)": "e2b10131f703b552aa86408102e3fdb96488ed05413abbb77b09d9f10e19050c",
+    "public.attachment_check()": "7ad4966fc6f7a7297bf8ec3b2e985c2abf10645c6b630915945ce0050b5a00c7",
+    "public.can_change_attachment(text,text)": "ca4790624c9e1119b966de313993f772761cfb1067832e0667fcf183720fcf9e",
+    "public.can_change_customer(text,text)": "53af7733c45470729e515d5cff3e0b76d9a3d6e04a02661b121a43ec160d086a",
+    "public.can_change_project(text,text)": "be4ca232ce7c10e74e47c7e49af8946831bc49ce11b9ed3a288e1cfeb0412ef4",
+    "public.can_change_site(text,text)": "4d2749e6dd961bfb15da1af404f8f27674e73fe05335c3c44a03a06acf8dce30",
+    "public.can_change_visit(text,text)": "f0124fa33491ed82004cc3dcc395afa86e87b620d14608346aee34f4cc7e8fc5",
+    "public.can_see_customer_name(text,text)": "47336aa5517efb8da8086e2f1c15a24d68e889e3c72151852f1d2e41c1a7a8fa",
+    "public.can_see_customer(text,text)": "60d427ec8e3dd1d26eba84353b8646cd8a0b083b9931d299eb772bf4fd9bba80",
+    "public.can_see_project(text,text)": "2edfcedc588b6a4832f7dd88ba506cf15b05110189b090024a671e0c2d29fdb7",
+    "public.can_see_site(text,text)": "50616e9460e5e47796ba3117cadc5c34add0f137c23cea2e76b11c8cfaa1c14e",
+    "public.can_work_on_project(text,text)": "27ff63048a91edcc3726b93b4d8dffc10be3a0133ab67329f6eb960325b56ff6",
+    "public.clear_assignments(text,text)": "80e4a9bd6501b2dfc4786aeeebe6981ebe7976cd6b7858a5dddfc711e1ad07c8",
+    "public.clear_unseen_assignments(text,text)": "11f0cf494f7c62abe8fb44bb10da47336dd4940efdae53cf016d60082743a584",
+    "public.create_workspace(text,text)": "88fabcdf87acf09592933a4eddef0ddc1ec019418ea88c1b6a45d980a5affaae",
+    "public.delete_attachment(text)": "f22f2f891130371452066cb2a14c213d82e7d2c491c7c67d6b5f726b05b90d0e",
+    "public.delete_task(text)": "cac54c16f2ba278a6eaa02b78a035a030c47856bbc0a807cb77f38b7b78fd9b1",
+    "public.delete_visit(text)": "28dc681706d4f06a981be5df0af352197ff7fcada23c350fcd18789dadb2b989",
+    "public.find_invite(text)": "b8e6b6b3f12614b8a6b3fc20a1950b09b61df3e1716ec5824899744a1c603cc4",
+    "public.has_workspace_role(text,text,text[])": "2cc5f3410863fee593122b82b29fda8a0b6d554cf31f228003675079ba954518",
+    "public.is_on_crew(text,text)": "499449ab1ec586a9ba299cb20217d20964acb2e396b9f26c1ee0f754417cf052",
+    "public.is_project_person(text,text)": "3ad41513e4844ae6fc8381b8affe4bc68d15939770477443179357b466c0b6d2",
+    "public.join_workspace(text,text)": "321ad6298d4e4aeae80dc6aac208bfb45911bfc48cadbedf34580967f6d84866",
+    "public.organization_parent_check()": "0e18fffc7d5ef750cf39529795d4e4f04314fdc96700d170eb192107267e35ed",
+    "public.partner_serves_customer(text,text)": "551eb78b16ce53e619b594eac7fc2dad219eb860d8cea84944b03f975b6cf144",
+    "public.project_site_check()": "97c67a45b81c6cadc03408323b588e211d1cc582e2a6b06b850ed541d49ce678",
+    "public.project_worker_check()": "23f4e4deeb363a6a0b95f8e3fd7cd0e8ebe8f616a1c18b1f529286fba4d6a7b2",
+    "public.project_worker_clear_assignments()": "72ba55687805261b3c2b67964079b6606577f6235c5b4d320b8b5ed7fae28072",
+    "public.restore_project(text)": "60e9f63bf3902a33145a2779d73128594436d9283c55bf910cb772ebb9fb8c7d",
+    "public.site_visit_keep_project()": "b2447fe1592b6d9e126f6780e6ad3e7ee598b2d7c4448838d3064b16f7f2944c",
+    "public.workspace_member_leave_crews()": "45f770c4dc7558da824d462da126b66a34a09e85173d950c0953727d2c60bc43",
   },
   triggers: {
-    "public.attachment attachment_check public.attachment_check()": "d5e45f97ab1ba1e82a41acf74977efe0b0f67ee907b309e92d6dac31d88d3e59",
-    "public.organization organization_parent_check public.organization_parent_check()": "2dca97f90e2daf196824927ce6c6588d9854d8f4a72b8ac5d771aeb9ce2f511e",
-    "public.project project_site_check public.project_site_check()": "64e5b97e4e0a5088d2ca160ea31a2d09fa327674f47988ec6613853757288f3d",
-    "public.project_worker project_worker_check public.project_worker_check()": "4cd769a66ac17c514f70a4b16a55a1e4c59c04b133bc28a5d8a9f2d92c1fed40",
-    "public.project_worker project_worker_clear_assignments public.project_worker_clear_assignments()": "83fe46639747b42d9562ab63600dfe866b188d5093a2e02c7b7a2f2903bcc07f",
-    "public.site_visit site_visit_keep_project public.site_visit_keep_project()": "cf62e6ebae6aa3640f6f2b7c9ebb3c5babfed008622b849fb41777c6396a8a25",
-    "public.workspace_member workspace_member_leave_crews public.workspace_member_leave_crews()": "88c65c8d34863730a9a7d5d2e119444c16677be8f9aa0f4b4ec9451a2e0d9bb5",
+    "public.attachment attachment_check public.attachment_check()": "e9481e10fee3e956d25a1a0d3c6758dea42bacf1d732f03462f2ae615b6a0959",
+    "public.organization organization_parent_check public.organization_parent_check()": "f94ffb40dced092ee1c5841c253817aa703c6286d8bf39080fbec54cc5ebbe0b",
+    "public.project project_site_check public.project_site_check()": "506ded4277182003c6c55ed46f7c0316337b6db6077c2c103f730d05f53a02c5",
+    "public.project_worker project_worker_check public.project_worker_check()": "79ab02b733339d9025786977e9fd253ce5e68bd7c92761b38d00fb937d942346",
+    "public.project_worker project_worker_clear_assignments public.project_worker_clear_assignments()": "8815012b00657f533d90706b72599ff75262a1a3e3e022497b905eabbf8e70bd",
+    "public.site_visit site_visit_keep_project public.site_visit_keep_project()": "47178f8e196c2c523244cfb6cd60c3ddde3987475c3e08fd76a98edfb5a81980",
+    "public.workspace_member workspace_member_leave_crews public.workspace_member_leave_crews()": "fa3e985a4b611ce5e3da1b43efdb9d6a48a508c052cc33b81b6586b4a68d26de",
   },
   policies: {
     "public.attachment/attachment_delete": "e29276d3053d78c1b4b1d730e1b0855195a12c94d5419e0e09ec60aab65df10d",
@@ -150,13 +188,37 @@ export const PINS = {
     "public.workspace_member/workspace_member_select": "43549ad0dc92de3e231811a579b0213d8fd5ede9f18165e8a6df757d75c09ab8",
     "public.workspace_member/workspace_member_write": "8b0d06d36e131123dc3db1c9b3636ea0316926de91dd98c8586dd2748c25e649",
   },
+  tables: {
+    "drizzle.__drizzle_migrations": "652f462889aae25b5f96a709cecb4e8553767d8f2fc12ed5b1873260aa997885",
+    "public.account": "652f462889aae25b5f96a709cecb4e8553767d8f2fc12ed5b1873260aa997885",
+    "public.attachment": "1e10232c9f6542fd14ba2555dcbb8e21205927f39a191aff300e1fb527721702",
+    "public.customer_partner": "1e10232c9f6542fd14ba2555dcbb8e21205927f39a191aff300e1fb527721702",
+    "public.organization": "1e10232c9f6542fd14ba2555dcbb8e21205927f39a191aff300e1fb527721702",
+    "public.organization_contact": "1e10232c9f6542fd14ba2555dcbb8e21205927f39a191aff300e1fb527721702",
+    "public.organization_note": "1e10232c9f6542fd14ba2555dcbb8e21205927f39a191aff300e1fb527721702",
+    "public.partner": "1e10232c9f6542fd14ba2555dcbb8e21205927f39a191aff300e1fb527721702",
+    "public.project": "1e10232c9f6542fd14ba2555dcbb8e21205927f39a191aff300e1fb527721702",
+    "public.project_worker": "1e10232c9f6542fd14ba2555dcbb8e21205927f39a191aff300e1fb527721702",
+    "public.session": "652f462889aae25b5f96a709cecb4e8553767d8f2fc12ed5b1873260aa997885",
+    "public.site": "1e10232c9f6542fd14ba2555dcbb8e21205927f39a191aff300e1fb527721702",
+    "public.site_contact": "1e10232c9f6542fd14ba2555dcbb8e21205927f39a191aff300e1fb527721702",
+    "public.site_visit": "1e10232c9f6542fd14ba2555dcbb8e21205927f39a191aff300e1fb527721702",
+    "public.site_visit_member": "1e10232c9f6542fd14ba2555dcbb8e21205927f39a191aff300e1fb527721702",
+    "public.task": "1e10232c9f6542fd14ba2555dcbb8e21205927f39a191aff300e1fb527721702",
+    "public.user": "652f462889aae25b5f96a709cecb4e8553767d8f2fc12ed5b1873260aa997885",
+    "public.verification": "652f462889aae25b5f96a709cecb4e8553767d8f2fc12ed5b1873260aa997885",
+    "public.workspace": "1e10232c9f6542fd14ba2555dcbb8e21205927f39a191aff300e1fb527721702",
+    "public.workspace_invite": "1e10232c9f6542fd14ba2555dcbb8e21205927f39a191aff300e1fb527721702",
+    "public.workspace_member": "1e10232c9f6542fd14ba2555dcbb8e21205927f39a191aff300e1fb527721702",
+  },
 };
 
 if (process.argv[1] === fileURLToPath(import.meta.url) && process.argv.includes("--print")) {
   const client = new Client(withPinnedSearchPath(buildPoolConfig(process.env, null)));
   await client.connect();
   try {
-    console.log(JSON.stringify(await readPinnable(client), null, 2));
+    const { definerExecutable, ...pins } = await readPinnable(client);
+    console.log(JSON.stringify(pins, null, 2));
   } finally {
     await client.end();
   }
