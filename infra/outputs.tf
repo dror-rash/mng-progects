@@ -21,3 +21,11 @@ output "gcp_cloudsql_connection" {
   description = "Set as GitHub repo variable GCP_CLOUDSQL_CONNECTION."
   value       = google_sql_database_instance.main.connection_name
 }
+
+output "files_buckets" {
+  description = "STORAGE_BUCKET for the dashboard: main and previews (deploy-service.sh derives the same names)."
+  value = {
+    main    = google_storage_bucket.files.name
+    preview = google_storage_bucket.files_preview.name
+  }
+}
