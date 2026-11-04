@@ -69,3 +69,22 @@ export async function listCustomerProjects(userId: string, workspaceId: string, 
 export async function countProjects(userId: string, workspaceId: string) {
   return withAccess(userId, async () => getDb().$count(schema.project, visibleProjects(userId, workspaceId)));
 }
+
+/**
+ * The projects at the site `siteId` that `userId` can see (not deleted), newest first: the site page's
+ * Projects section (task 072). A partner's users see only their partner's.
+ */
+export async function listSiteProjects(userId: string, siteId: string) {
+  return withAccess(userId, async () =>
+    getDb()
+      .select({
+        id: schema.project.id,
+        name: schema.project.name,
+        description: schema.project.description,
+        createdAt: schema.project.createdAt,
+      })
+      .from(schema.project)
+      .where(and(eq(schema.project.siteId, siteId), isNull(schema.project.deletedAt), canSeeProject(userId, schema.project.id)))
+      .orderBy(desc(schema.project.createdAt), desc(schema.project.id)),
+  );
+}

@@ -23,17 +23,6 @@ Feature: Sites
     When I follow the "Acme Ltd" link
     Then the "Sites" section shows "Haifa warehouse"
 
-  Scenario: A parent's page lists its sub-companies' sites too
-    Given "Acme Ltd" has a sub-company "Acme Retail"
-    And "Acme Ltd" has a site "Head office"
-    And "Acme Retail" has a site "Dizengoff store"
-    When I am on the "Acme Ltd" customer page
-    Then the sites listed are "Dizengoff store (Acme Retail), Head office"
-    When I am on the "Acme Retail" customer page
-    Then the sites listed are "Dizengoff store"
-    When I open the "Dizengoff store" site page
-    Then I see the text "Acme Ltd › Acme Retail"
-
   Scenario: Coordinates are optional, and checked when given
     Given "Acme Ltd" has a site "Haifa warehouse"
     When I open the "Haifa warehouse" site page

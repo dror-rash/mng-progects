@@ -2,7 +2,7 @@ import { expect, type Page } from "@playwright/test";
 import { sql } from "@repo/db";
 import { getMaintenanceDb } from "@repo/db/maintenance";
 
-import { Given, origin, signUp, Then, userId, When } from "./fixtures";
+import { Given, origin, type People, type ScenarioState, signUp, Then, userId, When } from "./fixtures";
 import { idOf, ids, pageOf, shownText } from "./partner-access.steps";
 
 // Sites and on-site contacts (task 054, ADR-0008).
@@ -48,18 +48,10 @@ When("I open the new site page for {string}", async ({ page }, customer: string)
   await page.goto(`/dashboard/sites/new?customer=${await myRecordId(page, "organization", customer)}`);
 });
 
-/** The customer page's Sites section as "<site>" or "<site> (<sub-company>)", in order. */
+/** The customer page's Sites section: its own sites' links, in order (task 072). */
 Then("the sites listed are {string}", async ({ page }, expected: string) => {
-  const rows = page.getByRole("region", { name: "Sites", exact: true }).getByRole("listitem");
-  const want = expected.split(",").map((s) => s.trim());
-  await expect(rows).toHaveCount(want.length);
-  const shown = await Promise.all(
-    (await rows.all()).map(async (row) => {
-      const links = await row.getByRole("link").allInnerTexts();
-      return links.length > 1 ? `${links[0]!.trim()} (${links[1]!.trim()})` : links[0]!.trim();
-    }),
-  );
-  expect(shown).toEqual(want);
+  const links = page.getByRole("region", { name: "Sites", exact: true }).getByRole("listitem").getByRole("link");
+  await expect(links).toHaveText(expected.split(",").map((s) => s.trim()));
 });
 
 Then("the URL path is the {string} customer page", async ({ page }, customer: string) => {
@@ -129,8 +121,13 @@ When("the auditor opens the address of the site {string}", async ({ people, stat
   await expect(auditor.getByRole("heading", { name: site, level: 1 })).toBeVisible();
 });
 
-Then("the auditor sees the text {string}", async ({ people, state }, text: string) => {
+/** Text shown on the auditor's page (not in a form field). */
+export async function expectAuditorSees(people: People, state: ScenarioState, text: string) {
   await expect(shownText(await pageOf(state, people, "auditor"), text)).toBeVisible();
+}
+
+Then("the auditor sees the text {string}", async ({ people, state }, text: string) => {
+  await expectAuditorSees(people, state, text);
 });
 
 Then(

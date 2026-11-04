@@ -1,6 +1,6 @@
 # Task 072: Customers → sub-companies → sites → projects, page by page
 
-- **Status:** ready (approved 2026-11-04)
+- **Status:** in-review
 - **Milestone:** POC (2026-11-13)
 - **Zone / package:** `apps/dashboard`, `e2e`
 - **Feature file:** `docs/features/customer-hierarchy.feature`; two `@task:072` scenarios in `docs/features/partner-access.feature`; existing scenarios changed or retired (list below)
@@ -61,12 +61,12 @@ The POC walks the hierarchy from the top: a table of customers, then a customer 
 - Database rules (task 071); home page and menu (task 070).
 
 ## Acceptance criteria
-- [ ] The Customers table lists top-level customers with counts of sub-companies, sites and projects. (`customer-hierarchy.feature`: "The customers table lists top-level customers with their counts")
-- [ ] From the table, an admin opens a customer, a sub-company, a site and a project; a parent's page lists only its own sites. ("From a customer through a sub-company and a site to a project")
-- [ ] A site page lists its projects, and "New project" there chooses the site and its customer. ("A site lists its projects, and a new project starts there")
-- [ ] An unknown or another workspace's site in the new project link is ignored. ("A site the link can't use is ignored")
-- [ ] Partners see only their own projects on a site page; auditors see them all and can't start one. (`partner-access.feature`, `@task:072`)
-- [ ] Every changed scenario above passes; the retired ones are deleted.
+- [x] The Customers table lists top-level customers with counts of sub-companies, sites and projects. (`customer-hierarchy.feature`: "The customers table lists top-level customers with their counts")
+- [x] From the table, an admin opens a customer, a sub-company, a site and a project; a parent's page lists only its own sites. ("From a customer through a sub-company and a site to a project")
+- [x] A site page lists its projects, and "New project" there chooses the site and its customer. ("A site lists its projects, and a new project starts there")
+- [x] An unknown or another workspace's site in the new project link is ignored. ("A site the link can't use is ignored")
+- [x] Partners see only their own projects on a site page; auditors see them all and can't start one. (`partner-access.feature`, `@task:072`)
+- [x] Every changed scenario above passes; the retired ones are deleted.
 
 ## Approach (brief)
 - **`listTopLevelCustomers(userId, workspaceId, filters)`** in `features/organizations/queries.ts`, with the three counts as SQL subqueries using the predicates and `deleted_at is null`.
@@ -91,6 +91,15 @@ The POC walks the hierarchy from the top: a table of customers, then a customer 
 ## Progress log
 - 2026-11-04 – Drafted from the owner's request and answers (split from tasks 070 and 071).
 - 2026-11-04 – Approved by the owner.
+- 2026-11-04 – Red: scenarios changed/retired (`docs(features):`), `@wip` removed, steps written. 5 of 6 `@task:072` scenarios fail for the missing feature; "A site the link can't use is ignored" passes already (a guard: today `?site=` is ignored everywhere). The changed customer-groups scenarios and the primary-contact scenario in customer-contacts fail on the missing Customers table. Steps that opened a customer through the list now go by id (sub-companies have no row); "the auditor sees {string}" now checks visible text, not only the page title.
+- 2026-11-04 – Green: `listTopLevelCustomers` (counts as subqueries by id, no view joins) and `CustomersTable`; customer pages list own sites only and each sub-company's site count; site pages list their projects with "New project" (`canStartProjectAt`, a `site_choice` lookup by id); `initialCustomerAndSite` picks the new project's customer and site. `groupCustomers` and `listOrganizations` removed; the tag filter lists top-level customers' tags. Unit and component tests first, then the 10 task and changed scenarios on a production build.
+- 2026-11-04 – Note: the unit and component tests in c571c02 (`initialCustomerAndSite`, `siteCountLabel`, `CustomersTable`, `SiteProjectsSection`, `SubCompaniesSection`) were written and run red first, but went in with their code in one commit, with no separate red commit.
+- 2026-11-04 – Review fixes:
+  - The Projects count filters by the customer's workspace (`project_workspace_organization_idx`) and leaves out deleted sub-companies, like the other counts.
+  - Cancel on a new project from `?site=` goes to the site only when I can see it (`can_see_site`), else to All projects (`newProjectCancelHref`, unit tested).
+  - Step tidy-ups: the auditor text helper is shared, the dead "<site> (<sub-company>)" branch is gone, and the table-cell step no longer matches headers by substring.
+  - The new leak-suite scenario in `workers.feature` ("A site page lists only my crew's projects at it") passed with no new step and no app change.
+  - Full e2e: 284 of 284 on a production build. Status: in review.
 
 ## Parking lot
 - Breadcrumbs showing the whole chain on customer, site and project pages.

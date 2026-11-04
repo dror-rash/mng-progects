@@ -1,10 +1,13 @@
-import { type AnyColumn, sql } from "@repo/db";
+import { type AnyColumn, type SQL, sql } from "@repo/db";
+
+/** A column, or a column of an aliased table in a raw subquery (`sql`p.id``). */
+type Id = AnyColumn | SQL;
 
 // SQL conditions for queries, each calling one of the access functions defined in the database
 // (migration 0018, ADR-0006). The one access rule: every query and lookup goes through these.
 
 /** `userId` can see the project in `projectId` (admins and auditors of its workspace; its own partner). */
-export function canSeeProject(userId: string, projectId: AnyColumn) {
+export function canSeeProject(userId: string, projectId: Id) {
   return sql<boolean>`can_see_project(${userId}, ${projectId})`;
 }
 
@@ -22,7 +25,7 @@ export function canWorkOnProject(userId: string, projectId: AnyColumn) {
 }
 
 /** `userId` can see everything about the customer in `orgId` (admins and auditors). */
-export function canSeeCustomer(userId: string, orgId: AnyColumn) {
+export function canSeeCustomer(userId: string, orgId: Id) {
   return sql<boolean>`can_see_customer(${userId}, ${orgId})`;
 }
 
@@ -37,7 +40,7 @@ export function canChangeCustomer(userId: string, orgId: AnyColumn) {
 }
 
 /** `userId` can see the site in `siteId` and its contacts (admins and auditors; task 055 adds project sites). */
-export function canSeeSite(userId: string, siteId: AnyColumn) {
+export function canSeeSite(userId: string, siteId: Id) {
   return sql<boolean>`can_see_site(${userId}, ${siteId})`;
 }
 

@@ -3,13 +3,15 @@ import { Button } from "@repo/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@repo/ui/card";
 import Link from "next/link";
 
+import { siteCountLabel } from "@/features/sites/site-count";
+
 import { organizationStatusLabel } from "./organization-kinds";
 
-type SubCompany = { id: string; name: string; status: string; primaryContactName: string | null };
+type SubCompany = { id: string; name: string; status: string; primaryContactName: string | null; siteCount: number };
 
 /**
- * A top-level customer's sub-companies (task 053), with a "New sub-company" link for admins
- * (`canAdd`). Links are `next/link` paths within the zone.
+ * A top-level customer's sub-companies (task 053), each with how many sites it has (task 072), and a
+ * "New sub-company" link for admins (`canAdd`). Links are `next/link` paths within the zone.
  */
 export function SubCompaniesSection({
   parentId,
@@ -44,7 +46,10 @@ export function SubCompaniesSection({
                     <Link href={`/customers/${c.id}`} className="text-sm font-medium hover:underline">{c.name}</Link>
                     <Badge variant="outline">{organizationStatusLabel(c.status)}</Badge>
                   </span>
-                  {c.primaryContactName && <span className="text-xs text-muted-foreground">{c.primaryContactName}</span>}
+                  <span className="flex items-center gap-3 text-xs text-muted-foreground">
+                    <span>{siteCountLabel(c.siteCount)}</span>
+                    {c.primaryContactName && <span>{c.primaryContactName}</span>}
+                  </span>
                 </li>
               ))}
             </ul>

@@ -2,6 +2,7 @@ import { expect, type Page } from "@playwright/test";
 
 import { Given, origin, signUp, Then, When } from "./fixtures";
 import { createProject } from "./project-form";
+import { myRecordId } from "./sites.steps";
 
 async function createCustomer(page: Page, name: string, status = "Active", tags = "") {
   await page.goto("/dashboard/customers/new");
@@ -20,10 +21,9 @@ Given(
   },
 );
 
+// By id: a sub-company has no row in the Customers table (task 072), only a link on its parent's page.
 Given("I am on the {string} customer page", async ({ page }, name: string) => {
-  await page.goto("/dashboard/customers");
-  await page.getByRole("link", { name, exact: true }).click();
-  await expect(page).toHaveURL(/\/dashboard\/customers\/[^/]+$/);
+  await page.goto(`/dashboard/customers/${await myRecordId(page, "organization", name)}`);
   await expect(page.getByRole("heading", { name, level: 1 })).toBeVisible();
 });
 
@@ -76,8 +76,8 @@ Given("I have a project named {string} for customer {string}", async ({ page }, 
 });
 
 When("I delete the customer {string}", async ({ page }, name: string) => {
-  await page.goto("/dashboard/customers");
-  await page.getByRole("link", { name, exact: true }).click();
+  await page.goto(`/dashboard/customers/${await myRecordId(page, "organization", name)}`);
+  await expect(page.getByRole("heading", { name, level: 1 })).toBeVisible();
   await page.getByRole("link", { name: "Delete customer" }).click();
   await page.getByRole("button", { name: "Yes, delete customer" }).click();
   await expect(page).toHaveURL(/\/dashboard\/customers$/);
@@ -180,8 +180,12 @@ Then("the contacts are listed as {string}", async ({ page }, names: string) => {
   for (const [i, name] of expected.entries()) await expect(rows.nth(i)).toContainText(name);
 });
 
-function customerRow(page: Page, customer: string) {
-  return page.getByRole("listitem").filter({ has: page.getByRole("link", { name: customer, exact: true }) });
+/** A row of the Customers table, by the customer link in its row header. */
+export function customerRow(page: Page, customer: string) {
+  return page
+    .getByRole("table", { name: "Customers", exact: true })
+    .getByRole("row")
+    .filter({ has: page.getByRole("rowheader").filter({ has: page.getByRole("link", { name: customer, exact: true }) }) });
 }
 
 Then("the customer {string} is listed with the contact {string}", async ({ page }, customer: string, contact: string) => {

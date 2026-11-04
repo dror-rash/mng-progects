@@ -2,11 +2,11 @@ import { Button } from "@repo/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@repo/ui/card";
 import Link from "next/link";
 
-type SiteRow = { id: string; name: string; address: string | null; subCompanyId: string | null; subCompanyName: string | null };
+type SiteRow = { id: string; name: string; address: string | null };
 
 /**
- * A customer's sites (task 054), and on a parent's page its sub-companies' sites with the sub-company's
- * name. Admins get "New site" (`canAdd`).
+ * A customer's own sites (task 054); a sub-company's sites are on its own page (task 072). Admins get
+ * "New site" (`canAdd`).
  */
 export function SitesSection({ customerId, sites, canAdd }: { customerId: string; sites: SiteRow[]; canAdd: boolean }) {
   return (
@@ -29,14 +29,7 @@ export function SitesSection({ customerId, sites, canAdd }: { customerId: string
             <ul className="divide-y">
               {sites.map((s) => (
                 <li key={s.id} className="flex flex-wrap items-center justify-between gap-2 py-2 first:pt-0 last:pb-0">
-                  <span className="flex flex-wrap items-center gap-2">
-                    <Link href={`/sites/${s.id}`} className="text-sm font-medium hover:underline">{s.name}</Link>
-                    {s.subCompanyId && s.subCompanyName && (
-                      <Link href={`/customers/${s.subCompanyId}`} className="text-xs text-muted-foreground hover:underline">
-                        {s.subCompanyName}
-                      </Link>
-                    )}
-                  </span>
+                  <Link href={`/sites/${s.id}`} className="text-sm font-medium hover:underline">{s.name}</Link>
                   {s.address && <span className="text-xs text-muted-foreground">{s.address}</span>}
                 </li>
               ))}

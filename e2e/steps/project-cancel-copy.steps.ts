@@ -5,6 +5,7 @@ import { getMaintenanceDb } from "@repo/db/maintenance";
 import { Given, Then, When } from "./fixtures";
 import { ids, idOf, pageOf, projectPath, shownText } from "./partner-access.steps";
 import { chooseCustomerAndSite } from "./project-form";
+import { expectAuditorSees } from "./sites.steps";
 import { pressAndWait } from "./workspaces.steps";
 
 // Cancel and copy (task 050), in the leak suite's two-partner workspace (partner-access.steps.ts).
@@ -86,9 +87,9 @@ When("the auditor opens the copy page of {string}", async ({ people, state }, pr
   await (await pageOf(state, people, "auditor")).goto(`${projectPath(state, project)}/copy`);
 });
 
+// Text on the auditor's page: a page title ("Project not found") or a row (a project on a site page, task 072).
 Then("the auditor sees {string}", async ({ people, state }, text: string) => {
-  const auditor = await pageOf(state, people, "auditor");
-  await expect(auditor.getByRole("main").getByRole("heading", { level: 1 })).toHaveText(text);
+  await expectAuditorSees(people, state, text);
 });
 
 When("I open the copy page of {string}", async ({ page, state }, project: string) => {
