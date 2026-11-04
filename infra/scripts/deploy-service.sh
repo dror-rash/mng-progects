@@ -1,33 +1,37 @@
 #!/usr/bin/env bash
 # Usage: deploy-service.sh <service> <image>
 # Env: PROJECT, REGION, CLOUDSQL_CONNECTION, IS_PR ("true" for previews), PR_NUMBER, APP_URL (optional, prod only)
+# Every revision gets its environment's whole config (identity, env, secrets) explicitly, with --set-*:
+# previews and main share the service, so nothing may carry over from the other's last revision.
 set -euo pipefail
 service="$1"; image="$2"
 : "${CLOUDSQL_CONNECTION:?CLOUDSQL_CONNECTION is required}"
-: "${PROJECT:?PROJECT is required}"
+: "${REGION:?REGION is required}"
+. "$(dirname "$0")/environment.sh"
 
+env_vars="CLOUD_SQL_CONNECTION_NAME=${CLOUDSQL_CONNECTION},DB_USER=${DB_LOGIN},DB_NAME=${DB_NAME}"
 flags=()
-if [ "${IS_PR:-false}" = "true" ]; then
-  # Preview: tagged no-traffic revision, preview database and bucket, relaxed origin check (unknown *.run.app host).
-  db_name="app_preview"; bucket="${PROJECT}-files-preview"
-  env_vars="CLOUD_SQL_CONNECTION_NAME=${CLOUDSQL_CONNECTION},DB_USER=app,DB_NAME=${db_name},ALLOW_PREVIEW_ORIGINS=true"
-  flags+=(--no-traffic --tag "pr-${PR_NUMBER}" --remove-env-vars BETTER_AUTH_URL)
+if [ "$DEPLOY_ENV" = "preview" ]; then
+  # Tagged no-traffic revision; relaxed origin check (unknown *.run.app host), no BETTER_AUTH_URL.
+  env_vars="${env_vars},ALLOW_PREVIEW_ORIGINS=true"
+  flags+=(--no-traffic --tag "pr-${PR_NUMBER:?PR_NUMBER is required}")
 else
-  db_name="app"; bucket="${PROJECT}-files"
+  # The app's origin: the shell's status.url (or APP_URL behind a custom domain).
   app_url="${APP_URL:-$(gcloud run services describe shell --region "$REGION" --format='value(status.url)')}"
-  env_vars="CLOUD_SQL_CONNECTION_NAME=${CLOUDSQL_CONNECTION},DB_USER=app,DB_NAME=${db_name},ALLOW_PREVIEW_ORIGINS=false,BETTER_AUTH_URL=${app_url}"
+  env_vars="${env_vars},ALLOW_PREVIEW_ORIGINS=false,BETTER_AUTH_URL=${app_url}"
 fi
 
 # Files (packages/storage reads STORAGE_BUCKET; STORAGE_LOCAL_URL stays unset so it uses GCS itself). Only the
-# dashboard uses them, and only its runtime identity may (infra/storage.tf, which names the buckets the same).
+# dashboard uses them; its identity in each environment may reach that environment's bucket only.
 if [ "$service" = "dashboard" ]; then
-  env_vars="${env_vars},STORAGE_BUCKET=${bucket}"
+  env_vars="${env_vars},STORAGE_BUCKET=${FILES_BUCKET}"
 fi
 
 gcloud run deploy "$service" \
   --image "$image" \
   --region "$REGION" \
-  --add-cloudsql-instances "$CLOUDSQL_CONNECTION" \
-  --update-secrets "BETTER_AUTH_SECRET=better-auth-secret:latest,DB_PASSWORD=db-password:latest" \
-  --update-env-vars "$env_vars" \
-  --quiet "${flags[@]}"
+  --service-account "$(runtime_sa "$service")" \
+  --set-cloudsql-instances "$CLOUDSQL_CONNECTION" \
+  --set-secrets "BETTER_AUTH_SECRET=${AUTH_SECRET_NAME}:latest,DB_PASSWORD=${DB_PASSWORD_SECRET}:latest" \
+  --set-env-vars "$env_vars" \
+  --quiet ${flags[@]+"${flags[@]}"}

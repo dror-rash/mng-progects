@@ -47,22 +47,31 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile --filter @repo/db... --filter @repo/e2e...
-      - name: Migrate database and check the runtime role
+      # Names per environment (database, logins, secrets) come from infra/scripts/environment.sh only.
+      - name: Migrate, provision database logins, check the runtime role
         run: |
+          . infra/scripts/environment.sh
           curl -fsSL -o cloud-sql-proxy \
             https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy/v2.14.1/cloud-sql-proxy.linux.amd64
           chmod +x cloud-sql-proxy
           ./cloud-sql-proxy --port 5432 "$CLOUDSQL_CONNECTION" > proxy.log 2>&1 &
           for i in $(seq 1 20); do (echo > /dev/tcp/127.0.0.1/5432) 2>/dev/null && break; sleep 1; done
 
-          DB_PASSWORD="$(gcloud secrets versions access latest --secret=db-password)"
-          echo "::add-mask::$DB_PASSWORD"
-          if [ "$IS_PR" = "true" ]; then DB_NAME=app_preview; else DB_NAME=app; fi
-          export DATABASE_URL="postgres://app:${DB_PASSWORD}@127.0.0.1:5432/${DB_NAME}"
-          pnpm db:migrate
-          # Same login and `-c role=app_user` as the runtime pool: fails the deploy unless the runtime really
-          # runs as app_user without TEMPORARY (ADR-0006: row-level security isn't forced).
-          node --experimental-strip-types --no-warnings infra/scripts/check-runtime-role.mjs
+          secret() { gcloud secrets versions access latest --secret="$1"; }
+          OWNER_PASSWORD="$(secret "$DB_OWNER_PASSWORD_SECRET")"; echo "::add-mask::$OWNER_PASSWORD"
+          PREVIEW_PASSWORD="$(secret "$PREVIEW_DB_PASSWORD_SECRET")"; echo "::add-mask::$PREVIEW_PASSWORD"
+          RUNTIME_PASSWORD="$(secret "$DB_PASSWORD_SECRET")"; echo "::add-mask::$RUNTIME_PASSWORD"
+          as_owner() { echo "postgres://${DB_OWNER_LOGIN}:${OWNER_PASSWORD}@127.0.0.1:5432/$1"; }
+
+          # Migrations run as the owner login on this environment's database.
+          DATABASE_URL="$(as_owner "$DB_NAME")" pnpm db:migrate
+          # The preview login and CONNECT on the main database (idempotent, every deploy).
+          DATABASE_URL="$(as_owner "$MAIN_DB_NAME")" PREVIEW_DB_PASSWORD="$PREVIEW_PASSWORD" \
+            node --experimental-strip-types --no-warnings infra/scripts/provision-db-logins.mjs
+          # As this environment's runtime login with `-c role=app_user`: fails the deploy unless row-level
+          # security really applies (ADR-0006: it isn't forced).
+          DATABASE_URL="postgres://${DB_LOGIN}:${RUNTIME_PASSWORD}@127.0.0.1:5432/${DB_NAME}" \
+            node --experimental-strip-types --no-warnings infra/scripts/check-runtime-role.mjs
           kill %1 || true
 
       # 1) example-zone and dashboard first: the shell needs their URLs at build time
@@ -103,7 +112,7 @@ jobs:
           DASHBOARD_URL: ${{ steps.dashboard.outputs.url }}
         run: |
           for url in "$EXAMPLE_URL" "$DASHBOARD_URL"; do
-            case "$url" in https://*) ;; *) echo "::error::A zone URL is missing (got '$url')"; exit 1 ;; esac
+            case "$url" in https://?*) ;; *) echo "::error::A zone URL is missing (got '$url')"; exit 1 ;; esac
           done
       - name: Build & push shell
         uses: docker/build-push-action@v6
@@ -122,10 +131,18 @@ jobs:
       - name: Resolve shell URL
         id: shell
         run: echo "url=$(infra/scripts/service-url.sh shell)" >> "$GITHUB_OUTPUT"
+      # An empty BASE_URL would make Playwright start local servers instead of testing the preview.
+      - name: Check shell URL
+        env:
+          SHELL_URL: ${{ steps.shell.outputs.url }}
+        run: |
+          case "$SHELL_URL" in https://?*) ;; *) echo "::error::The shell URL is missing (got '$SHELL_URL')"; exit 1 ;; esac
 
       # 3) Acceptance tests against the deployed preview: the @smoke set only. The full suite needs
       #    AUTH_DISABLE_RATE_LIMIT, which a deployment never sets (rule 13). One worker: the set signs up and
-      #    logs in from one runner IP, against production rate limits.
+      #    logs in from one runner IP, against production rate limits. The report and traces stay on the
+      #    runner: the repository is public, and failed traces hold the throwaway accounts' passwords and
+      #    cookies.
       - if: env.IS_PR == 'true'
         run: pnpm exec playwright install --with-deps chromium
         working-directory: e2e
@@ -133,17 +150,10 @@ jobs:
       - name: Run Playwright @smoke against preview
         if: env.IS_PR == 'true'
         working-directory: e2e
-        run: pnpm exec bddgen && pnpm exec playwright test --workers=1
+        run: pnpm exec bddgen && pnpm exec playwright test --workers=1 --trace=off
         env:
           BASE_URL: ${{ steps.shell.outputs.url }}
           E2E_TAGS: "@smoke"
-      - if: ${{ env.IS_PR == 'true' && !cancelled() }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: preview-playwright-report
-          path: e2e/playwright-report
-          retention-days: 7
-
       - name: Comment preview URL
         if: env.IS_PR == 'true'
         env:
