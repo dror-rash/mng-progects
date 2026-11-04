@@ -35,7 +35,9 @@ jobs:
     timeout-minutes: 30
     services:
       postgres:
-        image: postgres:16
+        # A fixed minor: the role check pins views, functions and policies by their deparsed text
+        # (infra/scripts/rls-pins.mjs, computed on 16.15), so a new image can't change them under us.
+        image: postgres:16.15
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
