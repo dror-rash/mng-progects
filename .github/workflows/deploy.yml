@@ -29,26 +29,38 @@ jobs:
     # Fork PRs can't get OIDC tokens; skip them.
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
+    # Also bounds the wait for another PR's migration (with-db-lock.mjs).
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
 
+      # Each environment has its own deployer; Workload Identity only lets a push to main use deployer-main
+      # and a pull_request run use deployer-preview (infra/main.tf, attribute.deploy_target).
       - uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
-          service_account: ${{ vars.GCP_DEPLOYER_SA }}
+          service_account: ${{ github.event_name == 'pull_request' && vars.GCP_DEPLOYER_SA_PREVIEW || vars.GCP_DEPLOYER_SA_MAIN }}
       - uses: google-github-actions/setup-gcloud@v2
       - run: gcloud auth configure-docker "${REGION}-docker.pkg.dev" --quiet
       - uses: docker/setup-buildx-action@v3
 
-      # 0) Database migrations (previews migrate app_preview, main migrates app)
+      # Names per environment (database, logins, secrets, image packages) come from infra/scripts/environment.sh only.
+      - name: Environment
+        id: env
+        run: |
+          . infra/scripts/environment.sh
+          echo "image_prefix=$IMAGE_PREFIX" >> "$GITHUB_OUTPUT"
+
+      # 0) Database. main: migrate `app` as its owner, then provision the preview logins. Previews never touch
+      #    `app` or its owner login: verify the preview logins, migrate `app_preview` as preview_owner. Both:
+      #    the runtime role check as the environment's runtime login.
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile --filter @repo/db... --filter @repo/e2e...
-      # Names per environment (database, logins, secrets) come from infra/scripts/environment.sh only.
-      - name: Migrate, provision database logins, check the runtime role
+      - name: Migrate and check the database
         run: |
           . infra/scripts/environment.sh
           curl -fsSL -o cloud-sql-proxy \
@@ -58,20 +70,30 @@ jobs:
           for i in $(seq 1 20); do (echo > /dev/tcp/127.0.0.1/5432) 2>/dev/null && break; sleep 1; done
 
           secret() { gcloud secrets versions access latest --secret="$1"; }
-          OWNER_PASSWORD="$(secret "$DB_OWNER_PASSWORD_SECRET")"; echo "::add-mask::$OWNER_PASSWORD"
-          PREVIEW_PASSWORD="$(secret "$PREVIEW_DB_PASSWORD_SECRET")"; echo "::add-mask::$PREVIEW_PASSWORD"
-          RUNTIME_PASSWORD="$(secret "$DB_PASSWORD_SECRET")"; echo "::add-mask::$RUNTIME_PASSWORD"
-          as_owner() { echo "postgres://${DB_OWNER_LOGIN}:${OWNER_PASSWORD}@127.0.0.1:5432/$1"; }
+          mask() { echo "::add-mask::$1"; }
+          db_url() { echo "postgres://$1:$2@127.0.0.1:5432/$3"; }  # login, password, database
+          run_node() { node --experimental-strip-types --no-warnings "$@"; }
+          MIGRATE_PASSWORD="$(secret "$DB_MIGRATE_PASSWORD_SECRET")"; mask "$MIGRATE_PASSWORD"
+          RUNTIME_PASSWORD="$(secret "$DB_PASSWORD_SECRET")"; mask "$RUNTIME_PASSWORD"
+          MIGRATE_URL="$(db_url "$DB_MIGRATE_LOGIN" "$MIGRATE_PASSWORD" "$DB_NAME")"
 
-          # Migrations run as the owner login on this environment's database.
-          DATABASE_URL="$(as_owner "$DB_NAME")" pnpm db:migrate
-          # The preview login and CONNECT on the main database (idempotent, every deploy).
-          DATABASE_URL="$(as_owner "$MAIN_DB_NAME")" PREVIEW_DB_PASSWORD="$PREVIEW_PASSWORD" \
-            node --experimental-strip-types --no-warnings infra/scripts/provision-db-logins.mjs
-          # As this environment's runtime login with `-c role=app_user`: fails the deploy unless row-level
+          if [ "$DEPLOY_ENV" = "main" ]; then
+            # Under a lock: two deploys never migrate one database at once.
+            DATABASE_URL="$MIGRATE_URL" run_node infra/scripts/with-db-lock.mjs "migrate-$DB_NAME" -- pnpm db:migrate
+            # The preview logins and database grants (idempotent; connected to the preview database).
+            PREVIEW_OWNER_PASSWORD="$(secret "$PREVIEW_OWNER_PASSWORD_SECRET")"; mask "$PREVIEW_OWNER_PASSWORD"
+            PREVIEW_RUNTIME_PASSWORD="$(secret "$PREVIEW_RUNTIME_PASSWORD_SECRET")"; mask "$PREVIEW_RUNTIME_PASSWORD"
+            DATABASE_URL="$(db_url "$MAIN_OWNER_LOGIN" "$MIGRATE_PASSWORD" "$PREVIEW_DB_NAME")" \
+            PREVIEW_OWNER_PASSWORD="$PREVIEW_OWNER_PASSWORD" PREVIEW_RUNTIME_PASSWORD="$PREVIEW_RUNTIME_PASSWORD" \
+              run_node infra/scripts/provision-db-logins.mjs
+          else
+            # Read-only: fails until a main deploy has provisioned the preview logins.
+            DATABASE_URL="$MIGRATE_URL" run_node infra/scripts/provision-db-logins.mjs --verify-only
+            DATABASE_URL="$MIGRATE_URL" run_node infra/scripts/with-db-lock.mjs "migrate-$DB_NAME" -- pnpm db:migrate
+          fi
+          # As the environment's runtime login with `-c role=app_user`: fails the deploy unless row-level
           # security really applies (ADR-0006: it isn't forced).
-          DATABASE_URL="postgres://${DB_LOGIN}:${RUNTIME_PASSWORD}@127.0.0.1:5432/${DB_NAME}" \
-            node --experimental-strip-types --no-warnings infra/scripts/check-runtime-role.mjs
+          DATABASE_URL="$(db_url "$DB_LOGIN" "$RUNTIME_PASSWORD" "$DB_NAME")" run_node infra/scripts/check-runtime-role.mjs
           kill %1 || true
 
       # 1) example-zone and dashboard first: the shell needs their URLs at build time
@@ -81,11 +103,11 @@ jobs:
           context: .
           push: true
           build-args: APP=example-zone
-          tags: ${{ env.REGISTRY }}/example-zone:${{ github.sha }}
+          tags: ${{ env.REGISTRY }}/${{ steps.env.outputs.image_prefix }}/example-zone:${{ github.sha }}
           cache-from: type=gha,scope=example-zone
           cache-to: type=gha,scope=example-zone,mode=max
       - name: Deploy example-zone
-        run: infra/scripts/deploy-service.sh example-zone "$REGISTRY/example-zone:${{ github.sha }}"
+        run: infra/scripts/deploy-service.sh example-zone "$REGISTRY/${{ steps.env.outputs.image_prefix }}/example-zone:${{ github.sha }}"
       - name: Resolve example-zone URL
         id: example
         run: echo "url=$(infra/scripts/service-url.sh example-zone)" >> "$GITHUB_OUTPUT"
@@ -96,11 +118,11 @@ jobs:
           context: .
           push: true
           build-args: APP=dashboard
-          tags: ${{ env.REGISTRY }}/dashboard:${{ github.sha }}
+          tags: ${{ env.REGISTRY }}/${{ steps.env.outputs.image_prefix }}/dashboard:${{ github.sha }}
           cache-from: type=gha,scope=dashboard
           cache-to: type=gha,scope=dashboard,mode=max
       - name: Deploy dashboard
-        run: infra/scripts/deploy-service.sh dashboard "$REGISTRY/dashboard:${{ github.sha }}"
+        run: infra/scripts/deploy-service.sh dashboard "$REGISTRY/${{ steps.env.outputs.image_prefix }}/dashboard:${{ github.sha }}"
       - name: Resolve dashboard URL
         id: dashboard
         run: echo "url=$(infra/scripts/service-url.sh dashboard)" >> "$GITHUB_OUTPUT"
@@ -123,11 +145,11 @@ jobs:
             APP=shell
             EXAMPLE_ZONE_URL=${{ steps.example.outputs.url }}
             DASHBOARD_ZONE_URL=${{ steps.dashboard.outputs.url }}
-          tags: ${{ env.REGISTRY }}/shell:${{ github.sha }}
+          tags: ${{ env.REGISTRY }}/${{ steps.env.outputs.image_prefix }}/shell:${{ github.sha }}
           cache-from: type=gha,scope=shell
           cache-to: type=gha,scope=shell,mode=max
       - name: Deploy shell
-        run: infra/scripts/deploy-service.sh shell "$REGISTRY/shell:${{ github.sha }}"
+        run: infra/scripts/deploy-service.sh shell "$REGISTRY/${{ steps.env.outputs.image_prefix }}/shell:${{ github.sha }}"
       - name: Resolve shell URL
         id: shell
         run: echo "url=$(infra/scripts/service-url.sh shell)" >> "$GITHUB_OUTPUT"
