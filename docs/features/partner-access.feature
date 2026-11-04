@@ -275,7 +275,7 @@ Feature: Partner access: a partner's user sees only their own partner's work
     When I open "/dashboard"
     Then the dashboard menu links are "Overview, All projects"
 
-  @wip @task:072
+  @task:072
   Scenario: A site page lists only my partner's projects at it
     Given the customer "Acme Ltd" has the site "Acme HQ" with the contact "Yossi Mizrahi"
     And the project "NW Site" is at the site "Acme HQ"
@@ -285,7 +285,7 @@ Feature: Partner access: a partner's user sees only their own partner's work
     Then the "Projects" section shows "NW Site"
     And the page shows none of "GX App, Login, HQ Plan, Budget, Initech"
 
-  @wip @task:072
+  @task:072
   Scenario: An auditor sees every project at a site but can't start one there
     Given the customer "Acme Ltd" has the site "Acme HQ" with the contact "Yossi Mizrahi"
     And the project "NW Site" is at the site "Acme HQ"

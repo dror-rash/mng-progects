@@ -91,6 +91,7 @@ The POC walks the hierarchy from the top: a table of customers, then a customer 
 ## Progress log
 - 2026-11-04 – Drafted from the owner's request and answers (split from tasks 070 and 071).
 - 2026-11-04 – Approved by the owner.
+- 2026-11-04 – Red: scenarios changed/retired (`docs(features):`), `@wip` removed, steps written. 5 of 6 `@task:072` scenarios fail for the missing feature; "A site the link can't use is ignored" passes already (a guard: today `?site=` is ignored everywhere). The changed customer-groups scenarios and the primary-contact scenario in customer-contacts fail on the missing Customers table. Steps that opened a customer through the list now go by id (sub-companies have no row); "the auditor sees {string}" now checks visible text, not only the page title.
 
 ## Parking lot
 - Breadcrumbs showing the whole chain on customer, site and project pages.

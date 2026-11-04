@@ -8,7 +8,7 @@ Feature: From a customer to its sites and their projects
     Given I am signed in with an existing account
     And I have a customer "Acme Ltd" with status "Active" and tags "retail"
 
-  @wip @task:072
+  @task:072
   Scenario: The customers table lists top-level customers with their counts
     Given "Acme Ltd" has a sub-company "Acme Retail"
     And "Acme Ltd" has a site "Head office"
@@ -23,7 +23,7 @@ Feature: From a customer to its sites and their projects
     And the "Globex" row shows "0" under "Sites"
     And the "Globex" row shows "Lead" under "Status"
 
-  @wip @task:072
+  @task:072
   Scenario: From a customer through a sub-company and a site to a project
     Given "Acme Ltd" has a sub-company "Acme Retail"
     And "Acme Ltd" has a site "Head office"
@@ -44,7 +44,7 @@ Feature: From a customer to its sites and their projects
     Then I see the heading "Store wiring"
     And the "Site" section shows "Dizengoff store"
 
-  @wip @task:072
+  @task:072
   Scenario: A site lists its projects, and a new project starts there
     Given "Acme Ltd" has a site "Haifa warehouse"
     When I open the "Haifa warehouse" site page
@@ -58,7 +58,7 @@ Feature: From a customer to its sites and their projects
     When I open the "Haifa warehouse" site page
     Then the "Projects" section shows "Forklift bay"
 
-  @wip @task:072
+  @task:072
   Scenario: A site the link can't use is ignored
     Given another user has a customer "Secret Corp" with a site "Vault"
     When I open "/dashboard/projects/new?site=not-a-site"
