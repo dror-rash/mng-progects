@@ -58,9 +58,10 @@ const ctx = (viewport = { width: 1280, height: 800 }) => browser.newContext({ ba
 
 // ---------- Signed out ----------
 const anon = await (await ctx()).newPage();
-await step("01-landing", async () => {
+await step("01-home-signed-out", async () => {
   await anon.goto("/");
-  await shot(anon, "01-landing", "Public site", "Landing page", "Signed-out landing page with calls to sign up and log in.");
+  await anon.waitForURL(/\/login/);
+  await shot(anon, "01-home-signed-out", "Public site", "Home while signed out", "Opening / while signed out lands on the login page.");
 });
 await step("02-login", async () => {
   await anon.goto("/login");
@@ -321,8 +322,9 @@ await step("29-customers-filtered", async () => {
 
 // Home, My tasks, workspaces
 await step("30-home", async () => {
-  await dana.goto("/dashboard");
-  await shot(dana, "30-home", "Home", "Dashboard home (metrics)", "Totals, overdue and due this week, tasks by status, activity this week and the most recently started projects (up to five).");
+  await dana.goto("/");
+  await dana.waitForURL(/\/dashboard$/);
+  await shot(dana, "30-home", "Home", "Dashboard home (metrics)", "Opening / while signed in lands on the overview: totals, overdue and due this week, tasks by status, activity this week and the most recently started projects (up to five).");
 });
 await step("31-my-tasks", async () => {
   await dana.goto("/dashboard/my-tasks");

@@ -92,6 +92,7 @@ The POC shows one simple, clean flow. Visitors land on the login page and signed
 - 2026-11-04 – Drafted from the owner's request and answers (split from the hierarchy work into tasks 071 and 072).
 - 2026-11-04 – Approved by the owner.
 - 2026-11-04 – Feature changes committed (`docs(features)`); `@wip` removed, step `the dashboard menu links are {string}` added, nav count now 3, the heading step accepts any visible match (My tasks repeats its title). Red: the 5 new scenarios fail on the missing redirect and the 6-link menu, except "Pages left out of the menu…", which already passes.
+- 2026-11-04 – Green: the shell's `/` redirects (`getSession`, `redirect`), login and sign-up fall back to `/dashboard`, `navFor` moved to `features/layout/nav.ts` with unit tests per role, the header's Home button is gone. The logo link's accessible name went from "Dashboard home" to "Waypoint": "I do not see the \"Home\" link" matches names containing "home". No `AppHeader` story exists, so none to update. Screenshots script: `/` signed out and signed in. ARCHITECTURE: home and menu conventions.
 
 ## Parking lot
 - Links to Partners and Deleted from the workspace page, for admins, after the POC.

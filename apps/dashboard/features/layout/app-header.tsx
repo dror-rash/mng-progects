@@ -6,32 +6,15 @@ import { cookies } from "next/headers";
 import Link from "next/link";
 
 import type { WorkspaceRole } from "@/features/access/roles";
-import { canSeeCustomers, canSeeDeleted, canSeePartners } from "@/features/access/scope";
 
-const NAV = [
-  { href: "/", label: "Overview" },
-  { href: "/projects", label: "All projects" },
-  { href: "/customers", label: "Customers" },
-  { href: "/my-tasks", label: "My tasks" },
-];
-
-/** Shown to admins and auditors of the current workspace only. */
-const PARTNERS = { href: "/partners", label: "Partners" };
-const DELETED = { href: "/deleted", label: "Deleted" };
-
-/** The links for my role: partners get no Customers (names only); admins and auditors also get Partners and Deleted. */
-function navFor(role: WorkspaceRole) {
-  const nav = canSeeCustomers(role) ? NAV : NAV.filter((item) => item.href !== "/customers");
-  const withPartners = canSeePartners(role) ? [...nav.slice(0, 3), PARTNERS, ...nav.slice(3)] : nav;
-  return canSeeDeleted(role) ? [...withPartners, DELETED] : withPartners;
-}
+import { navFor } from "./nav";
 
 /**
- * Zone header. Links inside the zone use next/link; "Home" is the shell, so it's a plain <a>.
+ * Zone header. Links inside the zone use next/link; the "W" logo ("Waypoint") goes to the overview.
  * Below `xl` the nav takes its own row and wraps, so nothing is pushed off-screen from 360px up.
  * `workspaceName` is the workspace of what the page shows: a record's own workspace on record pages,
  * with `otherWorkspace` set when that isn't the current one. `role` is mine in the current workspace (the
- * nav links go there): partners get no Customers, admins and auditors also get Partners and Deleted.
+ * nav links go there): see `navFor`.
  */
 export async function AppHeader({
   email,
@@ -54,7 +37,7 @@ export async function AppHeader({
           href="/"
           className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary font-bold text-primary-foreground"
         >
-          <span className="sr-only">Dashboard home</span>
+          <span className="sr-only">Waypoint</span>
           <span aria-hidden="true">W</span>
         </Link>
         <div className="flex min-w-0 flex-1 flex-col xl:min-w-24 xl:max-w-48 xl:flex-initial">
@@ -78,13 +61,10 @@ export async function AppHeader({
             </Button>
           ))}
         </nav>
-        {/* Only the email gives way when the nav is long (admins and auditors): never the workspace name. */}
+        {/* Only the email gives way when space is short: never the workspace name. */}
         <div className="ml-auto flex min-w-0 items-center gap-2">
           <span className="hidden min-w-0 max-w-56 truncate text-sm text-muted-foreground xl:inline">{email}</span>
           <ThemeToggle theme={theme} />
-          <Button asChild variant="outline" size="sm">
-            <a href="/">Home</a>
-          </Button>
           <SignOutButton />
         </div>
       </div>
