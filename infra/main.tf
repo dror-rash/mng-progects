@@ -8,6 +8,8 @@ locals {
     "sts.googleapis.com",
     "cloudresourcemanager.googleapis.com",
     "sqladmin.googleapis.com",
+    "storage.googleapis.com",
+    "logging.googleapis.com",
   ]
 }
 
@@ -23,7 +25,27 @@ resource "google_artifact_registry_repository" "images" {
   location      = var.region
   format        = "DOCKER"
   description   = "Zone images built by GitHub Actions"
-  depends_on    = [google_project_service.enabled]
+
+  # Each zone is one image (package); deploys tag versions with the commit SHA. KEEP wins over DELETE, so the
+  # 10 newest versions of each image always stay, whatever their age or tags.
+  cleanup_policy_dry_run = false
+  cleanup_policies {
+    id     = "keep-10-newest"
+    action = "KEEP"
+    most_recent_versions {
+      keep_count = 10
+    }
+  }
+  cleanup_policies {
+    id     = "delete-untagged-after-30-days"
+    action = "DELETE"
+    condition {
+      tag_state  = "UNTAGGED"
+      older_than = "2592000s" # 30 days
+    }
+  }
+
+  depends_on = [google_project_service.enabled]
 }
 
 # ---------- Runtime identities (one per zone, least privilege) ----------

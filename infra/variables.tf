@@ -4,7 +4,7 @@ variable "project_id" {
 }
 
 variable "region" {
-  description = "Region for Cloud Run and Artifact Registry. Pick one close to your users."
+  description = "Region for Cloud Run, Artifact Registry, Cloud SQL and the file buckets. Pick one close to your users (e.g. me-west1)."
   type        = string
   default     = "us-central1"
 }
@@ -17,7 +17,12 @@ variable "github_repository" {
 variable "zones" {
   description = "Zone names. Each becomes a Cloud Run service named after it (must match apps/<name>)."
   type        = set(string)
-  default     = ["shell", "example-zone"]
+  default     = ["shell", "example-zone", "dashboard"]
+
+  validation {
+    condition     = contains(var.zones, "shell") && contains(var.zones, "dashboard")
+    error_message = "zones must include \"shell\" (the public origin) and \"dashboard\" (it owns the file buckets)."
+  }
 }
 
 variable "min_instances" {
