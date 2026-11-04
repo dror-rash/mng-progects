@@ -109,6 +109,72 @@ test("fails when a table outside the Better Auth allowlist has row-level securit
   assert.match(failures.join("\n"), /row-level security is off on: workspace/);
 });
 
+// Views, materialized views and SECURITY DEFINER functions run with their owner's rights, and a table outside
+// public has no policies of ours: each one app_user can use is a way around row-level security.
+test("fails on a view app_user can read that isn't allowlisted", async () => {
+  const failures = await checkAfter(async (client) => {
+    await client.query("create view role_check_view as select * from workspace");
+    await client.query("grant select on role_check_view to app_user");
+  });
+  assert.match(failures.join("\n"), /views app_user can use that aren't allowlisted: public\.role_check_view/);
+});
+
+test("fails on a materialized view app_user can read", async () => {
+  const failures = await checkAfter(async (client) => {
+    await client.query("create materialized view role_check_matview as select * from workspace");
+    await client.query("grant select on role_check_matview to app_user");
+  });
+  assert.match(failures.join("\n"), /views app_user can use that aren't allowlisted: public\.role_check_matview/);
+});
+
+test("fails on a table outside public that app_user can use", async () => {
+  const failures = await checkAfter(async (client) => {
+    await client.query("create schema role_check_schema");
+    await client.query("create table role_check_schema.notes (id int)");
+    await client.query("grant usage on schema role_check_schema to app_user");
+    await client.query("grant select on role_check_schema.notes to app_user");
+  });
+  assert.match(failures.join("\n"), /tables outside public app_user can use: role_check_schema\.notes/);
+});
+
+test("fails on a SECURITY DEFINER function app_user can run that isn't allowlisted", async () => {
+  const failures = await checkAfter(async (client) => {
+    await client.query("create function role_check_definer() returns bigint language sql security definer as 'select count(*) from workspace'");
+    await client.query("grant execute on function role_check_definer() to app_user");
+  });
+  assert.match(failures.join("\n"), /SECURITY DEFINER functions app_user can run that aren't allowlisted: public\.role_check_definer/);
+});
+
+test("passes the allowlisted views and access functions of the migrations", async () => {
+  const failures = await withClient(buildPoolConfig(env), checkRuntimeRole);
+  assert.doesNotMatch(failures.join("\n"), /customer_name|site_choice|has_workspace_role|find_invite/);
+});
+
+test("fails when app.user_id is already set (the probe would prove nothing)", async () => {
+  const failures = await checkAfter(async (client) => {
+    await client.query("select set_config('app.user_id', 'someone', true)");
+  });
+  assert.match(failures.join("\n"), /app\.user_id is set/);
+});
+
+test("fails when the login can't SET ROLE app_user", async () => {
+  const login = `role_check_noset_${process.pid}`;
+  const password = `pw_${process.pid}_${Date.now()}`;
+  await withClient(buildPoolConfig(env, null), async (client) => {
+    await client.query(`create role ${login} login password '${password}'`);
+    await client.query(`grant app_user to ${login} with set false`);
+  });
+  try {
+    const url = new URL(env.DATABASE_URL);
+    url.username = login;
+    url.password = password;
+    const failures = await withClient({ connectionString: url.toString() }, checkRuntimeRole);
+    assert.match(failures.join("\n"), /the login \(session_user\) can't SET ROLE app_user/);
+  } finally {
+    await withClient(buildPoolConfig(env, null), (client) => client.query(`drop role ${login}`));
+  }
+});
+
 test("the command exits 0 on the migrated database and prints what it checked", async () => {
   const { stdout } = await runCli(env.DATABASE_URL);
   assert.match(stdout, /Runtime role check passed/);
