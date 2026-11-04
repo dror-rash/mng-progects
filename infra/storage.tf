@@ -71,22 +71,28 @@ resource "google_storage_bucket" "files_preview" {
   depends_on = [google_project_service.enabled]
 }
 
-# Only the dashboard's runtime identity touches objects: create (signed PUT), read (signed GET, stat) and
-# delete (remove). Preview and main revisions are the same service and identity, so it gets both buckets.
-resource "google_storage_bucket_iam_member" "files_zone_objects" {
-  for_each = {
+# Only the dashboard's runtime identities touch objects: create (signed PUT), read (signed GET, stat) and
+# delete (remove). Main's identity gets the main bucket, the preview identity the preview bucket only.
+# (Project-level Owner/Editor bindings of people still reach both: GCS legacy bucket roles.)
+locals {
+  files_access = {
     main    = google_storage_bucket.files.name
     preview = google_storage_bucket.files_preview.name
   }
-  bucket = each.value
-  role   = "roles/storage.objectUser"
-  member = "serviceAccount:${google_service_account.runtime[local.files_zone].email}"
+}
+
+resource "google_storage_bucket_iam_member" "files_zone_objects" {
+  for_each = local.files_access
+  bucket   = each.value
+  role     = "roles/storage.objectUser"
+  member   = "serviceAccount:${google_service_account.runtime["${local.files_zone}/${each.key}"].email}"
 }
 
 # Signed URLs on Cloud Run have no key file: the client signs through the IAM Credentials API
 # (signBlob) as its own service account, which needs Token Creator on itself.
 resource "google_service_account_iam_member" "files_zone_signs_urls" {
-  service_account_id = google_service_account.runtime[local.files_zone].name
+  for_each           = local.files_access
+  service_account_id = google_service_account.runtime["${local.files_zone}/${each.key}"].name
   role               = "roles/iam.serviceAccountTokenCreator"
-  member             = "serviceAccount:${google_service_account.runtime[local.files_zone].email}"
+  member             = "serviceAccount:${google_service_account.runtime["${local.files_zone}/${each.key}"].email}"
 }
