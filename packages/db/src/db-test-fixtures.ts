@@ -16,3 +16,19 @@ export async function insertCustomerWithSite(workspaceId: string, id: string, na
   await getMaintenanceDb().insert(schema.organization).values({ id, workspaceId, name });
   return { organizationId: id, siteId: await insertSiteOf(workspaceId, id, `${name} site`) };
 }
+
+/** Postgres error codes the tests expect: a NOT NULL column, a foreign key, a check (or a trigger's). */
+export const NOT_NULL = "23502";
+export const FOREIGN_KEY = "23503";
+export const CHECK = "23514";
+
+/** The SQLSTATE `query` fails with (under Drizzle's "Failed query" wrapper), or "succeeded". */
+export async function errorCode(query: Promise<unknown>): Promise<string> {
+  try {
+    await query;
+    return "succeeded";
+  } catch (error) {
+    const e = error as { code?: string; cause?: { code?: string } };
+    return e.cause?.code ?? e.code ?? String(error);
+  }
+}

@@ -1,7 +1,7 @@
 import { sql } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
-import { insertCustomerWithSite } from "./db-test-fixtures";
+import { errorCode, FOREIGN_KEY, insertCustomerWithSite, NOT_NULL } from "./db-test-fixtures";
 import { getMaintenanceDb } from "./maintenance";
 import * as schema from "./schema";
 
@@ -43,18 +43,20 @@ afterAll(async () => {
 });
 
 describe("a project's customer and site", () => {
+  // The columns' NOT NULL refuses them (23502): project_site_check leaves a missing customer or site to it.
   it("are both required", async () => {
     const db = getMaintenanceDb();
-    await expect(db.execute(insertProject(`${run}-no-site`, ids.workspace, ids.acme, null))).rejects.toThrow();
-    await expect(db.execute(insertProject(`${run}-neither`, ids.workspace, null, null))).rejects.toThrow();
+    expect(await errorCode(db.execute(insertProject(`${run}-no-site`, ids.workspace, ids.acme, null)))).toBe(NOT_NULL);
+    expect(await errorCode(db.execute(insertProject(`${run}-no-customer`, ids.workspace, null, acmeSite)))).toBe(NOT_NULL);
+    expect(await errorCode(db.execute(insertProject(`${run}-neither`, ids.workspace, null, null)))).toBe(NOT_NULL);
   });
 
   it("can't be cleared on an existing project", async () => {
     const db = getMaintenanceDb();
-    await expect(db.execute(sql`update project set site_id = null where id = ${ids.project}`)).rejects.toThrow();
-    await expect(
-      db.execute(sql`update project set organization_id = null, site_id = null where id = ${ids.project}`),
-    ).rejects.toThrow();
+    expect(await errorCode(db.execute(sql`update project set site_id = null where id = ${ids.project}`))).toBe(NOT_NULL);
+    expect(
+      await errorCode(db.execute(sql`update project set organization_id = null, site_id = null where id = ${ids.project}`)),
+    ).toBe(NOT_NULL);
   });
 
   it("are set on every project in the database, after the migration removed those without", async () => {
@@ -69,12 +71,12 @@ describe("hard-deleting a customer or site in use", () => {
   it("is refused for a site with a project, even a deleted one", async () => {
     const db = getMaintenanceDb();
     await db.execute(sql`update project set deleted_at = now() where id = ${ids.project}`);
-    await expect(db.execute(sql`delete from site where id = ${acmeSite}`)).rejects.toThrow();
+    expect(await errorCode(db.execute(sql`delete from site where id = ${acmeSite}`))).toBe(FOREIGN_KEY);
     await db.execute(sql`update project set deleted_at = null where id = ${ids.project}`);
   });
 
   it("is refused for a customer with a project", async () => {
-    await expect(getMaintenanceDb().execute(sql`delete from organization where id = ${ids.acme}`)).rejects.toThrow();
+    expect(await errorCode(getMaintenanceDb().execute(sql`delete from organization where id = ${ids.acme}`))).toBe(FOREIGN_KEY);
   });
 
   it("leaves the project as it was", async () => {
