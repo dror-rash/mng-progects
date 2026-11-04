@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { SiteChoice } from "@/features/sites/site-options";
 
-import { initialCustomerAndSite } from "./initial-customer-site";
+import { initialCustomerAndSite, newProjectCancelHref } from "./initial-customer-site";
 
 const customers = [
   { id: "acme", name: "Acme Ltd" },
@@ -61,5 +61,28 @@ describe("initialCustomerAndSite", () => {
     expect(initialCustomerAndSite({ customer: "globex", site: "not-a-site" }, customers, sites)).toEqual({
       customerId: "globex",
     });
+  });
+});
+
+describe("newProjectCancelHref", () => {
+  it("goes back to the site when I can see it", () => {
+    expect(newProjectCancelHref({ customerId: "acme", siteId: "haifa" }, { canSeeSite: true, canSeeCustomers: true })).toBe(
+      "/sites/haifa",
+    );
+  });
+
+  it("goes to the projects list from a site I can't see", () => {
+    expect(newProjectCancelHref({ customerId: "acme", siteId: "haifa" }, { canSeeSite: false, canSeeCustomers: false })).toBe(
+      "/projects",
+    );
+  });
+
+  it("goes back to the customer when I can see customers", () => {
+    expect(newProjectCancelHref({ customerId: "acme" }, { canSeeSite: false, canSeeCustomers: true })).toBe("/customers/acme");
+  });
+
+  it("goes to the form's default without a customer or site I can open", () => {
+    expect(newProjectCancelHref({ customerId: "acme" }, { canSeeSite: false, canSeeCustomers: false })).toBeUndefined();
+    expect(newProjectCancelHref({}, { canSeeSite: false, canSeeCustomers: true })).toBeUndefined();
   });
 });

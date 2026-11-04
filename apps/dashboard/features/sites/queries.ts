@@ -53,6 +53,18 @@ export async function listCustomerSites(userId: string, organizationId: string) 
   );
 }
 
+/** Whether `userId` can open the site's page: `getSiteForUser`'s check, without the details. */
+export async function canSeeSiteById(userId: string, siteId: string) {
+  const [row] = await withAccess(userId, () =>
+    getDb()
+      .select({ id: schema.site.id })
+      .from(schema.site)
+      .leftJoin(customer, eq(customer.id, schema.site.organizationId))
+      .where(and(eq(schema.site.id, siteId), visibleSites(userId))),
+  );
+  return row !== undefined;
+}
+
 /** The site's contacts (not deleted), in the order they were added. Callers check the site first. */
 export async function listSiteContacts(userId: string, siteId: string) {
   return withAccess(userId, async () =>

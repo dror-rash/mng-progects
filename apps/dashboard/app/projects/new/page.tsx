@@ -6,9 +6,10 @@ import { AppHeader } from "@/features/layout/app-header";
 import { firstParam, withParams } from "@/features/navigation/search-params";
 import { listCustomerNames } from "@/features/organizations/customer-names";
 import { listPartners } from "@/features/partners/queries";
-import { initialCustomerAndSite } from "@/features/projects/initial-customer-site";
+import { initialCustomerAndSite, newProjectCancelHref } from "@/features/projects/initial-customer-site";
 import { ProjectForm } from "@/features/projects/project-form";
 import { INTERNAL_OWNER } from "@/features/projects/project-owner";
+import { canSeeSiteById } from "@/features/sites/queries";
 import { listSiteChoices } from "@/features/sites/site-choices";
 import { requireWorkspace } from "@/features/workspaces/require-workspace";
 
@@ -37,11 +38,11 @@ export default async function NewProjectPage({ searchParams }: { searchParams: S
   // Started from a site's page (task 072) or a customer's: choose them and go back there on Cancel. Ids
   // that aren't among my choices are ignored.
   const start = initialCustomerAndSite(requested, customers, sites);
-  const cancelHref = start.siteId
-    ? `/sites/${start.siteId}`
-    : start.customerId && canSeeCustomers(workspace.role)
-      ? `/customers/${start.customerId}`
-      : undefined;
+  const cancelHref = newProjectCancelHref(start, {
+    // A partner may start a project at a site of theirs without a project there yet, so can't open it.
+    canSeeSite: start.siteId ? await canSeeSiteById(session.user.id, start.siteId) : false,
+    canSeeCustomers: canSeeCustomers(workspace.role),
+  });
 
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">

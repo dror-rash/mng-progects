@@ -16,3 +16,17 @@ export function initialCustomerAndSite(
   if (requested.customer && canChoose(requested.customer)) return { customerId: requested.customer };
   return {};
 }
+
+/**
+ * Where Cancel goes on a new project started from `start` (task 072): back to the site when I can see it
+ * (`can_see_site`), else All projects; back to the customer when I can see customers; else the form's
+ * default (undefined).
+ */
+export function newProjectCancelHref(
+  start: { customerId?: string; siteId?: string },
+  can: { canSeeSite: boolean; canSeeCustomers: boolean },
+) {
+  if (start.siteId) return can.canSeeSite ? `/sites/${start.siteId}` : "/projects";
+  if (start.customerId && can.canSeeCustomers) return `/customers/${start.customerId}`;
+  return undefined;
+}

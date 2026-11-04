@@ -66,7 +66,7 @@ function siteCount(userId: string, orgId: AnyColumn, withSubCompanies: boolean) 
 /**
  * The workspace's top-level customers `userId` can see (not deleted), by name, for the Customers table
  * (task 072): each with its primary contact's name and how many sub-companies, sites and projects it has.
- * Sites and projects count its sub-companies' too; every count is of rows not deleted that the user can
+ * Sites and projects count its sub-companies' too (not deleted ones); every count is of rows not deleted that the user can
  * see, looked up by the customer's id (no joins of the security-barrier views).
  */
 export async function listTopLevelCustomers(
@@ -86,8 +86,11 @@ export async function listTopLevelCustomers(
         subCompanyCount: sql<number>`(select count(*)::int from organization c
           where c.parent_id = ${id} and c.deleted_at is null and ${canSeeCustomer(userId, sql`c.id`)})`,
         siteCount: siteCount(userId, id, true),
+        // By workspace and customer, so it uses project_workspace_organization_idx.
         projectCount: sql<number>`(select count(*)::int from project p
-          where (p.organization_id = ${id} or p.organization_id in (select c.id from organization c where c.parent_id = ${id}))
+          where p.workspace_id = ${schema.organization.workspaceId}
+            and (p.organization_id = ${id}
+              or p.organization_id in (select c.id from organization c where c.parent_id = ${id} and c.deleted_at is null))
             and p.deleted_at is null and ${canSeeProject(userId, sql`p.id`)})`,
       })
       .from(schema.organization)
