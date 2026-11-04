@@ -2,7 +2,8 @@
 # Start both with: pnpm db:up
 services:
   db:
-    image: postgres:16
+    # Same minor as CI: infra/scripts/rls-pins.mjs pins deparsed definitions (task 068).
+    image: postgres:16.15
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
