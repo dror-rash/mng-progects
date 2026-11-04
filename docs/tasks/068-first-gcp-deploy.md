@@ -1,6 +1,6 @@
 # Task 068: First GCP deploy (M11)
 
-- **Status:** todo
+- **Status:** in-progress
 - **Milestone:** M11 Deploy to GCP (POC-critical, 2026-11-13)
 - **Zone / package:** `infra/`, `.github/workflows/`, `packages/db` (runtime role check)
 - **Feature file:** none new. The deployed app passes the existing suite: `BASE_URL=<shell run.app URL> pnpm test:e2e` against a PR preview.
@@ -45,6 +45,7 @@ The POC must run on the internet, not just on a laptop. Row-level security has n
 
 ## Progress log
 - 2026-11-02 – Planned for the POC. The owner confirmed GCP and no custom domain.
+- 2026-11-04 – Started in lane 1 (`chore/first-gcp-deploy`), code part first while the owner bootstraps. Owner's answers: a new dedicated GCP project (not an existing one); region `me-west1`; two buckets, `<project_id>-files` (main, no lifecycle rule for the POC so soft-deleted files stay restorable) and `<project_id>-files-preview` (PRs, objects deleted after 14 days); Artifact Registry keeps the 10 newest images per zone and deletes untagged images older than 30 days; previews run a small tagged e2e set (`@smoke` now, `@poc` from task 069), not the full suite, which needs `AUTH_DISABLE_RATE_LIMIT` (rule 13). The preview acceptance criterion changes accordingly in its own docs commit.
 
 ## Parking lot
 - Neon instead of Cloud SQL to scale to zero (re-test the `app_user` setup first).
