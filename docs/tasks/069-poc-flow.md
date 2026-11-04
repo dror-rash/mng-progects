@@ -27,6 +27,9 @@ The POC is one story that a viewer can follow, from a customer to a report, on a
     - sees the visit, photo, reading and report on the project.
   - **Partner:** sees only their own project's site and data (a short check, as the leak suite already covers the details).
 - **Runs:** locally, and against the deployed preview (`BASE_URL`).
+- **Limits on the preview (from task 068, 2026-11-04):**
+  - Better Auth allows 3 requests per 10 seconds per IP on `/sign-up*`, and previews run without `AUTH_DISABLE_RATE_LIMIT` (rule 13). The preview's `@smoke` set already uses 3 sign-ups, exactly that limit. This scenario signs up three people itself (admin, worker, partner), so each `@poc` sign-up must either replace a `@smoke` one or be spaced at least 10 seconds from the previous sign-up.
+  - Against the preview, the steps can't use `@repo/db/maintenance` or reach storage directly: a CI runner has only `BASE_URL`. Most existing site and project steps look records up in the database (`myRecordId`), so this scenario needs steps that go through the app only.
 - **Demo data:** `seed:demo` adds sites, visits, readings and a report, so the deployed app has something to show. The seed runs on the deployed database for a demo account only (owner's choice: demo data, no real users).
 
 ## Out of scope
@@ -38,3 +41,4 @@ The POC is one story that a viewer can follow, from a customer to a report, on a
 
 ## Progress log
 - 2026-11-02 – Planned. The owner agreed to leave offline capture and the generated report out of the POC.
+- 2026-11-04 – Noted the preview limits found in task 068: the sign-up rate limit (`@smoke` already uses all 3 sign-ups per 10 seconds) and no direct database access from the preview run.
