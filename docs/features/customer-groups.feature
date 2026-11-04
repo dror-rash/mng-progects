@@ -32,17 +32,11 @@ Feature: Customer groups (sub-companies)
     Then the "Contacts" section does not show "Dana Levi"
     And the "Notes" section does not show "Prefers morning visits"
 
-  Scenario: The customers list shows sub-companies under their parent
+  Scenario: The customers table lists top-level companies only
     Given "Acme Ltd" has a sub-company "Acme Retail"
     And I have a customer "Globex" with status "Active" and tags "b2b"
     When I open "/dashboard/customers"
-    Then the customers listed are "Acme Ltd, Acme Retail (part of Acme Ltd), Globex"
-
-  Scenario: A filtered list says which company a sub-company is part of
-    Given "Acme Ltd" has a sub-company "Acme Retail" with status "Lead"
-    When I open "/dashboard/customers"
-    And I follow the "Lead" link
-    Then the customers listed are "Acme Retail (part of Acme Ltd)"
+    Then the customers listed are "Acme Ltd, Globex"
 
   Scenario: A project for a sub-company shows on both pages and in pickers with its parent
     Given "Acme Ltd" has a sub-company "Acme Retail"
@@ -105,7 +99,9 @@ Feature: Customer groups (sub-companies)
     When I restore "Acme Ltd" from the Deleted page
     And I restore "Acme Retail" from the Deleted page
     And I open "/dashboard/customers"
-    Then the customers listed are "Acme Ltd, Acme Retail (part of Acme Ltd)"
+    Then the customers listed are "Acme Ltd"
+    When I am on the "Acme Ltd" customer page
+    Then the "Sub-companies" section shows "Acme Retail"
 
   Scenario: A tampered parent is refused
     Given "Acme Ltd" has a sub-company "Acme Retail"
