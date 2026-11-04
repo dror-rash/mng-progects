@@ -1,6 +1,6 @@
 # Task 070: The dashboard is home; a short menu for the POC
 
-- **Status:** ready (approved 2026-11-04)
+- **Status:** in-review
 - **Milestone:** POC (2026-11-13)
 - **Zone / package:** `apps/shell`, `apps/dashboard` (header), `e2e`
 - **Feature file:** `docs/features/home-and-menu.feature`; one `@task:070` scenario in `docs/features/partner-access.feature`; existing scenarios changed or retired (list below)
@@ -69,12 +69,12 @@ The POC shows one simple, clean flow. Visitors land on the login page and signed
 - Changing what Partners, My tasks or Deleted show.
 
 ## Acceptance criteria
-- [ ] A signed-out visitor opening `/` gets the login page, and logging in lands on the overview. (`home-and-menu.feature`: "Opening the home address signed out…")
-- [ ] A signed-in user opening `/` gets the overview. ("Opening the home address signed in…")
-- [ ] Admins and auditors see the menu Overview, All projects, Customers, and no Home link. ("The menu is Overview, All projects and Customers")
-- [ ] Partners, My tasks and Deleted still open by their address for admins. ("Pages left out of the menu still open…")
-- [ ] Partners see Overview and All projects only. (`partner-access.feature`, `@task:070`)
-- [ ] Every changed scenario above passes; the retired ones are deleted.
+- [x] A signed-out visitor opening `/` gets the login page, and logging in lands on the overview. (`home-and-menu.feature`: "Opening the home address signed out…")
+- [x] A signed-in user opening `/` gets the overview. ("Opening the home address signed in…")
+- [x] Admins and auditors see the menu Overview, All projects, Customers, and no Home link. ("The menu is Overview, All projects and Customers")
+- [x] Partners, My tasks and Deleted still open by their address for admins. ("Pages left out of the menu still open…")
+- [x] Partners see Overview and All projects only. (`partner-access.feature`, `@task:070`)
+- [x] Every changed scenario above passes; the retired ones are deleted.
 
 ## Approach (brief)
 - **Shell page:** about 10 lines (`getSession`, `redirect`). The landing page's markup and its unused imports go.
@@ -93,9 +93,11 @@ The POC shows one simple, clean flow. Visitors land on the login page and signed
 - 2026-11-04 – Approved by the owner.
 - 2026-11-04 – Feature changes committed (`docs(features)`); `@wip` removed, step `the dashboard menu links are {string}` added, nav count now 3, the heading step accepts any visible match (My tasks repeats its title). Red: the 5 new scenarios fail on the missing redirect and the 6-link menu, except "Pages left out of the menu…", which already passes.
 - 2026-11-04 – Green: the shell's `/` redirects (`getSession`, `redirect`), login and sign-up fall back to `/dashboard`, `navFor` moved to `features/layout/nav.ts` with unit tests per role, the header's Home button is gone. The logo link's accessible name went from "Dashboard home" to "Waypoint": "I do not see the \"Home\" link" matches names containing "home". No `AppHeader` story exists, so none to update. Screenshots script: `/` signed out and signed in. ARCHITECTURE: home and menu conventions.
+- 2026-11-04 – Green. `navFor`'s unit test landed with the code, not before it (no separate red run for the unit logic; the e2e menu scenarios were red first). The auditor step on partners.feature opened Partners from the menu; it now opens the page by its address. Review: no access findings (partner not-found coverage for Partners and Deleted already exists in partners.feature and soft-delete.feature). Lint, typecheck, unit (dashboard 303), build pass. Local e2e on production builds: 270 of 278 on a heavily loaded machine; reruns leave the task-assignees pair (task 066) and three add-task timeouts under load (dashboard-home, project-dashboard, task-due-dates), which CI decides.
 
 ## Parking lot
 - Links to Partners and Deleted from the workspace page, for admins, after the POC.
 - My tasks back in the menu, with the `@task:031` scenario restored.
 - Removing the example zone (and its shell rewrites) once a real second zone exists.
 - A theme toggle on the login page.
+- The example zone's "Back to shell" link now lands on the login page or the overview; rename it if the example zone stays.

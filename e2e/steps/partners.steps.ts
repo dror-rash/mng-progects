@@ -54,8 +54,8 @@ Then(
   "the auditor sees the {string} partner with the customer {string} and no {string} or {string} buttons",
   async ({ state }, name: string, customer: string, assign: string, unassign: string) => {
     const auditor = state.teammate!;
-    await auditor.goto("/dashboard");
-    await auditor.getByRole("banner").getByRole("link", { name: "Partners", exact: true }).click();
+    // Partners is out of the menu (task 070); the page opens by its address.
+    await auditor.goto("/dashboard/partners");
     await auditor.getByRole("link", { name, exact: true }).click();
     await expect(auditor.getByRole("heading", { name, level: 1 })).toBeVisible();
     await expect(section(auditor, "Customers").getByRole("link", { name: customer, exact: true })).toBeVisible();
