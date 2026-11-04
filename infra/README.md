@@ -41,45 +41,73 @@ After `apply`, set these **repository variables** (Settings → Secrets and vari
 | `GCP_PROJECT_ID` | your project ID |
 | `GCP_REGION` | same as `region` |
 | `GCP_WIF_PROVIDER` | `terraform output gcp_wif_provider` |
-| `GCP_DEPLOYER_SA` | `terraform output gcp_deployer_sa` |
+| `GCP_DEPLOYER_SA_MAIN` | `terraform output gcp_deployer_sa_main` |
+| `GCP_DEPLOYER_SA_PREVIEW` | `terraform output gcp_deployer_sa_preview` |
 | `GCP_CLOUDSQL_CONNECTION` | `terraform output gcp_cloudsql_connection` |
 | `APP_URL` (optional) | public origin behind a custom domain. Leave unset for the `run.app` origin |
 
-No secrets are needed for GCP auth.
+No secrets are needed for GCP auth. (An older `GCP_DEPLOYER_SA` variable is unused; delete it.)
+
+## First deploys: main before any preview
+A preview deploy only verifies its database logins; a `main` deploy creates them. So after `apply` and the
+variables, **merge (or push) to `main` first** and let `deploy.yml` finish there. Until then every preview deploy
+fails at "Migrate and check the database" with `preview_owner doesn't exist (run a main deploy first …)`.
 
 ## The app's origin
 Without `APP_URL`, the origin is the shell's **`status.url`**: the URL printed by
-`gcloud run services describe shell --region me-west1 --format='value(status.url)'`. `deploy-service.sh` sets it as
+`gcloud run services describe shell --region <region> --format='value(status.url)'`. `deploy-service.sh` sets it as
 `BETTER_AUTH_URL` on every `main` revision. Cloud Run answers on a second `run.app` URL for the same service
-(`shell-<hash>-<region code>.a.run.app` and `shell-<project number>.me-west1.run.app`); pages load on both, but
+(`shell-<hash>-<region code>.a.run.app` and `shell-<project number>.<region>.run.app`); pages load on both, but
 sign-in only works on `status.url`, because Better Auth trusts only its base URL on `main`.
 
 ## Environments: main and PR previews
-Same project and Cloud Run services; nothing else is shared. `infra/scripts/environment.sh` is the one place the
-workflow picks the names (tests: `bash infra/scripts/test-environment.sh`); Terraform creates the same names.
+Same project, Cloud SQL instance and Cloud Run services; nothing else is shared. `infra/scripts/environment.sh` is
+the one place the workflow picks the names, and Terraform's `local.environments` (`infra/main.tf`) carries the same
+ones: `bash infra/scripts/test-environment.sh` fails when they differ.
 
 | | main | PR preview |
 |---|---|---|
+| GitHub event (Workload Identity) | push to `refs/heads/main` | `pull_request` of this repository |
+| Deployer | `deployer-main` | `deployer-preview` |
 | Revisions | 100% traffic | no traffic, tag `pr-<N>` |
+| Images | `<registry>/main/<zone>` | `<registry>/preview/<zone>` |
 | Runtime identity | `<zone>-runtime` | `<zone>-preview` |
 | Database | `app` | `app_preview` |
-| Database login | `app` (owner; runtime switches to `app_user`) | `preview_runtime` (switches to `app_user`) |
-| Secrets | `db-password`, `better-auth-secret` | `db-preview-password`, `better-auth-secret-preview` |
+| Migrations run as | `app` (Terraform's Cloud SQL user) | `preview_owner` |
+| Runtime login (switches to `app_user`) | `app` (task 074 plans its own) | `preview_runtime` |
+| Secrets | `db-password`, `better-auth-secret` | `db-preview-owner-password`, `db-preview-password`, `better-auth-secret-preview` |
 | Files bucket | `<PROJECT_ID>-files` | `<PROJECT_ID>-files-preview` |
 
-- Each runtime identity reads only its environment's two secrets. `deploy-service.sh` sets the revision's identity,
-  env vars, secrets and Cloud SQL instance with `--set-*`, so a revision never inherits the other environment's.
-- `preview_runtime` is created by `infra/scripts/provision-db-logins.mjs` on every deploy, as the owner login, not
-  by Terraform: Cloud SQL makes every API-created user a member of `cloudsqlsuperuser`, which owns the databases
-  (so it could connect to `app`). The script makes it `LOGIN NOINHERIT`, no `CREATEROLE`/`CREATEDB`, a `SET`-only
-  member of `app_user`, with `CONNECT` on `app_preview` only; revokes `CONNECT` on `app` from `PUBLIC`; then verifies
-  all of it and fails the deploy otherwise. Terraform generates its password (`db-preview-password`).
+- Each runtime identity reads only its environment's runtime database password and auth secret.
+  `deploy-service.sh` sets the revision's identity, env vars, secrets and Cloud SQL instance with `--set-*`, so a
+  revision never inherits the other environment's.
+- Each deployer acts only as its environment's runtime identities. `deployer-preview` reads only the two preview
+  database passwords. `deployer-main` reads `db-password` and, because it provisions the preview logins, their two
+  passwords. No deployer reads an auth secret.
+- **Preview logins.** `infra/scripts/provision-db-logins.mjs` creates them on `main` deploys only, as `app`,
+  connected to `app_preview`, in one transaction under an advisory lock. Not Terraform: Cloud SQL makes every
+  API-created user a member of `cloudsqlsuperuser`, which owns the databases (so it could connect to `app`). Both are
+  `LOGIN NOINHERIT`, no `CREATEROLE`/`CREATEDB`, with SCRAM-SHA-256 verifiers computed in Node:
+  - `preview_owner` owns `app_preview`'s objects. It holds ADMIN on `app_user` (migration 0020 runs
+    `GRANT app_user TO current_user`), `CONNECT`/`CREATE` on `app_preview` (drizzle-kit creates its `drizzle`
+    schema) and `CREATE` on its `public` schema. The database itself stays owned by `cloudsqlsuperuser`.
+  - `preview_runtime` is a `SET`-only member of `app_user` with `CONNECT` on `app_preview`.
+  - `CONNECT` on `app` is revoked from `PUBLIC` (granted to `app`), so neither preview login can connect to `app`.
+    They can still connect to Cloud SQL's `postgres` database (its catalogs only); that one belongs to Cloud SQL's
+    own admin, so it is left alone.
+  - `TEMPORARY` on `app_preview` is revoked from `PUBLIC` here: migration 0025 does it too, but run by
+    `preview_owner` (not the database owner) it only warns.
+
+  Preview deploys run it with `--verify-only` (read-only) and fail if anything above is missing or different.
+  `bash infra/scripts/test-preview-migrate.sh` runs the whole sequence on fresh databases set up like Cloud SQL.
 
 ## How deploys work
 - Terraform creates the services with a placeholder image and ignores image, traffic and identity drift.
 - `.github/workflows/deploy.yml`:
-  1. Through the Cloud SQL Auth Proxy: `drizzle-kit migrate` as the owner on the environment's database, then
-     `provision-db-logins.mjs`, then `check-runtime-role.mjs` as the environment's runtime login.
+  1. Through the Cloud SQL Auth Proxy. `main`: migrate `app` as `app`, then provision the preview logins. Previews:
+     verify the preview logins, then migrate `app_preview` as `preview_owner`. Migrations run under a Postgres
+     advisory lock (`with-db-lock.mjs`), so two PRs never migrate `app_preview` at once. Then
+     `check-runtime-role.mjs` as the environment's runtime login.
   2. Builds and deploys `example-zone` and `dashboard`, resolves their URLs (tagged `pr-<N>` URLs on PRs).
   3. Builds the shell with `EXAMPLE_ZONE_URL` and `DASHBOARD_ZONE_URL` (Next.js bakes rewrites in at **build
      time**) and deploys it.
@@ -87,9 +115,9 @@ workflow picks the names (tests: `bash infra/scripts/test-environment.sh`); Terr
 - **PR previews run the `@smoke` scenarios only**, one worker, no traces and no uploaded report (public
   repository; traces would hold the test accounts' passwords and cookies). The full suite needs
   `AUTH_DISABLE_RATE_LIMIT`, which a deployment never sets (rule 13).
-- `preview-cleanup.yml` removes the `pr-<N>` tags of all three zones when the PR closes.
-- The deployer has `roles/run.developer` (deploy, traffic and tags; no IAM policy changes), acts as the six runtime
-  identities, pushes images, connects to Cloud SQL and reads the two database passwords (not the auth secrets).
+- `preview-cleanup.yml` removes the `pr-<N>` tags of all three zones when the PR closes (as `deployer-preview`).
+- Both deployers have `roles/run.developer` on each Cloud Run service (deploy, traffic and tags; no IAM policy
+  changes), push to the registry and connect to Cloud SQL.
 
 ## Runtime role check
 `infra/scripts/check-runtime-role.mjs` connects like the runtime pool (`buildPoolConfig`: the login and
@@ -98,9 +126,15 @@ workflow picks the names (tests: `bash infra/scripts/test-environment.sh`); Terr
 - `app_user` is no superuser and has no `BYPASSRLS` or `TEMPORARY` (migration 0025);
 - `app_user` owns no public table and isn't a member of any table's owner;
 - row-level security is on for every public table except Better Auth's (`account`, `session`, `user`, `verification`);
+- `app_user` can use no view, materialized view or `SECURITY DEFINER` function except the migrations' own
+  (allowlisted by name in the script: views `customer_name`, `site_choice`; the 24 access functions app_user may
+  run), and no table outside `public`;
 - with `app.user_id` unset, `select count(*) from workspace` is 0.
 
-CI runs its tests and `provision-db-logins.mjs`'s against the migrated database.
+A migration that adds a view or a `SECURITY DEFINER` function app_user can use fails the deploy until it is added
+to the allowlist on purpose.
+
+CI runs the tests of all these scripts against the migrated database, and `test-preview-migrate.sh`.
 
 ## Files (GCS)
 - `<PROJECT_ID>-files` for `main` (no lifecycle rule: attachments are soft-deleted in the database and stay
@@ -120,8 +154,8 @@ CI runs its tests and `provision-db-logins.mjs`'s against the migrated database.
   carries the invite secret, task 028), in any case and with repeated slashes.
 
 ## Artifact Registry
-- Cleanup keeps the 10 newest versions of each image and deletes any other version older than 30 days. A `main`
-  revision older than that whose image isn't among the 10 newest loses its image: redeploy `main` if that matters.
+- Images are packages per environment (`main/<zone>`, `preview/<zone>`). Cleanup keeps the 10 newest versions of
+  each package and deletes any other version older than 30 days, so previews never push `main`'s images out.
 
 ## Database & auth
 - Cloud SQL Postgres 16 (`db-f1-micro`, about US$11–14/month in `me-west1` with 10 GB SSD and backups, **does not
@@ -132,8 +166,9 @@ CI runs its tests and `provision-db-logins.mjs`'s against the migrated database.
 - Behind a custom domain, set `APP_URL` so Better Auth's base URL and origin checks match.
 
 ## Known limits / follow-ups
-- Preview and production share one deployer service account, which can read both database passwords and
-  deploy either environment. Split them if you need stricter separation.
+- `run.developer` can't be limited to tags: `deployer-preview` could move a service's traffic. It can only deploy
+  revisions running as `<zone>-preview` (preview database, secrets and bucket), so the worst case is the public
+  URL serving a preview build on preview data.
 - Services are public (`allUsers`). If org policy forbids that, put a load balancer with IAP in front.
 - Previews share the production project and Cloud SQL instance. Use a separate project for staging if data
   isolation must not depend on database grants.
@@ -141,5 +176,5 @@ CI runs its tests and `provision-db-logins.mjs`'s against the migrated database.
 
 ## Monthly cost (POC, `me-west1`)
 Cloud SQL is most of it (about US$11–14). Cloud Run scales to zero; buckets, logs and the registry stay within
-or near the free tiers at POC volume. The preview identities and secrets add nothing at this size (four secret
-versions in all, within Secret Manager's 6 free; service accounts are free). Target: about US$15/month.
+or near the free tiers at POC volume. The preview identities, deployers and secrets add nothing at this size (five
+secret versions in all, within Secret Manager's 6 free; service accounts are free). Target: about US$15/month.
