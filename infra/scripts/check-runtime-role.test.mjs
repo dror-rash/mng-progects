@@ -175,6 +175,61 @@ test("fails when the login can't SET ROLE app_user", async () => {
   }
 });
 
+// The auditor's constructions (re-audit D): each must fail.
+test("fails when an allowlisted view is redefined without its access filter", async () => {
+  const failures = await checkAfter(async (client) => {
+    await client.query(`create or replace view customer_name with (security_barrier) as
+      select o.id, o.workspace_id, o.name, p.name as parent_name,
+             case when p.name is null then o.name else (p.name || ' › ') || o.name end as label
+      from organization o left join organization p on p.id = o.parent_id
+      where o.kind = 'customer'`);
+  });
+  assert.match(failures.join("\n"), /view public\.customer_name isn't the migrations' definition/);
+});
+
+test("fails on an overload of an allowlisted definer function", async () => {
+  const failures = await checkAfter(async (client) => {
+    await client.query("create function public.can_see_project(p_user text) returns boolean language sql security definer as 'select true'");
+  });
+  assert.match(failures.join("\n"), /SECURITY DEFINER functions app_user can run that aren't allowlisted: public\.can_see_project\(text\)/);
+});
+
+test("fails on a column-only grant on a table outside public", async () => {
+  const failures = await checkAfter(async (client) => {
+    await client.query("create schema role_check_schema");
+    await client.query("create table role_check_schema.notes (id int, body text)");
+    await client.query("grant usage on schema role_check_schema to app_user");
+    await client.query("grant select (id) on role_check_schema.notes to app_user");
+  });
+  assert.match(failures.join("\n"), /tables outside public app_user can use: role_check_schema\.notes/);
+});
+
+test("fails when app_user can TRUNCATE a table", async () => {
+  const failures = await checkAfter(async (client) => {
+    await client.query("grant truncate on workspace_invite to app_user");
+  });
+  assert.match(failures.join("\n"), /app_user has TRUNCATE, TRIGGER or REFERENCES on: public\.workspace_invite/);
+});
+
+// PR migrations run as preview_owner, which can create functions in app_preview's public schema. Unqualified
+// catalog calls could pick such a function (an exact `text` overload wins over pg_catalog's `name` one for an
+// untyped parameter), and fake a pass. The planted ones raise, so calling one at all fails the test.
+test("functions planted in public are never called and can't fake a pass", async () => {
+  const failures = await checkAfter(async (client) => {
+    for (const fn of ["pg_has_role(text, oid, text)", "has_table_privilege(text, oid, text)", "has_any_column_privilege(text, oid, text)",
+      "has_function_privilege(text, oid, text)", "has_database_privilege(text, text, text)", "has_database_privilege(oid, text, text)",
+      "pg_has_role(name, text, text)", "current_setting(text, boolean)"]) {
+      await client.query(`create function public.${fn} returns boolean language plpgsql as $$ begin raise exception 'planted function called'; end $$`);
+    }
+    await client.query("create role role_check_owner nologin");
+    await client.query("grant role_check_owner to app_user");
+    await client.query("alter table workspace owner to role_check_owner");
+  });
+  const text = failures.join("\n");
+  assert.doesNotMatch(text, /planted/);
+  assert.match(text, /app_user is a member of the owner of: workspace/);
+});
+
 test("the command exits 0 on the migrated database and prints what it checked", async () => {
   const { stdout } = await runCli(env.DATABASE_URL);
   assert.match(stdout, /Runtime role check passed/);
