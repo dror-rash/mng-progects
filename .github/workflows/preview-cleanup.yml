@@ -20,7 +20,7 @@ jobs:
       - uses: google-github-actions/setup-gcloud@v2
       - name: Remove pr-${{ github.event.pull_request.number }} tags
         run: |
-          for service in shell example-zone; do
+          for service in shell example-zone dashboard; do
             gcloud run services update-traffic "$service" \
               --region "${{ vars.GCP_REGION }}" \
               --remove-tags "pr-${{ github.event.pull_request.number }}" --quiet || true
