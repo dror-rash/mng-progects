@@ -7,40 +7,57 @@
 //     security, which isn't forced);
 //   - row-level security is on for every public table except Better Auth's (no RLS by design, ADR-0006);
 //   - app_user can't create temporary tables (migration 0025);
-//   - app_user can use no view, materialized view or SECURITY DEFINER function but the allowlisted ones,
-//     and no table outside public (each runs with its owner's rights or has no policies of ours);
+//   - app_user can use no view, materialized view or SECURITY DEFINER function but the allowlisted ones
+//     (views pinned to the migrations' definition, functions by exact signature), and no table outside
+//     public, counting column-only grants (each runs with its owner's rights or has no policies of ours);
+//   - app_user has no TRUNCATE, TRIGGER or REFERENCES on any table (TRUNCATE ignores row-level security);
 //   - without app.user_id, app_user sees no workspace (the probe: row-level security really applies).
+//
+// It runs where PR migrations can plant functions (app_preview), so search_path is pinned and catalog calls
+// are qualified (pg-safe.mjs): a planted function can't fake a pass.
 //
 // Usage: DATABASE_URL=postgres://<login>:…@127.0.0.1:5432/<db> node --experimental-strip-types infra/scripts/check-runtime-role.mjs
 // (deploy.yml runs it through the Cloud SQL Auth Proxy; CI runs its tests against the migrated database).
-import { createRequire } from "node:module";
+import { createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
 
 import { buildPoolConfig, RUNTIME_ROLE } from "../../packages/db/src/pool-config.ts";
+import { Client, pinSearchPath, withPinnedSearchPath } from "./pg-safe.mjs";
 
 /** Better Auth's tables: grants and no row-level security (ADR-0006). Any other public table needs it. */
 export const TABLES_WITHOUT_RLS = ["account", "session", "user", "verification"];
 
-/** The views of the migrations (0020, 0028): security_barrier views that check access themselves. */
-export const ALLOWED_VIEWS = ["customer_name", "site_choice"];
+/**
+ * The views of the migrations (0020, 0028), pinned: sha256 of their options and pg_get_viewdef (read with the
+ * pinned search_path, so every name is schema-qualified). A hash, not "does it call its access function": a
+ * redefinition can call the function and still return every row (`… or true`). A migration that changes a
+ * view must update its hash here; a Postgres upgrade that deparses differently fails safe the same way.
+ */
+export const ALLOWED_VIEWS = {
+  customer_name: "478a4519a010373bdf60a2d8c9bc542b89d9ebd867609dd5f0f754043874ad2c",
+  site_choice: "4c1e7434991881a250ab2b3d2747a1a0eef114004a5c97d87a087693b56c37f0",
+};
 
 /**
- * The SECURITY DEFINER functions of the migrations that app_user may run: the access functions and the actions
- * built on them (ADR-0006). Taken from packages/db/migrations (every `SECURITY DEFINER` function, minus the
- * trigger functions, which app_user can't run). A new one fails the deploy until it is added here on purpose.
+ * The SECURITY DEFINER functions of the migrations that app_user may run, by exact signature (an overload is
+ * a different function): the access functions and the actions built on them (ADR-0006). Taken from
+ * packages/db/migrations; the trigger functions aren't executable by app_user. A new one fails the deploy
+ * until it is added here on purpose.
  */
 export const ALLOWED_DEFINER_FUNCTIONS = [
-  "access_role", "can_change_attachment", "can_change_customer", "can_change_project", "can_change_site",
-  "can_change_visit", "can_see_customer", "can_see_customer_name", "can_see_project", "can_see_site",
-  "can_work_on_project", "clear_assignments", "clear_unseen_assignments", "create_workspace", "delete_attachment",
-  "delete_task", "delete_visit", "find_invite", "has_workspace_role", "is_on_crew", "is_project_person",
-  "join_workspace", "partner_serves_customer", "restore_project",
+  "public.access_role(text,text)", "public.can_change_attachment(text,text)", "public.can_change_customer(text,text)",
+  "public.can_change_project(text,text)", "public.can_change_site(text,text)", "public.can_change_visit(text,text)",
+  "public.can_see_customer(text,text)", "public.can_see_customer_name(text,text)", "public.can_see_project(text,text)",
+  "public.can_see_site(text,text)", "public.can_work_on_project(text,text)", "public.clear_assignments(text,text)",
+  "public.clear_unseen_assignments(text,text)", "public.create_workspace(text,text)", "public.delete_attachment(text)",
+  "public.delete_task(text)", "public.delete_visit(text)", "public.find_invite(text)",
+  "public.has_workspace_role(text,text,text[])", "public.is_on_crew(text,text)", "public.is_project_person(text,text)",
+  "public.join_workspace(text,text)", "public.partner_serves_customer(text,text)", "public.restore_project(text)",
 ];
 
-const SYSTEM_SCHEMAS = ["pg_catalog", "information_schema", "pg_toast"];
+const viewHash = (options, definition) => createHash("sha256").update(`${options}\n${definition}`).digest("hex");
 
-// `pg` is a dependency of @repo/db, not of the repo root: resolve it from there.
-const { Client } = createRequire(new URL("../../packages/db/package.json", import.meta.url))("pg");
+const SYSTEM_SCHEMAS = ["pg_catalog", "information_schema", "pg_toast"];
 
 /**
  * The failed checks on `client` (empty when all pass). Read-only.
@@ -48,9 +65,11 @@ const { Client } = createRequire(new URL("../../packages/db/package.json", impor
  * @returns {Promise<string[]>}
  */
 export async function checkRuntimeRole(client, role = RUNTIME_ROLE) {
+  await pinSearchPath(client);
   const failures = [];
   const { rows } = await client.query(
-    "select current_user::text as current_user, exists (select 1 from pg_roles where rolname = $1) as role_exists",
+    `select pg_catalog."current_user"()::text as current_user,
+            exists (select 1 from pg_catalog.pg_roles where rolname = $1::text) as role_exists`,
     [role],
   );
   const { current_user: currentUser, role_exists: roleExists } = rows[0];
@@ -62,9 +81,9 @@ export async function checkRuntimeRole(client, role = RUNTIME_ROLE) {
   }
 
   const attributes = await client.query(
-    `select pg_has_role(session_user, r.oid, 'SET') as login_can_set, r.rolsuper, r.rolbypassrls,
-            has_database_privilege(r.oid, current_database(), 'TEMPORARY') as can_temp
-     from pg_roles r where r.rolname = $1`,
+    `select pg_catalog.pg_has_role(pg_catalog."session_user"(), r.oid, 'SET') as login_can_set, r.rolsuper, r.rolbypassrls,
+            pg_catalog.has_database_privilege(r.oid, pg_catalog.current_database(), 'TEMPORARY') as can_temp
+     from pg_catalog.pg_roles r where r.rolname = $1::text`,
     [role],
   );
   const { login_can_set: loginCanSet, rolsuper, rolbypassrls, can_temp: canTemp } = attributes.rows[0];
@@ -75,9 +94,9 @@ export async function checkRuntimeRole(client, role = RUNTIME_ROLE) {
 
   const tables = await client.query(
     `select c.relname::text as name,
-            pg_has_role($1, c.relowner, 'MEMBER') as role_has_owner,
+            pg_catalog.pg_has_role($1::text::pg_catalog.name, c.relowner, 'MEMBER') as role_has_owner,
             c.relrowsecurity as rls
-     from pg_class c join pg_namespace n on n.oid = c.relnamespace
+     from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid = c.relnamespace
      where n.nspname = 'public' and c.relkind in ('r', 'p')
      order by c.relname`,
     [role],
@@ -87,38 +106,53 @@ export async function checkRuntimeRole(client, role = RUNTIME_ROLE) {
   const withoutRls = tables.rows.filter((t) => !t.rls && !TABLES_WITHOUT_RLS.includes(t.name)).map((t) => t.name);
   if (withoutRls.length > 0) failures.push(`row-level security is off on: ${withoutRls.join(", ")}`);
 
-  // What else app_user can reach that row-level security doesn't cover.
+  // What else app_user can reach that row-level security doesn't cover, column-only grants included.
   const reachable = await client.query(
-    `select n.nspname::text as schema, c.relname::text as name, c.relkind::text as kind
-     from pg_class c join pg_namespace n on n.oid = c.relnamespace
-     where c.relkind in ('r', 'p', 'f', 'v', 'm') and n.nspname <> all ($2)
-       and (has_table_privilege($1, c.oid, 'SELECT') or has_table_privilege($1, c.oid, 'INSERT')
-            or has_table_privilege($1, c.oid, 'UPDATE') or has_table_privilege($1, c.oid, 'DELETE'))
+    `select n.nspname::text as schema, c.relname::text as name, c.relkind::text as kind,
+            pg_catalog.array_to_string(c.reloptions, ',') as options,
+            case when c.relkind in ('v', 'm') then pg_catalog.pg_get_viewdef(c.oid) end as definition,
+            (c.relkind in ('r', 'p', 'f') and (pg_catalog.has_table_privilege($1::text::pg_catalog.name, c.oid, 'TRUNCATE, TRIGGER, REFERENCES')
+              or pg_catalog.has_any_column_privilege($1::text::pg_catalog.name, c.oid, 'REFERENCES'))) as extra_privilege
+     from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid = c.relnamespace
+     where c.relkind in ('r', 'p', 'f', 'v', 'm') and n.nspname <> all ($2::text[])
+       and (pg_catalog.has_table_privilege($1::text::pg_catalog.name, c.oid, 'SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER')
+            or pg_catalog.has_any_column_privilege($1::text::pg_catalog.name, c.oid, 'SELECT, INSERT, UPDATE, REFERENCES'))
      order by 1, 2`,
     [role, SYSTEM_SCHEMAS],
   );
   const qualified = (r) => `${r.schema}.${r.name}`;
-  const views = reachable.rows.filter((r) => (r.kind === "v" || r.kind === "m") && !(r.schema === "public" && ALLOWED_VIEWS.includes(r.name)));
+  const isView = (r) => r.kind === "v" || r.kind === "m";
+  const allowedView = (r) => r.kind === "v" && r.schema === "public" && Object.hasOwn(ALLOWED_VIEWS, r.name);
+  const views = reachable.rows.filter((r) => isView(r) && !allowedView(r));
   if (views.length > 0) failures.push(`views ${role} can use that aren't allowlisted: ${views.map(qualified).join(", ")}`);
-  const outside = reachable.rows.filter((r) => ["r", "p", "f"].includes(r.kind) && r.schema !== "public");
+  for (const view of reachable.rows.filter(allowedView)) {
+    if (viewHash(view.options ?? "", view.definition) !== ALLOWED_VIEWS[view.name]) {
+      failures.push(`view ${qualified(view)} isn't the migrations' definition (update ALLOWED_VIEWS only for a reviewed migration)`);
+    }
+  }
+  const outside = reachable.rows.filter((r) => !isView(r) && r.schema !== "public");
   if (outside.length > 0) failures.push(`tables outside public ${role} can use: ${outside.map(qualified).join(", ")}`);
+  const extra = reachable.rows.filter((r) => r.extra_privilege);
+  if (extra.length > 0) failures.push(`${role} has TRUNCATE, TRIGGER or REFERENCES on: ${extra.map(qualified).join(", ")}`);
 
   const definers = await client.query(
-    `select distinct n.nspname::text as schema, p.proname::text as name
-     from pg_proc p join pg_namespace n on n.oid = p.pronamespace
-     where p.prosecdef and n.nspname <> all ($2) and has_function_privilege($1, p.oid, 'EXECUTE')
-     order by 1, 2`,
+    `select p.oid::pg_catalog.regprocedure::text as signature
+     from pg_catalog.pg_proc p join pg_catalog.pg_namespace n on n.oid = p.pronamespace
+     where p.prosecdef and n.nspname <> all ($2::text[])
+       and pg_catalog.has_function_privilege($1::text::pg_catalog.name, p.oid, 'EXECUTE')
+     order by 1`,
     [role, SYSTEM_SCHEMAS],
   );
-  const unknownDefiners = definers.rows.filter((f) => !(f.schema === "public" && ALLOWED_DEFINER_FUNCTIONS.includes(f.name)));
+  const unknownDefiners = definers.rows.map((f) => f.signature).filter((signature) => !ALLOWED_DEFINER_FUNCTIONS.includes(signature));
   if (unknownDefiners.length > 0) {
-    failures.push(`SECURITY DEFINER functions ${role} can run that aren't allowlisted: ${unknownDefiners.map(qualified).join(", ")}`);
+    failures.push(`SECURITY DEFINER functions ${role} can run that aren't allowlisted: ${unknownDefiners.join(", ")}`);
   }
 
   // The probe, last: an error here aborts a surrounding transaction.
   try {
     const probe = await client.query(
-      "select coalesce(current_setting('app.user_id', true), '') as user_id, (select count(*)::int from workspace) as visible",
+      `select coalesce(pg_catalog.current_setting('app.user_id', true), '') as user_id,
+              (select pg_catalog.count(*)::int from public.workspace) as visible`,
     );
     const { user_id: userId, visible } = probe.rows[0];
     if (userId !== "") failures.push(`app.user_id is set ("${userId}"), so the probe proves nothing`);
@@ -132,11 +166,10 @@ export async function checkRuntimeRole(client, role = RUNTIME_ROLE) {
 async function main() {
   // The runtime's config, minus the pool-only parts (`onConnect`, `max`): the checks below report more
   // than assertRole's single current_user test.
-  const config = buildPoolConfig(process.env);
-  const client = new Client(config);
+  const client = new Client(withPinnedSearchPath(buildPoolConfig(process.env)));
   await client.connect();
   try {
-    const { rows } = await client.query("select current_database() as db, session_user::text as login");
+    const { rows } = await client.query('select pg_catalog.current_database() as db, pg_catalog."session_user"()::text as login');
     const failures = await checkRuntimeRole(client);
     if (failures.length > 0) {
       console.error(`Runtime role check FAILED on ${rows[0].db} (login ${rows[0].login}):`);
