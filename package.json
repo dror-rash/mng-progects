@@ -1,5 +1,5 @@
 {
-  "name": "mng-progects",
+  "name": "mng-projects",
   "private": true,
   "packageManager": "pnpm@10.18.0",
   "engines": {
