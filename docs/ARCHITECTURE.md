@@ -58,16 +58,16 @@ Rules:
 - Invite links store only a SHA-256 hash of the token, expire after 7 days and can be revoked. Opening `/dashboard/invite/<token>` moves the token into a short-lived httpOnly cookie scoped to `/dashboard/invite` and redirects to `/dashboard/invite`, so the token never reaches a login `next=`, the address bar, a `Referer` (`Referrer-Policy: no-referrer`) or the request log. Joining reads the cookie and clears it.
 
 ## Environments
-`local` → `preview` (per PR) → `staging` → `production`. Playwright runs against `preview`.
+`local` → `preview` (per PR; the same GCP project, with its own runtime identities, database, database login, auth secret and bucket) → `production` (`main`). No staging for the POC. Playwright runs the `@smoke` scenarios against `preview`; the full suite runs in CI against local servers.
 
 ## Infrastructure (GCP)
-Cloud Run per zone (own runtime service account) · Cloud SQL Postgres · Artifact Registry · Secret Manager · Terraform in `infra/` (state in GCS) · GitHub → GCP auth via Workload Identity Federation (no keys). Setup steps: `infra/README.md`.
+Cloud Run per zone (`shell`, `example-zone`, `dashboard`), with a runtime service account per zone and environment (`<zone>-runtime` for main, `<zone>-preview` for PR previews) · Cloud SQL Postgres (databases `app` and `app_preview`) · Artifact Registry (keeps the 10 newest versions of each zone's image; any other version is deleted after 30 days) · Secret Manager (the database password and the Better Auth secret, per environment) · GCS files buckets `<project>-files` and `<project>-files-preview` (objects deleted after 14 days), with signed URLs from the dashboard's identities only · a log exclusion for `/dashboard/invite/<token>` requests · Terraform in `infra/` (state in GCS) · GitHub → GCP auth via Workload Identity Federation (no keys). Setup steps and names: `infra/README.md`; per-environment names: `infra/scripts/environment.sh`.
 
 ## Deployment
 - One `Dockerfile` for all zones (`--build-arg APP=<zone>`), using `turbo prune` and Next.js standalone output.
-- `deploy.yml`: build/push `example-zone` → deploy → resolve its URL → build/push `shell` with `EXAMPLE_ZONE_URL` → deploy.
-- PRs get tagged no-traffic revisions (`pr-<N>`); Playwright runs against the preview shell URL. `main` deploys with traffic.
-- Rewrites are baked in at build time, so any change to a zone's URL requires rebuilding the shell.
+- `deploy.yml`, database first, through the Cloud SQL Auth Proxy: migrate as the owner login; provision the preview login (`preview_runtime`: `CONNECT` to `app_preview` only, a member of `app_user` with `SET` only); then run the runtime role check as the environment's runtime login (`infra/scripts/check-runtime-role.mjs`), which fails the deploy unless row-level security really applies.
+- Then build and deploy `example-zone` and `dashboard`, resolve their URLs (tagged `pr-<N>` on PRs), and build the `shell` with `EXAMPLE_ZONE_URL` and `DASHBOARD_ZONE_URL`. Rewrites are baked in at build time, so any change to a zone's URL requires rebuilding the shell.
+- PRs get tagged no-traffic revisions (`pr-<N>`) with the preview identity, database login, secrets and bucket; Playwright runs the `@smoke` scenarios against the preview shell URL (one worker, no traces: the repo is public). `main` deploys with traffic and main's identity, login, secrets and bucket.
 
 ## Decisions
 See `docs/adr/`. Index:
