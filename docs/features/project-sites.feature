@@ -62,17 +62,6 @@ Feature: A project's site
     And I press "Create Project"
     Then I see the error "Choose a site of this customer"
 
-  Scenario: An older project without a site asks for one
-    Given a project "Old wiring" for "Acme Ltd" from before sites were required, with no site
-    When I am on the "Old wiring" project page
-    Then the "Site" section shows "No site yet."
-    When I follow the "Add a site" link
-    And I press "Save changes"
-    Then I see the error "Choose a site"
-    When I select "Haifa warehouse" from "Site"
-    And I press "Save changes"
-    Then the "Site" section shows "Haifa warehouse"
-
   Scenario: A copy keeps the site
     Given I have a project named "Panel upgrade" at the site "Haifa warehouse"
     When I open the copy page of the project "Panel upgrade"

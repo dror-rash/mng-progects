@@ -39,15 +39,8 @@ Feature: Customer links
     When I open "/dashboard/projects/new?customer=not-a-customer"
     Then "Choose a customer" is selected in "Customer"
 
-  @task:016
-  Scenario: Deleting a customer keeps its projects
-    Given I have a project named "Website Redesign" for customer "Acme Ltd"
-    When I delete the customer "Acme Ltd"
-    And I am on the "Website Redesign" project page
-    Then I see the text "No customer"
-
   @task:017
-  Scenario: A task in an internal project can point at a customer
+  Scenario: A task can point at another customer than its project's
     Given I have a project named "Internal Ops"
     And I am on the "Internal Ops" project page
     And the project has a task "Call about invoice"
@@ -93,14 +86,14 @@ Feature: Customer links
   @task:020
   Scenario: Another user's customer can't be linked to a task
     Given another user has a customer named "Secret Corp"
-    And a project "Internal Ops" from before sites were required, with no customer or site
+    And I have a project named "Internal Ops"
     And I am on the "Internal Ops" project page
     And the project has a task "Call about invoice"
     And I am on the "Call about invoice" task page
     When I choose the other user's customer in "Customer"
     And I press "Save changes"
     Then I see the error "Choose one of your customers"
-    And I see the text "No customer"
+    And "Everyday Client" is selected in "Customer"
 
   @task:026
   Scenario: A customer from my other workspace can't be linked to a project

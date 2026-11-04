@@ -8,7 +8,7 @@ Feature: Project list
     Given I am signed in with an existing account
     And I have a customer "Acme Ltd" with status "Active" and tags "retail"
     And I have a project named "Website Redesign" for customer "Acme Ltd"
-    And a project "Internal Ops" from before sites were required, with no customer or site
+    And I have a project named "Internal Ops"
 
   Scenario: Projects show as a table, newest first
     Given I am on the "Website Redesign" project page
@@ -32,11 +32,6 @@ Feature: Project list
     When I follow the "Table" link
     Then the projects shown are "Website Redesign"
 
-  Scenario: Projects without a customer
-    When I open "/dashboard/projects"
-    And I select "No customer" from "Customer"
-    Then the projects shown are "Internal Ops"
-
   Scenario: Filtering by status
     Given I am on the "Internal Ops" project page
     And the project has a task "Order chairs"
@@ -59,7 +54,7 @@ Feature: Project list
     When I open "/dashboard/projects"
     And I search projects for "website"
     Then the projects shown are "Website Redesign"
-    When I select "No customer" from "Customer"
+    When I select "Everyday Client" from "Customer"
     Then I see the text "No projects match these filters."
     When I follow the "Clear filters" link
     Then the projects shown are "Internal Ops, Website Redesign"
@@ -80,12 +75,12 @@ Feature: Project list
     And the "Project" column is sorted "descending"
 
   @task:045
-  Scenario: Projects without a customer sort last
+  Scenario: Sorting by customer
     When I open "/dashboard/projects"
     And I sort projects by "Customer"
     Then the projects shown are "Website Redesign, Internal Ops"
     When I sort projects by "Customer"
-    Then the projects shown are "Website Redesign, Internal Ops"
+    Then the projects shown are "Internal Ops, Website Redesign"
     And the "Customer" column is sorted "descending"
 
   @task:045
