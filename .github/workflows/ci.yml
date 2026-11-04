@@ -65,6 +65,8 @@ jobs:
       - run: pnpm db:migrate
       # Row-level security against the migrated database (task 047).
       - run: pnpm --filter @repo/db test:db
+      # The deploy's runtime role check (infra/scripts, task 068) passes here and fails without the role option.
+      - run: node --experimental-strip-types --test infra/scripts/check-runtime-role.test.mjs
       # Files (task 057): the same local storage server as docker-compose.yml. Service containers can't take
       # its flags, so it starts here.
       - run: >-
