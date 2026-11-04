@@ -91,6 +91,7 @@ The POC shows one simple, clean flow. Visitors land on the login page and signed
 ## Progress log
 - 2026-11-04 – Drafted from the owner's request and answers (split from the hierarchy work into tasks 071 and 072).
 - 2026-11-04 – Approved by the owner.
+- 2026-11-04 – Feature changes committed (`docs(features)`); `@wip` removed, step `the dashboard menu links are {string}` added, nav count now 3, the heading step accepts any visible match (My tasks repeats its title). Red: the 5 new scenarios fail on the missing redirect and the 6-link menu, except "Pages left out of the menu…", which already passes.
 
 ## Parking lot
 - Links to Partners and Deleted from the workspace page, for admins, after the POC.

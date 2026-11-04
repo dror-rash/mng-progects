@@ -20,14 +20,19 @@ Then("the page does not scroll sideways", async ({ page }) => {
 Then("every dashboard nav link is on screen", async ({ page }) => {
   const width = page.viewportSize()!.width;
   const links = header(page).getByRole("navigation", { name: "Dashboard" }).getByRole("link");
-  // Overview, All projects, Customers, Partners (admins and auditors), My tasks and Deleted (admins and auditors).
-  await expect(links).toHaveCount(6);
+  // Overview, All projects and Customers (admins and auditors).
+  await expect(links).toHaveCount(3);
   for (const link of await links.all()) {
     await expect(link).toBeVisible();
     const box = (await link.boundingBox())!;
     expect(box.x).toBeGreaterThanOrEqual(0);
     expect(box.x + box.width).toBeLessThanOrEqual(width);
   }
+});
+
+Then("the dashboard menu links are {string}", async ({ page }, names: string) => {
+  const links = header(page).getByRole("navigation", { name: "Dashboard" }).getByRole("link");
+  await expect(links).toHaveText(names.split(",").map((name) => name.trim()));
 });
 
 Then("the header shows the workspace {string}", async ({ page }, name: string) => {

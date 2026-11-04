@@ -4,7 +4,7 @@ Feature: The dashboard is home, with a short menu
   I want to land on the dashboard and see only the main pages in the menu
   So that the flow from customers to sites to projects is simple to follow
 
-  @wip @task:070
+  @task:070
   Scenario: Opening the home address signed out shows the login page, and logging in lands on the overview
     Given an existing account
     And I am on the home page
@@ -14,7 +14,7 @@ Feature: The dashboard is home, with a short menu
     Then the URL path is "/dashboard"
     And I see the heading "Overview"
 
-  @wip @task:070
+  @task:070
   Scenario: Opening the home address signed in shows the overview
     Given I am signed in with an existing account
     And I am on the home page
@@ -22,7 +22,7 @@ Feature: The dashboard is home, with a short menu
     And I see the heading "Overview"
     And I see my email address
 
-  @wip @task:070 @zone:dashboard
+  @task:070 @zone:dashboard
   Scenario: The menu is Overview, All projects and Customers
     Given I am signed in with an existing account
     When I open "/dashboard"
@@ -30,7 +30,7 @@ Feature: The dashboard is home, with a short menu
     And I do not see the "Home" link
     And I do not see the "Example zone" link
 
-  @wip @task:070 @zone:dashboard
+  @task:070 @zone:dashboard
   Scenario: Pages left out of the menu still open by their address
     Given I am signed in with an existing account
     When I open "/dashboard/partners"

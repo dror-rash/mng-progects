@@ -148,13 +148,6 @@ When("the admin restores {string}", async ({ people, state }, name: string) => {
   await pressAndWait(admin, `Restore ${name}`);
 });
 
-When("the auditor opens the Deleted page from the header", async ({ people, state }) => {
-  const auditor = await pageOf(state, people, "auditor");
-  await auditor.goto("/dashboard");
-  await auditor.getByRole("navigation", { name: "Dashboard" }).getByRole("link", { name: "Deleted", exact: true }).click();
-  await expect(auditor.getByRole("heading", { name: "Deleted items", level: 1 })).toBeVisible();
-});
-
 Then("the auditor sees no {string} button", async ({ people, state }, name: string) => {
   const auditor = await pageOf(state, people, "auditor");
   await expect(auditor.getByRole("table", { name: "Deleted items" })).toBeVisible();

@@ -270,7 +270,7 @@ Feature: Partner access: a partner's user sees only their own partner's work
     And I post the new project with the site id of "Initech Lab"
     Then I see "Choose a site of this customer", the same as with a made-up id
 
-  @wip @task:070
+  @task:070
   Scenario: My menu is Overview and All projects
     When I open "/dashboard"
     Then the dashboard menu links are "Overview, All projects"

@@ -22,7 +22,8 @@ When("I follow the {string} link", async ({ page }, name: string) => {
 });
 
 Then("I see the heading {string}", async ({ page }, text: string) => {
-  await expect(page.getByRole("heading", { name: text })).toBeVisible();
+  // A page can repeat its title in a section heading (My tasks has both), so any visible match will do.
+  await expect(page.getByRole("heading", { name: text }).filter({ visible: true }).first()).toBeVisible();
 });
 
 Then("I see the {string} link", async ({ page }, name: string) => {
