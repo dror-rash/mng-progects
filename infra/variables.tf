@@ -4,9 +4,8 @@ variable "project_id" {
 }
 
 variable "region" {
-  description = "Region for Cloud Run, Artifact Registry, Cloud SQL and the file buckets. Pick one close to your users (e.g. me-west1)."
+  description = "Region for Cloud Run, Artifact Registry, Cloud SQL and the file buckets (this project: me-west1). Required, so a missing tfvars line can't create everything somewhere else."
   type        = string
-  default     = "us-central1"
 }
 
 variable "github_repository" {
