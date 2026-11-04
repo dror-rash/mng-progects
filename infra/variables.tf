@@ -37,7 +37,7 @@ variable "min_instances" {
 }
 
 variable "preview_max_instances" {
-  description = "Maximum Cloud Run instances per preview zone. 1 keeps previews within preview_runtime's connection limit."
+  description = "Maximum Cloud Run instances per revision of a preview service (each open PR's tagged revision can scale to this; provider 6.50 has no service-wide maximum). preview_runtime's CONNECTION LIMIT bounds the total (provision-db-logins.mjs)."
   type        = number
   default     = 1
 }
