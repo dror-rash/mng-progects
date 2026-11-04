@@ -92,8 +92,8 @@ describe("which site a project may be at", () => {
     await db.execute(insertProject(`${run}-ok3`, ids.acmeRetail, ids.retailSite));
   });
 
-  it("takes no site at all, for a project from before sites were required", async () => {
-    await getMaintenanceDb().execute(insertProject(`${run}-old`, null, null));
+  it("refuses no site at all: every project has one (task 071)", async () => {
+    await expect(getMaintenanceDb().execute(insertProject(`${run}-old`, ids.acme, null))).rejects.toThrow();
   });
 
   it("refuses another customer's site, its parent's site, a site with no customer, or another workspace's", async () => {

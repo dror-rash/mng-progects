@@ -2,8 +2,9 @@ import { expect, type Page } from "@playwright/test";
 import { sql } from "@repo/db";
 import { getMaintenanceDb } from "@repo/db/maintenance";
 
-// Every project is at one of its customer's sites (task 055). Steps that only need "a project" choose a
-// customer and a site on the project form with these helpers; no steps are defined here.
+// Every project is at one of its customer's sites (task 055, enforced by the database since task 071).
+// Steps that only need "a project" choose a customer and a site on the project form with these helpers,
+// and steps that write a project straight to the database give it a site; no steps are defined here.
 
 /** The customer used when a scenario names none, and its site. */
 export const EVERYDAY_CUSTOMER = "Everyday Client";
@@ -41,6 +42,32 @@ async function ensureCustomerWithSite(workspaceId: string, customer: string, sit
     return true;
   }
   return false;
+}
+
+/**
+ * The site a project written straight to the database gets (task 071: every project has one): the
+ * customer's first live site, or a new "<customer> site" when it has none.
+ */
+export async function siteOfCustomer(workspaceId: string, organizationId: string, customer: string) {
+  const db = getMaintenanceDb();
+  const { rows } = await db.execute<{ id: string }>(
+    sql`select id from site where organization_id = ${organizationId} and deleted_at is null order by created_at limit 1`,
+  );
+  if (rows[0]) return rows[0].id;
+  const id = crypto.randomUUID();
+  await db.execute(
+    sql`insert into site (id, workspace_id, organization_id, name) values (${id}, ${workspaceId}, ${organizationId}, ${`${customer} site`})`,
+  );
+  return id;
+}
+
+/** A new customer `customer` with the site "<customer> site", written straight to the database. */
+export async function insertCustomerWithSite(workspaceId: string, customer: string) {
+  const organizationId = crypto.randomUUID();
+  await getMaintenanceDb().execute(
+    sql`insert into organization (id, workspace_id, name) values (${organizationId}, ${workspaceId}, ${customer})`,
+  );
+  return { organizationId, siteId: await siteOfCustomer(workspaceId, organizationId, customer) };
 }
 
 /** Chooses the site whose option is `site`, or `site (Sub-company)` on a parent's list. */

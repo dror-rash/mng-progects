@@ -3,6 +3,7 @@ import { and, eq, inArray, schema } from "@repo/db";
 import { getMaintenanceDb } from "@repo/db/maintenance";
 
 import { Given, origin, userId, When } from "./fixtures";
+import { siteOfCustomer } from "./project-form";
 
 // Data the app's forms can't produce, written straight to the test database (DATABASE_URL) through the
 // maintenance connection (row-level security doesn't apply), to check that pages don't trust it. Only
@@ -89,6 +90,7 @@ Given(
       name,
       workspaceId: partner!.workspaceId,
       organizationId: organization!.id,
+      siteId: await siteOfCustomer(partner!.workspaceId, organization!.id, customer),
       visibility: "partner",
       partnerId: partner!.id,
     });

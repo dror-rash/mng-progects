@@ -4,6 +4,7 @@ import { getMaintenanceDb } from "@repo/db/maintenance";
 
 import { Given, signUp, Then, userId, When } from "./fixtures";
 import { idOf, ids, pageOf, projectPath, shownText } from "./partner-access.steps";
+import { insertCustomerWithSite } from "./project-form";
 import { pressAndWait } from "./workspaces.steps";
 
 // Workers and crews (task 056, ADR-0008), in the leak suite's two-partner workspace (partner-access.steps.ts).
@@ -78,7 +79,11 @@ export async function myDecoy(state: Parameters<typeof idOf>[0]) {
   const taskId = crypto.randomUUID();
   await db.execute(sql`insert into workspace (id, name) values (${workspaceId}, 'My own')`);
   await db.execute(sql`insert into workspace_member (workspace_id, user_id, role) values (${workspaceId}, ${idOf(state, "me")}, 'admin')`);
-  await db.execute(sql`insert into project (id, name, workspace_id) values (${projectId}, 'Decoy', ${workspaceId})`);
+  const { organizationId, siteId } = await insertCustomerWithSite(workspaceId, "Decoy client");
+  await db.execute(
+    sql`insert into project (id, name, workspace_id, organization_id, site_id)
+        values (${projectId}, 'Decoy', ${workspaceId}, ${organizationId}, ${siteId})`,
+  );
   await db.execute(sql`insert into task (id, project_id, title) values (${taskId}, ${projectId}, 'Decoy task')`);
   const visitId = crypto.randomUUID();
   await db.execute(

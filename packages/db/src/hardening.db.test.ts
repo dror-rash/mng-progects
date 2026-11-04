@@ -5,6 +5,7 @@ import { Pool } from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { getDb, withAccess } from "./client";
+import { insertCustomerWithSite } from "./db-test-fixtures";
 import { getMaintenanceDb } from "./maintenance";
 import { buildPoolConfig } from "./pool-config";
 import * as schema from "./schema";
@@ -52,7 +53,8 @@ beforeAll(async () => {
     { workspaceId: ids.workspace, userId: ids.admin, role: "admin" },
     { workspaceId: ids.workspace, userId: ids.demoted, role: "admin" },
   ]);
-  await db.insert(schema.project).values({ id: ids.project, name: "Secret", workspaceId: ids.workspace });
+  const customer = await insertCustomerWithSite(ids.workspace, `${run}-customer`);
+  await db.insert(schema.project).values({ id: ids.project, name: "Secret", workspaceId: ids.workspace, ...customer });
   await db.insert(schema.task).values([
     { id: `${run}-task-1`, projectId: ids.project, title: "One", assigneeId: ids.demoted },
     { id: `${run}-task-2`, projectId: ids.project, title: "Two", assigneeId: ids.demoted },

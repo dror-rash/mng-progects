@@ -9,7 +9,7 @@ Feature: Every project belongs to a customer and one of its sites
     And I have a customer "Acme Ltd" with status "Active" and tags "retail"
     And "Acme Ltd" has a site "Haifa warehouse"
 
-  @wip @task:071
+  @task:071
   Scenario: A customer with projects can't be deleted
     Given I have a project named "Forklift bay" for "Acme Ltd" at the site "Haifa warehouse"
     And I am on the "Acme Ltd" customer page
@@ -21,7 +21,7 @@ Feature: Every project belongs to a customer and one of its sites
     And I open "/dashboard/customers"
     Then I see the text "No customers yet."
 
-  @wip @task:071
+  @task:071
   Scenario: A sub-company whose sites have projects can't be deleted
     Given "Acme Ltd" has a sub-company "Acme Retail"
     And "Acme Retail" has a site "Dizengoff store"
@@ -31,7 +31,7 @@ Feature: Every project belongs to a customer and one of its sites
     Then I see the text "Projects for this customer or at its sites: Store wiring. Move or delete them first."
     And I do not see the "Yes, delete customer" button
 
-  @wip @task:071
+  @task:071
   Scenario: A deleted project comes back only after its customer
     Given I have a project named "Forklift bay" for "Acme Ltd" at the site "Haifa warehouse"
     And I delete the project "Forklift bay"
@@ -43,7 +43,7 @@ Feature: Every project belongs to a customer and one of its sites
     And I am on the "Forklift bay" project page
     Then the "Site" section shows "Haifa warehouse"
 
-  @wip @task:071
+  @task:071
   Scenario: A deleted project comes back only after its site
     Given I have a project named "Forklift bay" for "Acme Ltd" at the site "Haifa warehouse"
     And I delete the project "Forklift bay"
@@ -55,7 +55,7 @@ Feature: Every project belongs to a customer and one of its sites
     And I am on the "Forklift bay" project page
     Then the "Site" section shows "Haifa warehouse"
 
-  @wip @task:071
+  @task:071
   Scenario: The projects filter offers only customers
     Given I have a project named "Forklift bay" for "Acme Ltd" at the site "Haifa warehouse"
     When I open "/dashboard/projects"

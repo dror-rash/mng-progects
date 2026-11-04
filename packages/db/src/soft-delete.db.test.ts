@@ -4,6 +4,7 @@ import { eq, inArray, sql } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { getDb, withAccess } from "./client";
+import { insertSiteOf } from "./db-test-fixtures";
 import { getMaintenanceDb } from "./maintenance";
 import * as schema from "./schema";
 
@@ -68,6 +69,7 @@ beforeAll(async () => {
     name: "Project",
     workspaceId: ids.workspace,
     organizationId: ids.customer,
+    siteId: await insertSiteOf(ids.workspace, ids.customer),
     visibility: "partner",
     partnerId: ids.partnerA,
   });

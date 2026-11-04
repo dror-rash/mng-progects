@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { getDb, withAccess } from "./client";
+import { insertSiteOf } from "./db-test-fixtures";
 import { getMaintenanceDb } from "./maintenance";
 import * as schema from "./schema";
 
@@ -77,9 +78,10 @@ beforeAll(async () => {
     { organizationId: ids.acme, partnerId: ids.partnerA, workspaceId: ids.workspace },
     { organizationId: ids.acme, partnerId: ids.partnerB, workspaceId: ids.workspace },
   ]);
+  const at = { organizationId: ids.acme, siteId: await insertSiteOf(ids.workspace, ids.acme) };
   await db.insert(schema.project).values([
-    { id: ids.projectA, name: "A", workspaceId: ids.workspace, organizationId: ids.acme, visibility: "partner", partnerId: ids.partnerA },
-    { id: ids.projectB, name: "B", workspaceId: ids.workspace, organizationId: ids.acme, visibility: "partner", partnerId: ids.partnerB },
+    { id: ids.projectA, name: "A", workspaceId: ids.workspace, ...at, visibility: "partner", partnerId: ids.partnerA },
+    { id: ids.projectB, name: "B", workspaceId: ids.workspace, ...at, visibility: "partner", partnerId: ids.partnerB },
   ]);
   await db.execute(sql`insert into project_worker (project_id, user_id, workspace_id) values
     (${ids.projectA}, ${ids.worker}, ${ids.workspace}), (${ids.projectA}, ${ids.otherWorker}, ${ids.workspace})`);

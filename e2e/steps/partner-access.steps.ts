@@ -3,7 +3,7 @@ import { eq, schema } from "@repo/db";
 import { getMaintenanceDb } from "@repo/db/maintenance";
 
 import { type Account, Given, origin, type People, type ScenarioState, signUp, Then, userId, When } from "./fixtures";
-import { chooseCustomerAndSite } from "./project-form";
+import { chooseCustomerAndSite, insertCustomerWithSite } from "./project-form";
 import { pressAndWait } from "./workspaces.steps";
 
 // The leak suite (task 049, ADR-0006). The two-partner workspace is written straight to the database
@@ -89,16 +89,37 @@ async function assignCustomer(state: ScenarioState, customer: string, partner: s
     .values({ organizationId: await insertCustomer(state, customer), partnerId: idOf(state, partner), workspaceId: idOf(state, "workspace") });
 }
 
-/** A project (internal without `partner`) with one task. */
+/**
+ * The site of the customer's projects when the scenario names none (task 071: every project has one),
+ * written once per customer. It is called "Main site", not after the customer, so that it never matches a
+ * customer's name on a page ("I do not see the "Acme Ltd" link" would match a link to "Acme Ltd site").
+ */
+async function siteOf(state: ScenarioState, customer: string) {
+  const key = `${customer}:main site`;
+  if (state.ids?.[key]) return state.ids[key];
+  const id = crypto.randomUUID();
+  await getMaintenanceDb()
+    .insert(schema.site)
+    .values({ id, workspaceId: idOf(state, "workspace"), organizationId: idOf(state, customer), name: "Main site", createdAt: nextTime() });
+  ids(state)[key] = id;
+  return id;
+}
+
+/** The customer of an internal project: assigned to no partner. */
+const HEAD_OFFICE = "Head Office";
+
+/** A project (internal without `partner`, for "Head Office") with one task, at a site of its customer. */
 async function insertProject(state: ScenarioState, name: string, task: string, owner?: { partner: string; customer: string }) {
   const db = getMaintenanceDb();
   const id = crypto.randomUUID();
-  const organizationId = owner ? idOf(state, owner.customer) : null;
+  const customer = owner?.customer ?? HEAD_OFFICE;
+  const organizationId = await insertCustomer(state, customer);
   await db.insert(schema.project).values({
     id,
     name,
     workspaceId: idOf(state, "workspace"),
     organizationId,
+    siteId: await siteOf(state, customer),
     ...(owner && { visibility: "partner", partnerId: idOf(state, owner.partner) }),
     createdAt: nextTime(),
   });
@@ -187,7 +208,8 @@ Given("I am also an admin of my own workspace, with the task {string} assigned t
   const projectId = crypto.randomUUID();
   await db.insert(schema.workspace).values({ id: workspaceId, name: "My own" });
   await db.insert(schema.workspaceMember).values({ workspaceId, userId: idOf(state, "me"), role: "admin", joinedAt: new Date() });
-  await db.insert(schema.project).values({ id: projectId, name: "Side project", workspaceId });
+  const { organizationId, siteId } = await insertCustomerWithSite(workspaceId, "Side client");
+  await db.insert(schema.project).values({ id: projectId, name: "Side project", workspaceId, organizationId, siteId });
   await db.insert(schema.task).values({ id: crypto.randomUUID(), projectId, title: task, assigneeId: idOf(state, "me") });
 });
 

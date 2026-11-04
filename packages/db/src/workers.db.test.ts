@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { getDb, withAccess } from "./client";
+import { insertCustomerWithSite, insertSiteOf } from "./db-test-fixtures";
 import { getMaintenanceDb } from "./maintenance";
 import * as schema from "./schema";
 
@@ -67,11 +68,21 @@ beforeAll(async () => {
   ]);
   await db.insert(schema.customerPartner).values({ organizationId: ids.acme, partnerId: ids.partnerA, workspaceId: ids.workspace });
   await db.insert(schema.site).values({ id: ids.site, workspaceId: ids.workspace, organizationId: ids.acme, name: "Haifa warehouse" });
+  const globexSite = await insertSiteOf(ids.workspace, ids.globex);
+  const foreign = await insertCustomerWithSite(ids.otherWorkspace, `${run}-foreign-customer`);
   await db.insert(schema.project).values([
     { id: ids.crewProject, name: "Crew", workspaceId: ids.workspace, organizationId: ids.acme, siteId: ids.site },
-    { id: ids.otherProject, name: "Other", workspaceId: ids.workspace, organizationId: ids.globex },
-    { id: ids.partnerProject, name: "Partner's", workspaceId: ids.workspace, organizationId: ids.acme, visibility: "partner", partnerId: ids.partnerA },
-    { id: ids.foreignProject, name: "Foreign", workspaceId: ids.otherWorkspace },
+    { id: ids.otherProject, name: "Other", workspaceId: ids.workspace, organizationId: ids.globex, siteId: globexSite },
+    {
+      id: ids.partnerProject,
+      name: "Partner's",
+      workspaceId: ids.workspace,
+      organizationId: ids.acme,
+      siteId: ids.site,
+      visibility: "partner",
+      partnerId: ids.partnerA,
+    },
+    { id: ids.foreignProject, name: "Foreign", workspaceId: ids.otherWorkspace, ...foreign },
   ]);
   await db.insert(schema.task).values([
     { id: ids.crewTask, projectId: ids.crewProject, title: "Crew task" },
@@ -136,7 +147,11 @@ describe("what a worker sees and does", () => {
   it("never changes the project itself", async () => {
     expect(await writeAs(ids.worker, sql`update project set name = 'Mine' where id = ${ids.crewProject}`)).toBe(0);
     expect(
-      await writeAs(ids.worker, sql`insert into project (id, name, workspace_id) values (${`${run}-p`}, 'P', ${ids.workspace})`),
+      await writeAs(
+        ids.worker,
+        sql`insert into project (id, name, workspace_id, organization_id, site_id)
+            values (${`${run}-p`}, 'P', ${ids.workspace}, ${ids.acme}, ${ids.site})`,
+      ),
     ).toBe("refused");
   });
 

@@ -150,6 +150,7 @@ The hierarchy customer → (sub-company) → site → project is mandatory for t
 ## Progress log
 - 2026-11-04 – Drafted from the owner's request and answers (split from the home and menu work, task 070, and the hierarchy pages, task 072).
 - 2026-11-04 – Approved by the owner; open question 1 answered: deleting a customer with projects is refused.
+- 2026-11-04 – Red: the changed scenarios (own `docs(features):` commit), `@wip` off the five `project-hierarchy.feature` scenarios, steps for deleting a project and a site, projects written straight to the database get a site ("<customer> site" in the user's own workspace, "Main site" in the leak suite), `project-hierarchy.db.test.ts` plus customer-and-site fixtures (`db-test-fixtures.ts`) in the existing DB tests. Two open points for the planner: partner-access "I create a project for an assigned customer only, at one of its sites" can't hold as written (NW Site now needs a site of Acme Ltd, which the site select lists), and cancel/reopen of a partner's project at a site renders a blank page (project-cancel-copy).
 
 ## Parking lot
 - Purging the stored files of projects removed by the migration or the reset (with task 059's purge item).
