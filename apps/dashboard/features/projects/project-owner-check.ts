@@ -62,29 +62,34 @@ export async function siteAllowed(workspaceId: string, partnerId: string | null,
   return isSiteChoice(workspaceId, partnerId, organizationId, siteId);
 }
 
+/** A project's fields once its customer and site are checked: both set (task 071). */
+export type CheckedProjectInput = ProjectInput & { organizationId: string; siteId: string };
+
 /**
- * The form error for a project's customer and site (task 055), in order: no customer, a customer the
- * project may not have (`customerError`), no site, a site that isn't one of the customer's choices (a
- * tampered form: another customer's, another workspace's, another partner's, made up). Null when both suit.
+ * Checks a project's customer and site (task 055) and gives back the input with both set, or the form
+ * error, in order: no customer, a customer the project may not have (`customerError`), no site, a site
+ * that isn't one of the customer's choices (a tampered form: another customer's, another workspace's,
+ * another partner's, made up).
  */
-export async function customerAndSiteError(
+export async function checkCustomerAndSite(
   workspaceId: string,
   partnerId: string | null,
   input: ProjectInput,
   formData: FormData,
   customerError: string,
-): Promise<FormState | null> {
-  if (!input.organizationId) {
-    return invalid("Choose a customer", formData, "customerId");
+): Promise<{ ok: true; value: CheckedProjectInput } | { ok: false; state: FormState }> {
+  const { organizationId, siteId } = input;
+  if (!organizationId) {
+    return { ok: false, state: invalid("Choose a customer", formData, "customerId") };
   }
-  if (!(await customerAllowed(workspaceId, partnerId, input.organizationId))) {
-    return invalid(customerError, formData, "customerId");
+  if (!(await customerAllowed(workspaceId, partnerId, organizationId))) {
+    return { ok: false, state: invalid(customerError, formData, "customerId") };
   }
-  if (!input.siteId) {
-    return invalid("Choose a site", formData, "siteId");
+  if (!siteId) {
+    return { ok: false, state: invalid("Choose a site", formData, "siteId") };
   }
-  if (!(await siteAllowed(workspaceId, partnerId, input.organizationId, input.siteId))) {
-    return invalid("Choose a site of this customer", formData, "siteId");
+  if (!(await siteAllowed(workspaceId, partnerId, organizationId, siteId))) {
+    return { ok: false, state: invalid("Choose a site of this customer", formData, "siteId") };
   }
-  return null;
+  return { ok: true, value: { ...input, organizationId, siteId } };
 }
