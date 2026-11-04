@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Tests for infra/scripts/environment.sh (task 068): previews and main never share a database, login, secret,
-# bucket, image or runtime identity, and every name matches Terraform's `local.environments` (infra/main.tf),
+# bucket, image repository, Cloud Run service or runtime identity, and every name matches Terraform's `local.environments` (infra/main.tf),
 # so a rename on one side fails here. No GCP access needed. Run: bash infra/scripts/test-environment.sh
 set -u
 DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -40,8 +40,10 @@ expect "previews use the preview bucket"               demo-project-files-previe
 expect "main uses the main bucket"                     demo-project-files          "$(in_env false '$FILES_BUCKET')"
 expect "a preview dashboard runs as dashboard-preview" dashboard-preview@demo-project.iam.gserviceaccount.com "$(in_env true '$(runtime_sa dashboard)')"
 expect "a main dashboard runs as dashboard-runtime"    dashboard-runtime@demo-project.iam.gserviceaccount.com "$(in_env false '$(runtime_sa dashboard)')"
-expect "preview images are their own packages"         preview                     "$(in_env true '$IMAGE_PREFIX')"
-expect "main images are their own packages"            main                        "$(in_env false '$IMAGE_PREFIX')"
+expect "previews push to their own image repository"    images-preview              "$(in_env true '$IMAGE_REPOSITORY')"
+expect "main pushes to the main image repository"      images                      "$(in_env false '$IMAGE_REPOSITORY')"
+expect "a preview deploys to its own services"         dashboard-preview           "$(in_env true '$(service_name dashboard)')"
+expect "main deploys to the main services"             dashboard                   "$(in_env false '$(service_name dashboard)')"
 expect "refuses to run without PROJECT"                refused \
   "$( (unset PROJECT; IS_PR=false; . "$DIR/environment.sh") >/dev/null 2>&1 && echo sourced || echo refused)"
 
@@ -56,6 +58,8 @@ for pair in "true preview" "false main"; do
   expect "$env: auth secret matches Terraform"       "$(tf_env "$env" auth_secret)"    "$(in_env "$is_pr" '$AUTH_SECRET_NAME')"
   expect "$env: runtime identity suffix matches"     "$(tf_env "$env" runtime_suffix)" "$(in_env "$is_pr" '$RUNTIME_SA_SUFFIX')"
   expect "$env: bucket matches Terraform"            "demo-project-$(tf_env "$env" bucket_suffix)" "$(in_env "$is_pr" '$FILES_BUCKET')"
+  expect "$env: services match Terraform"            "shell$(tf_env "$env" service_suffix)"        "$(in_env "$is_pr" '$(service_name shell)')"
+  expect "$env: image repository matches Terraform"  "$(tf_env "$env" image_repository)" "$(in_env "$is_pr" '$IMAGE_REPOSITORY')"
 done
 expect "the fixed names agree with the per-environment ones" \
   "app app_preview app preview_owner preview_runtime" \
