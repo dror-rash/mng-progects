@@ -7,6 +7,8 @@
 //     security, which isn't forced);
 //   - row-level security is on for every public table except Better Auth's (no RLS by design, ADR-0006);
 //   - app_user can't create temporary tables (migration 0025);
+//   - app_user can use no view, materialized view or SECURITY DEFINER function but the allowlisted ones,
+//     and no table outside public (each runs with its owner's rights or has no policies of ours);
 //   - without app.user_id, app_user sees no workspace (the probe: row-level security really applies).
 //
 // Usage: DATABASE_URL=postgres://<login>:…@127.0.0.1:5432/<db> node --experimental-strip-types infra/scripts/check-runtime-role.mjs
@@ -18,6 +20,24 @@ import { buildPoolConfig, RUNTIME_ROLE } from "../../packages/db/src/pool-config
 
 /** Better Auth's tables: grants and no row-level security (ADR-0006). Any other public table needs it. */
 export const TABLES_WITHOUT_RLS = ["account", "session", "user", "verification"];
+
+/** The views of the migrations (0020, 0028): security_barrier views that check access themselves. */
+export const ALLOWED_VIEWS = ["customer_name", "site_choice"];
+
+/**
+ * The SECURITY DEFINER functions of the migrations that app_user may run: the access functions and the actions
+ * built on them (ADR-0006). Taken from packages/db/migrations (every `SECURITY DEFINER` function, minus the
+ * trigger functions, which app_user can't run). A new one fails the deploy until it is added here on purpose.
+ */
+export const ALLOWED_DEFINER_FUNCTIONS = [
+  "access_role", "can_change_attachment", "can_change_customer", "can_change_project", "can_change_site",
+  "can_change_visit", "can_see_customer", "can_see_customer_name", "can_see_project", "can_see_site",
+  "can_work_on_project", "clear_assignments", "clear_unseen_assignments", "create_workspace", "delete_attachment",
+  "delete_task", "delete_visit", "find_invite", "has_workspace_role", "is_on_crew", "is_project_person",
+  "join_workspace", "partner_serves_customer", "restore_project",
+];
+
+const SYSTEM_SCHEMAS = ["pg_catalog", "information_schema", "pg_toast"];
 
 // `pg` is a dependency of @repo/db, not of the repo root: resolve it from there.
 const { Client } = createRequire(new URL("../../packages/db/package.json", import.meta.url))("pg");
@@ -67,6 +87,34 @@ export async function checkRuntimeRole(client, role = RUNTIME_ROLE) {
   const withoutRls = tables.rows.filter((t) => !t.rls && !TABLES_WITHOUT_RLS.includes(t.name)).map((t) => t.name);
   if (withoutRls.length > 0) failures.push(`row-level security is off on: ${withoutRls.join(", ")}`);
 
+  // What else app_user can reach that row-level security doesn't cover.
+  const reachable = await client.query(
+    `select n.nspname::text as schema, c.relname::text as name, c.relkind::text as kind
+     from pg_class c join pg_namespace n on n.oid = c.relnamespace
+     where c.relkind in ('r', 'p', 'f', 'v', 'm') and n.nspname <> all ($2)
+       and (has_table_privilege($1, c.oid, 'SELECT') or has_table_privilege($1, c.oid, 'INSERT')
+            or has_table_privilege($1, c.oid, 'UPDATE') or has_table_privilege($1, c.oid, 'DELETE'))
+     order by 1, 2`,
+    [role, SYSTEM_SCHEMAS],
+  );
+  const qualified = (r) => `${r.schema}.${r.name}`;
+  const views = reachable.rows.filter((r) => (r.kind === "v" || r.kind === "m") && !(r.schema === "public" && ALLOWED_VIEWS.includes(r.name)));
+  if (views.length > 0) failures.push(`views ${role} can use that aren't allowlisted: ${views.map(qualified).join(", ")}`);
+  const outside = reachable.rows.filter((r) => ["r", "p", "f"].includes(r.kind) && r.schema !== "public");
+  if (outside.length > 0) failures.push(`tables outside public ${role} can use: ${outside.map(qualified).join(", ")}`);
+
+  const definers = await client.query(
+    `select distinct n.nspname::text as schema, p.proname::text as name
+     from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+     where p.prosecdef and n.nspname <> all ($2) and has_function_privilege($1, p.oid, 'EXECUTE')
+     order by 1, 2`,
+    [role, SYSTEM_SCHEMAS],
+  );
+  const unknownDefiners = definers.rows.filter((f) => !(f.schema === "public" && ALLOWED_DEFINER_FUNCTIONS.includes(f.name)));
+  if (unknownDefiners.length > 0) {
+    failures.push(`SECURITY DEFINER functions ${role} can run that aren't allowlisted: ${unknownDefiners.map(qualified).join(", ")}`);
+  }
+
   // The probe, last: an error here aborts a surrounding transaction.
   try {
     const probe = await client.query(
@@ -97,7 +145,7 @@ async function main() {
       return;
     }
     console.log(
-      `Runtime role check passed on ${rows[0].db} (login ${rows[0].login}): current_user = ${RUNTIME_ROLE}, no superuser/BYPASSRLS/TEMPORARY, owns no table, RLS on, probe sees no workspace.`,
+      `Runtime role check passed on ${rows[0].db} (login ${rows[0].login}): current_user = ${RUNTIME_ROLE}, no superuser/BYPASSRLS/TEMPORARY, owns no table, RLS on, nothing around it, probe sees no workspace.`,
     );
   } finally {
     await client.end();
