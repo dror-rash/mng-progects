@@ -1,6 +1,6 @@
 # Task 072: Customers → sub-companies → sites → projects, page by page
 
-- **Status:** in-review
+- **Status:** done (PR #44)
 - **Milestone:** POC (2026-11-13)
 - **Zone / package:** `apps/dashboard`, `e2e`
 - **Feature file:** `docs/features/customer-hierarchy.feature`; two `@task:072` scenarios in `docs/features/partner-access.feature`; existing scenarios changed or retired (list below)
