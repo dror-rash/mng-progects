@@ -8,6 +8,12 @@ variable "region" {
   type        = string
 }
 
+variable "github_repository_id" {
+  description = "Numeric id of the GitHub repo (gh api repos/<owner>/<name> --jq .id). Workload Identity checks it with the name."
+  type        = string
+  default     = "1424672458" # dror-rash/mng-projects
+}
+
 variable "github_repository" {
   description = "GitHub repo allowed to deploy, as owner/name."
   type        = string
@@ -28,6 +34,12 @@ variable "min_instances" {
   description = "Minimum Cloud Run instances per zone. 0 = scale to zero (cheapest, has cold starts)."
   type        = number
   default     = 0
+}
+
+variable "preview_max_instances" {
+  description = "Maximum Cloud Run instances per preview zone. 1 keeps previews within preview_runtime's connection limit."
+  type        = number
+  default     = 1
 }
 
 variable "max_instances" {

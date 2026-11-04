@@ -10,7 +10,7 @@ locals {
   # The browser's origin is the shell's (the dashboard is proxied under /dashboard). Cloud Run answers on
   # more than one URL per service (the hashed *.a.run.app one and shell-<project number>.<region>.run.app);
   # `urls` lists them all.
-  shell_origins = distinct(concat([google_cloud_run_v2_service.zone["shell"].uri], google_cloud_run_v2_service.zone["shell"].urls))
+  shell_origins = distinct(concat([google_cloud_run_v2_service.zone["shell/main"].uri], google_cloud_run_v2_service.zone["shell/main"].urls))
 
   files_cors_methods          = ["PUT", "GET"]
   files_cors_response_headers = ["Content-Type", "x-goog-if-generation-match"]

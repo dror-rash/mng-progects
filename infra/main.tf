@@ -12,29 +12,33 @@ locals {
     "logging.googleapis.com",
   ]
 
-  # Main and PR previews share the project and the Cloud Run services but nothing they could leak through:
-  # each has its own deployer, runtime identities, database logins, database, auth secret and bucket. The
-  # deploy workflow takes the same names from infra/scripts/environment.sh; its test compares the two.
+  # Main and PR previews share the project and the Cloud SQL instance, nothing else: each has its own deployer,
+  # Cloud Run services, image repository, runtime identities, database logins, database, auth secret and
+  # bucket. The deploy workflow takes the same names from infra/scripts/environment.sh; its test compares them.
   environments = {
     main = {
-      db_name        = "app"
-      db_login       = "app" # the runtime switches to app_user on connect (ADR-0006)
-      db_secret      = "db-password"
-      migrate_login  = "app" # the Cloud SQL user below
-      migrate_secret = "db-password"
-      auth_secret    = "better-auth-secret"
-      runtime_suffix = "runtime" # <zone>-runtime
-      bucket_suffix  = "files"
+      db_name          = "app"
+      db_login         = "app" # the runtime switches to app_user on connect (ADR-0006)
+      db_secret        = "db-password"
+      migrate_login    = "app" # the Cloud SQL user below
+      migrate_secret   = "db-password"
+      auth_secret      = "better-auth-secret"
+      runtime_suffix   = "runtime" # <zone>-runtime
+      bucket_suffix    = "files"
+      service_suffix   = "" # <zone>
+      image_repository = "images"
     }
     preview = {
-      db_name        = "app_preview"
-      db_login       = "preview_runtime" # created by infra/scripts/provision-db-logins.mjs
-      db_secret      = "db-preview-password"
-      migrate_login  = "preview_owner" # created by infra/scripts/provision-db-logins.mjs
-      migrate_secret = "db-preview-owner-password"
-      auth_secret    = "better-auth-secret-preview"
-      runtime_suffix = "preview" # <zone>-preview
-      bucket_suffix  = "files-preview"
+      db_name          = "app_preview"
+      db_login         = "preview_runtime" # created by infra/scripts/provision-db-logins.mjs
+      db_secret        = "db-preview-password"
+      migrate_login    = "preview_owner" # created by infra/scripts/provision-db-logins.mjs
+      migrate_secret   = "db-preview-owner-password"
+      auth_secret      = "better-auth-secret-preview"
+      runtime_suffix   = "preview" # <zone>-preview
+      bucket_suffix    = "files-preview"
+      service_suffix   = "-preview" # <zone>-preview; each PR is a tagged no-traffic revision there
+      image_repository = "images-preview"
     }
   }
 
@@ -48,14 +52,39 @@ locals {
     preview = distinct([local.environments.preview.migrate_secret, local.environments.preview.db_secret])
   }
 
-  # One runtime identity per zone and environment, keyed "<zone>/<environment>".
+  # One runtime identity and one Cloud Run service per zone and environment, keyed "<zone>/<environment>".
   runtimes = {
     for pair in setproduct(var.zones, keys(local.environments)) : "${pair[0]}/${pair[1]}" => {
-      zone        = pair[0]
-      environment = pair[1]
-      account_id  = "${pair[0]}-${local.environments[pair[1]].runtime_suffix}"
+      zone          = pair[0]
+      environment   = pair[1]
+      account_id    = "${pair[0]}-${local.environments[pair[1]].runtime_suffix}"
+      service_name  = "${pair[0]}${local.environments[pair[1]].service_suffix}"
+      max_instances = pair[1] == "preview" ? var.preview_max_instances : var.max_instances
     }
   }
+
+  # What a deployer may do on its own environment's services: roles/run.developer's run.* permissions a deploy
+  # and a tag cleanup use, without SSH into instances (run.developer has run.services.sshRoot and friends,
+  # and the instances hold the database password and auth secret in their environment), and without jobs,
+  # worker pools or creating/deleting services. Checked against `gcloud iam roles describe roles/run.developer`.
+  deployer_run_permissions = [
+    "run.configurations.get",
+    "run.configurations.list",
+    "run.locations.list",
+    "run.operations.get",
+    "run.operations.list",
+    "run.revisions.delete",
+    "run.revisions.get",
+    "run.revisions.list",
+    "run.routes.get",
+    "run.routes.list",
+    "run.services.get",
+    "run.services.getIamPolicy",
+    "run.services.list",
+    "run.services.listEffectiveTags",
+    "run.services.listTagBindings",
+    "run.services.update",
+  ]
 }
 
 resource "google_project_service" "enabled" {
@@ -64,17 +93,17 @@ resource "google_project_service" "enabled" {
   disable_on_destroy = false
 }
 
-# ---------- Container registry ----------
+# ---------- Container registries (one per environment) ----------
 resource "google_artifact_registry_repository" "images" {
-  repository_id = "app"
+  for_each      = local.environments
+  repository_id = each.value.image_repository
   location      = var.region
   format        = "DOCKER"
-  description   = "Zone images built by GitHub Actions"
+  description   = "Zone images built by GitHub Actions (${each.key})"
 
-  # Images are packages per environment and zone (main/<zone>, preview/<zone>; environment.sh IMAGE_PREFIX),
-  # tagged with the commit SHA. KEEP wins over DELETE and counts per package, so the 10 newest versions of
-  # each stay whatever their age, and preview pushes can't push main's live image out. Any other version
-  # goes after 30 days, tagged or not.
+  # One package per zone, versions tagged with the commit SHA; deploys pin the digest. KEEP wins over DELETE,
+  # so the 10 newest versions of each image stay whatever their age; any other version goes after 30 days,
+  # tagged or not. Previews push to their own repository, so they never push main's images out.
   cleanup_policy_dry_run = false
   cleanup_policies {
     id     = "keep-10-newest"
@@ -103,23 +132,23 @@ resource "google_service_account" "runtime" {
   depends_on   = [google_project_service.enabled]
 }
 
-# ---------- Cloud Run services ----------
-# Terraform creates the service with a placeholder image. GitHub Actions deploys real images,
-# so image/traffic/labels are ignored here to avoid Terraform reverting deployments. Deploys also set the
-# revision's identity (main or preview), so that is ignored too.
+# ---------- Cloud Run services (per zone and environment) ----------
+# Terraform creates each service with a placeholder image and its environment's runtime identity. GitHub
+# Actions deploys real images (by digest), so image/traffic/env/labels are ignored here to avoid Terraform
+# reverting deployments. Main services never get preview revisions: previews deploy to <zone>-preview.
 resource "google_cloud_run_v2_service" "zone" {
-  for_each            = var.zones
-  name                = each.key
+  for_each            = local.runtimes
+  name                = each.value.service_name
   location            = var.region
   ingress             = "INGRESS_TRAFFIC_ALL"
   deletion_protection = false
 
   template {
-    service_account = google_service_account.runtime["${each.key}/main"].email
+    service_account = google_service_account.runtime[each.key].email
 
     scaling {
       min_instance_count = var.min_instances
-      max_instance_count = var.max_instances
+      max_instance_count = each.value.max_instances
     }
 
     containers {
@@ -143,7 +172,6 @@ resource "google_cloud_run_v2_service" "zone" {
       client,
       client_version,
       traffic,
-      template[0].service_account,
       template[0].containers[0].image,
       template[0].containers[0].env,
       template[0].containers[0].volume_mounts,
@@ -159,7 +187,7 @@ resource "google_cloud_run_v2_service" "zone" {
 
 # Public access. If your org policy blocks allUsers, front the shell with a load balancer/IAP instead.
 resource "google_cloud_run_v2_service_iam_member" "public" {
-  for_each = var.zones
+  for_each = local.runtimes
   location = var.region
   name     = google_cloud_run_v2_service.zone[each.key].name
   role     = "roles/run.invoker"
@@ -196,8 +224,9 @@ resource "google_iam_workload_identity_pool_provider" "github" {
     "attribute.deploy_target" = "assertion.event_name == 'push' && assertion.ref == 'refs/heads/main' ? 'main' : (assertion.event_name == 'pull_request' ? 'preview' : 'none')"
   }
 
-  # Only tokens from this repository can authenticate.
-  attribute_condition = "assertion.repository == \"${var.github_repository}\""
+  # Only tokens from this repository: by name and by its immutable id (a deleted and re-created repository
+  # with the same name gets a new id).
+  attribute_condition = "assertion.repository == \"${var.github_repository}\" && assertion.repository_id == \"${var.github_repository_id}\""
 
   oidc {
     issuer_uri = "https://token.actions.githubusercontent.com"
@@ -211,20 +240,26 @@ resource "google_service_account_iam_member" "github_can_impersonate_deployer" {
   member             = "principalSet://iam.googleapis.com/${google_iam_workload_identity_pool.github.name}/attribute.deploy_target/${each.key}"
 }
 
-# Deployer permissions, on the resources rather than the project. run.developer deploys revisions and moves
-# traffic/tags, but can't change who may invoke a service (Terraform owns the allUsers binding above).
-resource "google_cloud_run_v2_service_iam_member" "deployer_run_developer" {
-  for_each = { for pair in setproduct(var.zones, keys(local.environments)) : "${pair[0]}/${pair[1]}" => { zone = pair[0], environment = pair[1] } }
+# Deployer permissions, on the resources rather than the project, each on its own environment's only.
+resource "google_project_iam_custom_role" "run_deployer" {
+  role_id     = "runDeployer"
+  title       = "Cloud Run deployer (no SSH)"
+  description = "Deploy revisions and manage traffic tags of a service; no SSH, no IAM policy changes."
+  permissions = local.deployer_run_permissions
+}
+
+resource "google_cloud_run_v2_service_iam_member" "deployer_run" {
+  for_each = local.runtimes
   location = var.region
-  name     = google_cloud_run_v2_service.zone[each.value.zone].name
-  role     = "roles/run.developer"
+  name     = google_cloud_run_v2_service.zone[each.key].name
+  role     = google_project_iam_custom_role.run_deployer.id
   member   = "serviceAccount:${google_service_account.deployer[each.value.environment].email}"
 }
 
 resource "google_artifact_registry_repository_iam_member" "deployer_push" {
   for_each   = local.environments
-  location   = google_artifact_registry_repository.images.location
-  repository = google_artifact_registry_repository.images.name
+  location   = google_artifact_registry_repository.images[each.key].location
+  repository = google_artifact_registry_repository.images[each.key].name
   role       = "roles/artifactregistry.writer"
   member     = "serviceAccount:${google_service_account.deployer[each.key].email}"
 }

@@ -25,7 +25,8 @@ if [ "${IS_PR:-false}" = "true" ]; then
   AUTH_SECRET_NAME="better-auth-secret-preview"
   FILES_BUCKET="${PROJECT}-files-preview"
   RUNTIME_SA_SUFFIX="preview"
-  IMAGE_PREFIX="preview"
+  SERVICE_SUFFIX="-preview"
+  IMAGE_REPOSITORY="images-preview"
 else
   DEPLOY_ENV="main"
   DB_NAME="$MAIN_DB_NAME"
@@ -36,12 +37,15 @@ else
   AUTH_SECRET_NAME="better-auth-secret"
   FILES_BUCKET="${PROJECT}-files"
   RUNTIME_SA_SUFFIX="runtime"
-  IMAGE_PREFIX="main"
+  SERVICE_SUFFIX=""
+  IMAGE_REPOSITORY="images"
 fi
 
-# The runtime identity of <service> in this environment: <service>-runtime (main) or <service>-preview.
+# The runtime identity of <zone> in this environment: <zone>-runtime (main) or <zone>-preview.
 runtime_sa() { echo "${1}-${RUNTIME_SA_SUFFIX}@${PROJECT}.iam.gserviceaccount.com"; }
+# The Cloud Run service of <zone> in this environment: <zone> (main) or <zone>-preview.
+service_name() { echo "${1}${SERVICE_SUFFIX}"; }
 
 export DEPLOY_ENV DB_NAME DB_MIGRATE_LOGIN DB_MIGRATE_PASSWORD_SECRET DB_LOGIN DB_PASSWORD_SECRET AUTH_SECRET_NAME \
-  FILES_BUCKET RUNTIME_SA_SUFFIX IMAGE_PREFIX MAIN_DB_NAME PREVIEW_DB_NAME MAIN_OWNER_LOGIN MAIN_OWNER_PASSWORD_SECRET \
+  FILES_BUCKET RUNTIME_SA_SUFFIX SERVICE_SUFFIX IMAGE_REPOSITORY MAIN_DB_NAME PREVIEW_DB_NAME MAIN_OWNER_LOGIN MAIN_OWNER_PASSWORD_SECRET \
   PREVIEW_OWNER_LOGIN PREVIEW_OWNER_PASSWORD_SECRET PREVIEW_RUNTIME_LOGIN PREVIEW_RUNTIME_PASSWORD_SECRET
