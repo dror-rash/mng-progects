@@ -92,6 +92,20 @@ check "main: exits 0 while a PR holds the preview migration lock" test "$lock_co
 check "main: warns that the preview step was skipped" sh -c "printf '%s' \"\$1\" | grep -q '::warning::Preview database step skipped'" _ "$lock_out"
 check "main: gives up within its bound (${elapsed}s)" test "$elapsed" -lt 15
 
+# A preview login holds its own pg_authid row (ALTER ROLE <self> PASSWORD in an open transaction): main's
+# provisioning must not wait on it. The role statements give up with a warning; what protects `app` still runs.
+psql "$(url "$RUNTIME" "$RUNTIME_PW" "$PREVIEW_DB")" -qtAc "begin; alter role $RUNTIME password '$RUNTIME_PW'; select pg_sleep(30); commit" >/dev/null 2>&1 &
+holder=$!
+sleep 1
+started=$(date +%s)
+role_out="$(provision PREVIEW_SIDE_TIMEOUT_MS=2000 2>&1)"; role_code=$?
+elapsed=$(( $(date +%s) - started ))
+kill "$holder" 2>/dev/null; wait "$holder" 2>/dev/null
+check "main: exits 0 while a preview login holds its own role row" test "$role_code" = 0
+check "main: warns that a preview login step was skipped" sh -c "printf '%s' \"\$1\" | grep -q '::warning::Preview login step skipped'" _ "$role_out"
+check "main: gives up on it within its bound (${elapsed}s)" test "$elapsed" -lt 15
+check "main: app is still closed to the preview logins" refused "$(url "$RUNTIME" "$RUNTIME_PW" "$MAIN_DB")"
+
 check "preview_runtime can't connect to the main database" refused "$(url "$RUNTIME" "$RUNTIME_PW" "$MAIN_DB")"
 check "preview_owner can't connect to the main database" refused "$(url "$OWNER" "$OWNER_PW" "$MAIN_DB")"
 check "a function planted by a preview migration doesn't run during main's provisioning" \
