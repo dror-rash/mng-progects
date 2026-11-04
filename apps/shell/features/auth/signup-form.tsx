@@ -27,7 +27,7 @@ export function SignupForm({ next }: { next?: string }) {
       setPending(false);
       return;
     }
-    window.location.assign(safeNext(next));
+    window.location.assign(safeNext(next, "/dashboard"));
   }
 
   return (
