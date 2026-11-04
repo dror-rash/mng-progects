@@ -3,14 +3,20 @@ import { Card, CardContent, CardHeader, CardTitle } from "@repo/ui/card";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { canChange } from "@/features/access/scope";
 import { AppHeader } from "@/features/layout/app-header";
 import { recordWorkspace } from "@/features/layout/record-workspace";
 import { ContactForm } from "@/features/organizations/contacts/contact-form";
+import { listSiteProjects } from "@/features/projects/queries";
 import { removeSiteContactAction } from "@/features/sites/actions";
 import { formatCoordinate } from "@/features/sites/coordinates";
 import { mapsLink } from "@/features/sites/maps-link";
 import { getSiteForUser, listSiteContacts } from "@/features/sites/queries";
+import { canStartProjectAt } from "@/features/sites/site-choices";
 import { SiteContactsSection } from "@/features/sites/site-contacts-section";
+import { SiteProjectsSection } from "@/features/sites/site-projects-section";
+import { summarizeProjectStatusCounts } from "@/features/tasks/progress";
+import { countTasksByProjectAndStatus } from "@/features/tasks/queries";
 import { requireWorkspace } from "@/features/workspaces/require-workspace";
 
 export const dynamic = "force-dynamic";
@@ -28,7 +34,7 @@ const missing = <span className="text-muted-foreground">—</span>;
 
 /**
  * A site (task 054): where it is, how to get in and who to meet. Admins change it; auditors, and partners
- * with a project at it (task 055), read it.
+ * with a project at it (task 055), read it, with the projects there they can see (task 072).
  */
 export default async function SitePage({ params }: { params: Promise<{ siteId: string }> }) {
   const { siteId } = await params;
@@ -37,7 +43,14 @@ export default async function SitePage({ params }: { params: Promise<{ siteId: s
   if (!site) {
     notFound();
   }
-  const contacts = await listSiteContacts(session.user.id, site.id);
+  // Starting a project here: whoever may create projects, at one of their site choices (a partner: their customers').
+  const partnerId = workspace.role === "partner" ? workspace.partnerId : null;
+  const [contacts, projects, projectCounts, canStart] = await Promise.all([
+    listSiteContacts(session.user.id, site.id),
+    listSiteProjects(session.user.id, site.id),
+    countTasksByProjectAndStatus(session.user.id, site.workspaceId),
+    canChange(workspace.role) ? canStartProjectAt(session.user.id, workspace.id, partnerId, site.id) : false,
+  ]);
   const maps = mapsLink(site);
 
   return (
@@ -117,6 +130,13 @@ export default async function SitePage({ params }: { params: Promise<{ siteId: s
             )}
           </CardContent>
         </Card>
+
+        <SiteProjectsSection
+          siteId={site.id}
+          projects={projects}
+          progress={summarizeProjectStatusCounts(projectCounts)}
+          canStart={canStart}
+        />
 
         <SiteContactsSection
           siteId={site.id}

@@ -1,7 +1,6 @@
-import { alias, and, asc, customerLabelOf, eq, getDb, getTableColumns, isNull, schema, sql, withAccess } from "@repo/db";
+import { alias, and, asc, customerLabelOf, eq, getDb, getTableColumns, isNull, schema, withAccess } from "@repo/db";
 
 import { canChangeSite, canSeeCustomer, canSeeSite } from "@/features/access/predicates";
-import { inCompanyGroup } from "@/features/organizations/queries";
 
 // Sites (task 054, ADR-0008). A site shows only while it and its customer aren't deleted; the access
 // functions decide who sees it at all: admins and auditors, and those who see a project at it (task 055).
@@ -42,23 +41,14 @@ export async function getSiteForUser(userId: string, siteId: string) {
   return site ?? null;
 }
 
-/**
- * The sites of a customer and its sub-companies, by name, each with the sub-company it belongs to (null for
- * the customer's own). For the Sites section of a customer page.
- */
+/** The customer's own sites (not its sub-companies', task 072), by name. For the Sites section of a customer page. */
 export async function listCustomerSites(userId: string, organizationId: string) {
   return withAccess(userId, async () =>
     getDb()
-      .select({
-        id: schema.site.id,
-        name: schema.site.name,
-        address: schema.site.address,
-        subCompanyId: sql<string | null>`case when ${customer.id} = ${organizationId} then null else ${customer.id} end`,
-        subCompanyName: sql<string | null>`case when ${customer.id} = ${organizationId} then null else ${customer.name} end`,
-      })
+      .select({ id: schema.site.id, name: schema.site.name, address: schema.site.address })
       .from(schema.site)
       .innerJoin(customer, eq(customer.id, schema.site.organizationId))
-      .where(and(inCompanyGroup(schema.site.organizationId, organizationId), visibleSites(userId)))
+      .where(and(eq(schema.site.organizationId, organizationId), visibleSites(userId)))
       .orderBy(asc(schema.site.name), asc(schema.site.id)),
   );
 }

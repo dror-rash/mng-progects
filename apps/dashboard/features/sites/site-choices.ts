@@ -50,3 +50,18 @@ export async function isSiteChoice(workspaceId: string, partnerId: string | null
     );
   return row !== undefined;
 }
+
+/**
+ * Whether `userId` may start a project at `siteId` (task 072): it is one of their site choices, so admins
+ * at any site of the workspace, a partner's users only at their customers' sites (`partnerId`). Callers
+ * check the role (`canChange`) too.
+ */
+export async function canStartProjectAt(userId: string, workspaceId: string, partnerId: string | null, siteId: string) {
+  const [row] = await withAccess(userId, () =>
+    getDb()
+      .select({ id: schema.siteChoice.id })
+      .from(schema.siteChoice)
+      .where(and(eq(schema.siteChoice.id, siteId), siteChoices(workspaceId, partnerId))),
+  );
+  return row !== undefined;
+}

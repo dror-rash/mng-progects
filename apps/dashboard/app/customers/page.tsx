@@ -1,6 +1,4 @@
-import { Badge } from "@repo/ui/badge";
 import { Button } from "@repo/ui/button";
-import { Card } from "@repo/ui/card";
 import { FilterChip } from "@repo/ui/filter-chip";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -8,9 +6,9 @@ import { notFound } from "next/navigation";
 import { canChangeCustomers, canSeeCustomers } from "@/features/access/scope";
 import { AppHeader } from "@/features/layout/app-header";
 import { firstParam, withParams } from "@/features/navigation/search-params";
-import { groupCustomers } from "@/features/organizations/group-customers";
-import { ORGANIZATION_STATUSES, organizationStatusLabel, parseOrganizationStatus } from "@/features/organizations/organization-kinds";
-import { listOrganizations, listOrganizationTags } from "@/features/organizations/queries";
+import { CustomersTable } from "@/features/organizations/customers-table";
+import { ORGANIZATION_STATUSES, parseOrganizationStatus } from "@/features/organizations/organization-kinds";
+import { listTopLevelCustomers, listTopLevelCustomerTags } from "@/features/organizations/queries";
 import { sameTag } from "@/features/organizations/tag-list";
 import { requireWorkspace } from "@/features/workspaces/require-workspace";
 
@@ -31,8 +29,8 @@ export default async function CustomersPage({ searchParams }: { searchParams: Se
   }
 
   const [customers, tags] = await Promise.all([
-    listOrganizations(session.user.id, workspace.id, "customer", { status, tag }),
-    listOrganizationTags(session.user.id, workspace.id, "customer"),
+    listTopLevelCustomers(session.user.id, workspace.id, { status, tag }),
+    listTopLevelCustomerTags(session.user.id, workspace.id),
   ]);
 
   return (
@@ -81,47 +79,8 @@ export default async function CustomersPage({ searchParams }: { searchParams: Se
           )}
         </div>
 
-        {customers.length === 0 ? (
-          <Card className="border-dashed p-8 text-center text-muted-foreground">
-            {status || tag ? (
-              <>
-                No customers match these filters.{" "}
-                <Link href="/customers" className="underline">Clear filters</Link>
-              </>
-            ) : (
-              canChangeCustomers(workspace.role) ? "No customers yet. Add your first one with “New customer”." : "No customers yet."
-            )}
-          </Card>
-        ) : (
-          <ul aria-label="Customers" className="divide-y rounded-lg border">
-            {/* Sub-companies right under their parent; one a filter separated from it says whose it is (task 053). */}
-            {groupCustomers(customers).map((c) => (
-              <li key={c.id} className={`flex flex-wrap items-center justify-between gap-3 p-4${c.nested ? " pl-10" : ""}`}>
-                <div className="space-y-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Link href={`/customers/${c.id}`} className="font-medium hover:underline">
-                      {c.name}
-                    </Link>
-                    <Badge>{organizationStatusLabel(c.status)}</Badge>
-                    {c.parentName && <span className="text-xs text-muted-foreground">part of {c.parentName}</span>}
-                  </div>
-                  {c.tags.length > 0 && (
-                    <div className="flex flex-wrap gap-1">
-                      {c.tags.map((t) => (
-                        <Badge key={t} variant="outline">{t}</Badge>
-                      ))}
-                    </div>
-                  )}
-                </div>
-                <div className="text-right text-sm text-muted-foreground">
-                  {c.primaryContactName && <div className="font-medium text-foreground">{c.primaryContactName}</div>}
-                  {c.email && <div>{c.email}</div>}
-                  {c.phone && <div>{c.phone}</div>}
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
+        {/* Top-level customers only; sub-companies are on their parent's page (task 072). */}
+        <CustomersTable customers={customers} filtered={Boolean(status || tag)} canAdd={canChangeCustomers(workspace.role)} />
       </main>
     </div>
   );

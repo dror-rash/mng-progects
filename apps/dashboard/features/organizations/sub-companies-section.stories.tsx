@@ -10,8 +10,8 @@ const meta = {
     parentId: "acme",
     canAdd: true,
     subCompanies: [
-      { id: "retail", name: "Acme Retail", status: "active", primaryContactName: "Dana Levi" },
-      { id: "online", name: "Acme Online", status: "lead", primaryContactName: null },
+      { id: "retail", name: "Acme Retail", status: "active", primaryContactName: "Dana Levi", siteCount: 2 },
+      { id: "online", name: "Acme Online", status: "lead", primaryContactName: null, siteCount: 0 },
     ],
   },
 } satisfies Meta<typeof SubCompaniesSection>;
@@ -23,3 +23,11 @@ export const SeveralSubCompanies: Story = {};
 export const EmptyForAdmins: Story = { args: { subCompanies: [] } };
 export const EmptyReadOnly: Story = { args: { subCompanies: [], canAdd: false } };
 export const ReadOnly: Story = { args: { canAdd: false } };
+export const OneSiteEach: Story = {
+  args: {
+    subCompanies: [
+      { id: "retail", name: "Acme Retail", status: "active", primaryContactName: "Dana Levi", siteCount: 1 },
+      { id: "online", name: "Acme Online", status: "lead", primaryContactName: null, siteCount: 1 },
+    ],
+  },
+};

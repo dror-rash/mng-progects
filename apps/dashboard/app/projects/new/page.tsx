@@ -6,6 +6,7 @@ import { AppHeader } from "@/features/layout/app-header";
 import { firstParam, withParams } from "@/features/navigation/search-params";
 import { listCustomerNames } from "@/features/organizations/customer-names";
 import { listPartners } from "@/features/partners/queries";
+import { initialCustomerAndSite } from "@/features/projects/initial-customer-site";
 import { ProjectForm } from "@/features/projects/project-form";
 import { INTERNAL_OWNER } from "@/features/projects/project-owner";
 import { listSiteChoices } from "@/features/sites/site-choices";
@@ -16,8 +17,9 @@ export const dynamic = "force-dynamic";
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
 export default async function NewProjectPage({ searchParams }: { searchParams: SearchParams }) {
-  const requested = firstParam((await searchParams).customer);
-  const { session, workspace } = await requireWorkspace(withParams("/projects/new", { customer: requested }));
+  const params = await searchParams;
+  const requested = { customer: firstParam(params.customer), site: firstParam(params.site) };
+  const { session, workspace } = await requireWorkspace(withParams("/projects/new", requested));
   if (!canChange(workspace.role)) {
     notFound();
   }
@@ -32,8 +34,14 @@ export default async function NewProjectPage({ searchParams }: { searchParams: S
   const owners = partners?.length
     ? [{ value: INTERNAL_OWNER, label: "Internal" }, ...partners.map((p) => ({ value: p.id, label: p.name }))]
     : undefined;
-  // Started from a customer's page: choose that customer and go back there on Cancel. Others are ignored.
-  const customer = customers.find((c) => c.id === requested);
+  // Started from a site's page (task 072) or a customer's: choose them and go back there on Cancel. Ids
+  // that aren't among my choices are ignored.
+  const start = initialCustomerAndSite(requested, customers, sites);
+  const cancelHref = start.siteId
+    ? `/sites/${start.siteId}`
+    : start.customerId && canSeeCustomers(workspace.role)
+      ? `/customers/${start.customerId}`
+      : undefined;
 
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
@@ -48,8 +56,9 @@ export default async function NewProjectPage({ searchParams }: { searchParams: S
               workspaceId={workspace.id}
               customers={customers}
               sites={sites}
-              defaultCustomerId={customer?.id}
-              cancelHref={customer && canSeeCustomers(workspace.role) ? `/customers/${customer.id}` : undefined}
+              defaultCustomerId={start.customerId}
+              defaultSiteId={start.siteId}
+              cancelHref={cancelHref}
               owners={owners}
               customerRequired={partnerId !== null}
               canAddSite={workspace.role === "admin"}

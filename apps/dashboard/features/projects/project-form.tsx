@@ -31,6 +31,7 @@ export function ProjectForm({
   customers,
   sites,
   defaultCustomerId,
+  defaultSiteId,
   cancelHref,
   owners,
   defaultOwner,
@@ -47,6 +48,8 @@ export function ProjectForm({
   sites: SiteChoice[];
   /** For a new project: the customer chosen to start with. */
   defaultCustomerId?: string;
+  /** For a new project: the site chosen to start with, one of `defaultCustomerId`'s (task 072). */
+  defaultSiteId?: string;
   /** Where Cancel goes; defaults to the project, or All projects for a new one. */
   cancelHref?: string;
   /** For an admin's new project or copy: the Owner choices, "Internal" first (see `project-owner.ts`). */
@@ -72,7 +75,7 @@ export function ProjectForm({
   const owner = value("owner", defaultOwner ?? owners?.[0]?.value ?? "");
   const start = project ?? copyOf;
   const customerId = value("customerId", start?.organizationId ?? defaultCustomerId ?? "");
-  const siteId = value("siteId", start?.siteId ?? "");
+  const siteId = value("siteId", start?.siteId ?? defaultSiteId ?? "");
 
   return (
     <form action={formAction} className="space-y-4">
