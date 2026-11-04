@@ -1,6 +1,6 @@
 # Task 068: First GCP deploy (M11)
 
-- **Status:** in-progress
+- **Status:** in-review
 - **Milestone:** M11 Deploy to GCP (POC-critical, 2026-11-13)
 - **Zone / package:** `infra/`, `.github/workflows/`, `packages/db` (runtime role check)
 - **Feature file:** none new. The deployed app passes the `@smoke` scenarios (later `@poc`, task 069): `BASE_URL=<shell run.app URL> E2E_TAGS=@smoke pnpm test:e2e` against a PR preview. The full suite keeps running in CI's `e2e` job.
