@@ -3,7 +3,7 @@
 - **Status:** in-progress
 - **Milestone:** M11 Deploy to GCP (POC-critical, 2026-11-13)
 - **Zone / package:** `infra/`, `.github/workflows/`, `packages/db` (runtime role check)
-- **Feature file:** none new. The deployed app passes the existing suite: `BASE_URL=<shell run.app URL> pnpm test:e2e` against a PR preview.
+- **Feature file:** none new. The deployed app passes the `@smoke` scenarios (later `@poc`, task 069): `BASE_URL=<shell run.app URL> E2E_TAGS=@smoke pnpm test:e2e` against a PR preview. The full suite keeps running in CI's `e2e` job.
 - **Depends on:** the owner's GCP project with billing (bootstrap steps in `infra/README.md`); ADR-0002, ADR-0006
 
 ## Why
@@ -34,18 +34,19 @@ The POC must run on the internet, not just on a laptop. Row-level security has n
 
 ## Acceptance criteria
 - [ ] `terraform plan` shows no changes after apply.
-- [ ] A PR gets a preview URL, and the e2e suite passes against it.
+- [ ] A PR gets a preview URL, and the `@smoke` scenarios (later `@poc`, task 069) pass against it. The full suite keeps running in CI's `e2e` job.
 - [ ] `main` deploys, and an owner can sign up and see the dashboard on the `run.app` URL.
 - [ ] The runtime role check passes on Cloud SQL and is part of the deploy.
 - [ ] Requests with invite tokens are not in Cloud Run logs.
 
 ## Test plan
-- e2e against the preview URL.
+- The `@smoke` scenarios (later `@poc`, task 069) against the preview URL; the full suite in CI's `e2e` job, against local servers.
 - The role-check script fails on purpose against a local connection that isn't `app_user`.
 
 ## Progress log
 - 2026-11-02 – Planned for the POC. The owner confirmed GCP and no custom domain.
 - 2026-11-04 – Started in lane 1 (`chore/first-gcp-deploy`), code part first while the owner bootstraps. Owner's answers: a new dedicated GCP project (not an existing one); region `me-west1`; two buckets, `<project_id>-files` (main, no lifecycle rule for the POC so soft-deleted files stay restorable) and `<project_id>-files-preview` (PRs, objects deleted after 14 days); Artifact Registry keeps the 10 newest images per zone and deletes untagged images older than 30 days; previews run a small tagged e2e set (`@smoke` now, `@poc` from task 069), not the full suite, which needs `AUTH_DISABLE_RATE_LIMIT` (rule 13). The preview acceptance criterion changes accordingly in its own docs commit.
+- 2026-11-04 – Preview criterion changed (owner's decision above): previews run the `@smoke` set, not the full suite. The full suite signs up a new account in nearly every scenario from one IP, which production rate limits block without `AUTH_DISABLE_RATE_LIMIT`, and rule 13 forbids that flag on any deployment; many of its steps also read the database directly (`@repo/db/maintenance`), which a CI runner can't reach on Cloud SQL. `@smoke` tags four existing scenarios whose steps use only the app (no database or storage access) and sign up one account each: authentication "Visitor creates an account" and "One login works across zones", home-and-menu "Opening the home address signed out shows the login page, and logging in lands on the overview", customers "Create a customer with its details". No existing scenario creates a site or a project without the database (their steps find records with `myRecordId` or add a site through `@repo/db/maintenance`), so `@smoke` doesn't cover them yet; that is for `@poc` (task 069).
 
 ## Parking lot
 - Neon instead of Cloud SQL to scale to zero (re-test the `app_user` setup first).

@@ -5,6 +5,7 @@ Feature: The dashboard is home, with a short menu
   So that the flow from customers to sites to projects is simple to follow
 
   @task:070
+  @smoke
   Scenario: Opening the home address signed out shows the login page, and logging in lands on the overview
     Given an existing account
     And I am on the home page
