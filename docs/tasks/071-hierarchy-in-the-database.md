@@ -149,9 +149,9 @@ The hierarchy customer → (sub-company) → site → project is mandatory for t
 
 ## Progress log
 - 2026-11-04 – Drafted from the owner's request and answers (split from the home and menu work, task 070, and the hierarchy pages, task 072).
+- 2026-11-04 – Approved by the owner; open question 1 answered: deleting a customer with projects is refused.
 
 ## Parking lot
 - Purging the stored files of projects removed by the migration or the reset (with task 059's purge item).
 - A `reset:local` option that keeps the real accounts' workspaces and memberships, empties them, and seeds in one go.
 - A database rule against a live project at a deleted site or customer, if the app rules prove not enough.
-- 2026-11-04 – Approved by the owner; open question 1 answered: deleting a customer with projects is refused.

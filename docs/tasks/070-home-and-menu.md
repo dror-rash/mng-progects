@@ -90,10 +90,10 @@ The POC shows one simple, clean flow. Visitors land on the login page and signed
 
 ## Progress log
 - 2026-11-04 – Drafted from the owner's request and answers (split from the hierarchy work into tasks 071 and 072).
+- 2026-11-04 – Approved by the owner.
 
 ## Parking lot
 - Links to Partners and Deleted from the workspace page, for admins, after the POC.
 - My tasks back in the menu, with the `@task:031` scenario restored.
 - Removing the example zone (and its shell rewrites) once a real second zone exists.
 - A theme toggle on the login page.
-- 2026-11-04 – Approved by the owner.

@@ -90,10 +90,10 @@ The POC walks the hierarchy from the top: a table of customers, then a customer 
 
 ## Progress log
 - 2026-11-04 – Drafted from the owner's request and answers (split from tasks 070 and 071).
+- 2026-11-04 – Approved by the owner.
 
 ## Parking lot
 - Breadcrumbs showing the whole chain on customer, site and project pages.
 - A Site column (and filter) on the projects table.
 - Sorting the Customers table.
 - Showing a sub-company's sites inline on its parent's page (expandable rows) instead of one more click.
-- 2026-11-04 – Approved by the owner.
