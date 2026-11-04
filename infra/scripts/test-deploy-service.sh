@@ -44,6 +44,7 @@ check "main deploys to shell"                              sh -c "grep -q '^run 
 check "main takes BETTER_AUTH_URL from the main shell"     sh -c "grep -q 'BETTER_AUTH_URL=https://shell-123.me-west1.run.app' '$TMP/log'"
 check "main isn't tagged"                                  sh -c "! grep -q -- '--tag' '$TMP/log'"
 
+: > "$TMP/log"
 check "refuses an image without a digest"                  sh -c "! PATH='$TMP/bin:$PATH' GCLOUD_LOG='$TMP/log' PROJECT=demo REGION=me-west1 CLOUDSQL_CONNECTION=x IS_PR=false bash '$DIR/deploy-service.sh' shell me-west1-docker.pkg.dev/demo/images/shell:abc"
 check "and deploys nothing then"                           sh -c "! grep -q '^run deploy' '$TMP/log'"
 
