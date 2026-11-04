@@ -63,7 +63,15 @@ export function EditTaskForm({
   const customerHidden =
     task.customerHidden === true || (task.organizationId !== null && !customers.some((c) => c.id === task.organizationId));
   const [customerChosen, setCustomerChosen] = useState(false);
-  const customerValue = state.values?.customerId ?? (customerHidden ? "" : (task.organizationId ?? ""));
+  // A submitted customer comes back only if it is one of my choices (or none): a refused one that isn't (a
+  // tampered form) would otherwise show as "No customer", hiding the customer the task still has.
+  const submittedCustomer = state.values?.customerId;
+  const customerValue =
+    submittedCustomer !== undefined && (submittedCustomer === "" || customers.some((c) => c.id === submittedCustomer))
+      ? submittedCustomer
+      : customerHidden
+        ? ""
+        : (task.organizationId ?? "");
 
   return (
     <form action={formAction} className="space-y-4">
