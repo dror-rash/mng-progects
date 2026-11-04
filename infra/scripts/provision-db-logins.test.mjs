@@ -9,7 +9,15 @@ import { createRequire } from "node:module";
 import { test } from "node:test";
 
 import { buildPoolConfig } from "../../packages/db/src/pool-config.ts";
-import { CONNECTION_LIMITS, migrationLockName, provisionDbLogins, scramVerifier, verifyDbLogins } from "./provision-db-logins.mjs";
+import {
+  CONNECTION_LIMITS,
+  migrationLockName,
+  provisionMainSide,
+  provisionPreviewSide,
+  scramVerifier,
+  verifyDbLogins,
+  verifyMainSide,
+} from "./provision-db-logins.mjs";
 
 const { Client } = createRequire(new URL("../../packages/db/package.json", import.meta.url))("pg");
 
@@ -18,8 +26,8 @@ const loginConfig = buildPoolConfig({ DATABASE_URL: process.env.DATABASE_URL }, 
 
 /** Provisioning with one connection in both roles (see above), schema grant included. */
 async function provisionAll(client, names) {
-  const { grantPreviewSchema } = await provisionDbLogins({ main: client, preview: client }, names);
-  await grantPreviewSchema();
+  await provisionMainSide(client, names);
+  await provisionPreviewSide(client, names);
 }
 
 const PASSWORDS = { previewOwnerPassword: "owner-pw-rolled-back-x1", previewRuntimePassword: "runtime-pw-rolled-back-y2" };
@@ -247,5 +255,61 @@ test("functions planted in the preview database's public schema are never called
     assert.deepEqual(await verifyDbLogins(client, names), []);
     await client.query(`grant connect on database "${names.mainDb}" to ${names.previewRuntime}`);
     assert.match((await verifyDbLogins(client, names)).join("\n"), /role_check_preview_runtime can connect to the main database/);
+  });
+});
+
+// Round 4: main deploys must not stall or fail because of what PR code does in app_preview.
+test("the preview side gives up within its bound when the migration lock is held", async () => {
+  await inRolledBackTransaction(async (client, names) => {
+    await provisionMainSide(client, names);
+    await withClient(loginConfig, async (holder) => {
+      await holder.query("select pg_advisory_lock(hashtext($1))", [migrationLockName(names.previewDb)]);
+      const started = Date.now();
+      await assert.rejects(provisionPreviewSide(client, names, { timeoutMs: 300 }), /lock timeout/);
+      assert.ok(Date.now() - started < 3000, `took ${Date.now() - started} ms`);
+    });
+  });
+});
+
+test("the main side removes app_user grants preview_owner made (so a PR can't make preview_runtime inherit)", async () => {
+  await inRolledBackTransaction(async (client, names) => {
+    await provisionAll(client, names);
+    await client.query(`set local role ${names.previewOwner}`);
+    await client.query(`grant app_user to ${names.previewRuntime} with inherit true, set true`);
+    await client.query("reset role");
+    assert.match((await verifyDbLogins(client, names)).join("\n"), /role_check_preview_runtime's memberships of app_user aren't the provisioned ones/);
+
+    await provisionMainSide(client, names);
+    assert.deepEqual(await verifyDbLogins(client, names), []);
+  });
+});
+
+test("the main side's cleanup works as a non-superuser CREATEROLE login, like Cloud SQL's owner login", async () => {
+  await inRolledBackTransaction(async (client, names) => {
+    await client.query("create role role_check_app login createrole");
+    await client.query("grant app_user to role_check_app with admin option");
+    await client.query(`grant connect on database "${names.mainDb}" to role_check_app`);
+    const asApp = { ...names, mainOwner: "role_check_app" };
+    await client.query("set local role role_check_app");
+    await provisionMainSide(client, asApp);
+    await client.query(`set local role ${names.previewOwner}`);
+    await client.query(`grant app_user to ${names.previewRuntime} with inherit true, set true`);
+    await client.query("set local role role_check_app");
+    await provisionMainSide(client, asApp);
+    await client.query("reset role");
+    const { rows } = await client.query(
+      "select count(*)::int as n from pg_auth_members m where m.grantor = $1::regrole",
+      [names.previewOwner],
+    );
+    assert.equal(rows[0].n, 0);
+  });
+});
+
+test("main's own verification covers what protects the main database", async () => {
+  await inRolledBackTransaction(async (client, names) => {
+    await provisionMainSide(client, names);
+    assert.deepEqual(await verifyMainSide(client, names), []);
+    await client.query(`grant connect on database "${names.mainDb}" to ${names.previewRuntime}`);
+    assert.match((await verifyMainSide(client, names)).join("\n"), /role_check_preview_runtime can connect to the main database/);
   });
 });
