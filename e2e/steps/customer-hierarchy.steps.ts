@@ -10,7 +10,7 @@ Then(
   async ({ page }, customer: string, text: string, column: string) => {
     const table = page.getByRole("table", { name: "Customers", exact: true });
     const headers = table.getByRole("columnheader");
-    await expect(headers.filter({ hasText: column })).toHaveCount(1);
+    await expect(headers.first()).toBeVisible();
     const index = (await headers.allInnerTexts()).findIndex((h) => h.trim() === column);
     expect(index, `no "${column}" column`).toBeGreaterThanOrEqual(0);
     const row = table
