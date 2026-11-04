@@ -42,6 +42,7 @@ Rules:
 - Cookie settings (`useSecureCookies`) must match in all zones.
 - Better Auth rate-limits sign-up/sign-in in production builds. Only the Playwright test servers set `AUTH_DISABLE_RATE_LIMIT=true` (in `e2e/playwright.config.ts`); never set it in a deployed environment.
 - Schema changes: edit `packages/db/src/schema.ts` → `pnpm db:generate` → commit the migration. CI/CD applies migrations before deploy.
+- A migration that adds or changes a function, view, policy, trigger, table owner or RLS setting must update `infra/scripts/rls-pins.mjs` in the same PR (task 068): run `pnpm test:infra`, or print the new hashes with `node --experimental-strip-types infra/scripts/rls-pins.mjs --print` against a migrated database. CI's e2e job fails otherwise, and so would the deploy.
 
 ## Authorization (ADR-0005, ADR-0006)
 - Workspaces own projects and customers; tasks, contacts and notes inherit through their parent. Each membership (`workspace_member`) has a role: `admin` (everything), `auditor` (sees everything, changes nothing) or `partner` (with `partner_id`: only their partner's projects for customers assigned to it, and those customers' names).

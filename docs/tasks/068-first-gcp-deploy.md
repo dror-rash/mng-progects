@@ -32,7 +32,7 @@ The POC must run on the internet, not just on a laptop. Row-level security has n
     - Workload Identity accepts only this repository, by name and by its numeric id (`github_repository_id`).
   - **Preview services and image repository (owner, 2026-11-04):** previews deploy to their own Cloud Run services (`shell-preview`, `example-zone-preview`, `dashboard-preview`) and push to their own repository (`images-preview`; main's is `images`). Each deployer deploys only to its environment's services and pushes only to its environment's repository. Deploys pin the image digest their build pushed (`deploy-service.sh` refuses a tag). `preview-cleanup.yml` removes a closed PR's `pr-<N>` tags.
   - **Deployer role:** a custom role `runDeployer` on the deployer's own services only: the `run.*` permissions of `roles/run.developer` that a deploy and a tag cleanup use, without `run.developer` itself (it includes SSH into running instances, whose environment holds the database password and auth secret), IAM policy changes, jobs or worker pools.
-  - **Previews never touch the database `app` nor use the owner login:** a SQL-created `preview_owner` login runs the migrations on `app_preview`. Login provisioning (`infra/scripts/provision-db-logins.mjs`) runs only on `main` deploys: role and database statements on a connection to `app`, only the schema grant on `app_preview`. Previews verify the logins, then migrate. So one `main` deploy is needed before the first preview. The preview logins have connection limits (`preview_owner` 4, `preview_runtime` 8) and SCRAM-SHA-256 passwords.
+  - **Previews never touch the database `app` nor use the owner login:** a SQL-created `preview_owner` login runs the migrations on `app_preview`. Login provisioning (`infra/scripts/provision-db-logins.mjs`) runs only on `main` deploys: role and database statements on a connection to `app`, only the schema grant on `app_preview`. Previews verify the logins, then migrate. So one `main` deploy is needed before the first preview. The preview logins have connection limits (`preview_runtime` 6, `preview_owner` 3) and SCRAM-SHA-256 passwords. Main's steps on the preview side (and on the preview roles) are bounded by timeouts and best effort: they print `::warning::` and the main deploy goes on; only what protects `app` stays fatal.
   - **Migration lock:** migrations run under a Postgres advisory lock (`infra/scripts/with-db-lock.mjs`, shared with the provisioning's schema grant), so two PRs never migrate `app_preview` at once.
   - **Preview test output:** Playwright traces and reports from preview runs are not uploaded anywhere public (the repo is public).
   - **`deploy.yml`:** deploys all three zones and builds the shell with both zone URLs.
@@ -45,7 +45,8 @@ The POC must run on the internet, not just on a laptop. Row-level security has n
   - a probe: with `app.user_id` unset, `select count(*) from workspace` returns 0;
   - migration 0025's `REVOKE TEMPORARY … FROM PUBLIC` applied;
   - added in the review rounds: `app_user` can use no view, materialized view or `SECURITY DEFINER` function but the migrations' own (the views `customer_name` and `site_choice` pinned by a hash of their definition, the access functions by exact signature, so a redefinition or an overload fails), no table outside `public` (column-only grants count), and has no `TRUNCATE`, `TRIGGER` or `REFERENCES` on any table;
-  - the check and the provisioning pin `search_path` to `pg_catalog, pg_temp` and call catalog functions schema-qualified, so functions planted by a PR's migration in `app_preview` never run in their place.
+  - the check and the provisioning pin `search_path` to `pg_catalog, pg_temp` and call catalog functions schema-qualified, so functions planted by a PR's migration in `app_preview` never run in their place;
+  - added in rounds 4–5: `infra/scripts/rls-pins.mjs` pins, by a hash of each definition as Postgres prints it (owners included), every function in non-system schemas, the views, every policy, the `SECURITY DEFINER` trigger functions, and each table's owner and RLS/`FORCE` flags; an added, changed or missing one fails, and so does any rule. A pin may list several hashes (one per Postgres minor that prints a definition differently).
 - **CI:** `deploy` goes green on PRs (preview) and on `main`.
 
 ## Out of scope
@@ -66,6 +67,7 @@ The POC must run on the internet, not just on a laptop. Row-level security has n
 - [ ] A PR deploy can't read main's secrets or deploy as a `*-runtime` service account, shown on the first preview (for example the preview deployer's IAM bindings, or an access check that fails as expected).
 - [ ] Previews deploy to the `-preview` services from `images-preview`; the preview deployer can't deploy to main's services, push to `images` or read main's secrets.
 - [ ] Checked by hand on the first deploys (main, then the first preview):
+  - on the first `main` deploy, record Cloud SQL's `server_version` here; if a pin in `infra/scripts/rls-pins.mjs` fails on it, add the hash the failure prints to that pin's list (don't replace the existing one);
   - `runDeployer` is enough to deploy, tag a revision and remove tags (the cleanup job);
   - every service runs the image by digest;
   - Cloud SQL accepts the preview logins' SCRAM-SHA-256 passwords;
@@ -103,7 +105,14 @@ The POC must run on the internet, not just on a laptop. Row-level security has n
   - the preview logins have connection limits;
   - Workload Identity is pinned to the repository id as well as its name.
 
+- 2026-11-05 – Review rounds 4–5 (infra commits d7205a6..43e85f8):
+  - the role check pins every function in non-system schemas (not only definer ones), the views, every policy, the definer trigger functions, and each table's owner and RLS/`FORCE` flags (`infra/scripts/rls-pins.mjs`); it fails on rules and on missing objects; a pin accepts several hashes;
+  - on `main` deploys, the steps on the preview side and on the preview roles are bounded and best effort (`::warning::`); only what protects `app` stays fatal, so nothing a PR does to `app_preview` can stall or fail `main`;
+  - preview connection limits are now 6 (`preview_runtime`) and 3 (`preview_owner`), from the actual arithmetic;
+  - CI's and `docker-compose.yml`'s Postgres are pinned to 16.15, the version the pins were computed on;
+  - `pnpm test:infra` runs all the infra script tests locally;
+  - the pool size follow-up (main's worst case 15 connections against its share of 13 on `db-f1-micro`) is task 075.
+
 ## Parking lot
 - Neon instead of Cloud SQL to scale to zero (re-test the `app_user` setup first).
 - PRs with different unmerged migrations share `app_preview`: drizzle applies one PR's migrations on top of another PR's schema.
-- `main` runs up to 5 instances per zone with a pool of 5 connections each, more than `db-f1-micro`'s 25 connections; lower `max_instances` or the pool size before real load.
