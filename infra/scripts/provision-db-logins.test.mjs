@@ -83,8 +83,14 @@ test("verification fails when the preview login is a member of another role", as
   await inRolledBackTransaction(async (client, names) => {
     await provisionDbLogins(client, names);
     await client.query(`grant "${names.ownerLogin}" to ${PREVIEW_LOGIN}`);
-    const failures = (await verifyDbLogins(client, names)).join("\n");
-    assert.match(failures, /is a member of roles other than app_user/);
-    assert.match(failures, /can connect to the main database/);
+    assert.match((await verifyDbLogins(client, names)).join("\n"), /is a member of roles other than app_user/);
+  });
+});
+
+test("verification fails when the preview login can connect to the main database", async () => {
+  await inRolledBackTransaction(async (client, names) => {
+    await provisionDbLogins(client, names);
+    await client.query(`grant connect on database "${names.mainDb}" to ${PREVIEW_LOGIN}`);
+    assert.match((await verifyDbLogins(client, names)).join("\n"), /can connect to the main database/);
   });
 });
