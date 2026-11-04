@@ -1,6 +1,6 @@
 # Task 073: The guard sees applied migrations through symlinked paths
 
-- **Status:** in-progress
+- **Status:** in-review
 - **Milestone:** POC (2026-11-13), tooling
 - **Zone / package:** `.claude/hooks/guard.sh`, `scripts/test-hooks.sh`
 - **Feature file:** none (developer tooling, no user-visible behavior). Tested by `scripts/test-hooks.sh`.
@@ -16,13 +16,14 @@ The guard compares an edited file's path with `git rev-parse --show-toplevel`, w
 - Other guard rules.
 
 ## Acceptance criteria
-- [ ] Editing an applied migration through a symlinked path to the repo is refused (`scripts/test-hooks.sh`).
+- [x] Editing an applied migration through a symlinked path to the repo is refused (`scripts/test-hooks.sh`).
 
 ## Test plan
 - `scripts/test-hooks.sh`: a case that edits an applied migration through a symlink to the repo.
 
 ## Progress log
 - 2026-11-04 – Started in lane 1.
+- 2026-11-04 – Red test, then the fix; `bash scripts/test-hooks.sh`: 30 passed, 0 failed.
 
 ## Parking lot
 - none
