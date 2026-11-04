@@ -1,6 +1,6 @@
 # Task 071: Every project has a customer and a site, in the database; local data reset
 
-- **Status:** ready (approved 2026-11-04)
+- **Status:** in-progress
 - **Milestone:** POC (2026-11-13)
 - **Zone / package:** `packages/db` (migration 0035), `apps/dashboard`, `e2e`
 - **Feature file:** `docs/features/project-hierarchy.feature`; existing scenarios changed or retired (list below)
