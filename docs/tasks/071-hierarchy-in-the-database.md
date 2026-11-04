@@ -158,9 +158,11 @@ The hierarchy customer → (sub-company) → site → project is mandatory for t
   - Migration 0036: `project_site_check` leaves a null customer or site to `NOT NULL` (23502). The DB tests assert error codes: 23502, 23503 for hard deletes, 23514 for the trigger.
   - `customerLabelOf` tests cover partners, workers and deleted customers, and the plan assertion is a threshold.
   - The third restore message stays until the owner answers.
+- 2026-11-04 – QA: full e2e 279/279 on production builds (2.7 min), DB 118, unit 404, lint, typecheck, build. In review.
+
+## Parking lot
 - Purging the stored files of projects removed by the migration or the reset (with task 059's purge item).
 - A `reset:local` option that keeps the real accounts' workspaces and memberships, empties them, and seeds in one go.
 - A database rule against a live project at a deleted site or customer, if the app rules prove not enough.
 - DB tests create users at `@example.test` and some are left behind (`reset:local` keeps them as real accounts, e.g. `…-promoted@example.test`). Either clean them up in the tests or have `isTestAccount` include `example.test`.
 - Other reads that join a security-barrier view per row (`site_choice`; customer choices filtered by workspace) may also scale with the whole database. Check them with `explain analyze` as a partner.
-- 2026-11-04 – QA: full e2e 279/279 on production builds (2.7 min), DB 118, unit 404, lint, typecheck, build. In review.
