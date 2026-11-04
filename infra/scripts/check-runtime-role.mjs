@@ -7,9 +7,11 @@
 //     security, which isn't forced);
 //   - row-level security is on for every public table except Better Auth's (no RLS by design, ADR-0006);
 //   - app_user can't create temporary tables (migration 0025);
-//   - app_user can use no view, materialized view or SECURITY DEFINER function but the allowlisted ones
-//     (views pinned to the migrations' definition, functions by exact signature), and no table outside
-//     public, counting column-only grants (each runs with its owner's rights or has no policies of ours);
+//   - app_user can use no view, materialized view or SECURITY DEFINER function but the migrations' own, and
+//     no table outside public, counting column-only grants (each runs with its owner's rights or has no
+//     policies of ours); no rule on any table; no SECURITY DEFINER trigger but the migrations' own;
+//   - the views, definer functions, definer trigger functions and policies are the migrations' definitions,
+//     pinned by hash (rls-pins.mjs);
 //   - app_user has no TRUNCATE, TRIGGER or REFERENCES on any table (TRUNCATE ignores row-level security);
 //   - without app.user_id, app_user sees no workspace (the probe: row-level security really applies).
 //
@@ -18,46 +20,15 @@
 //
 // Usage: DATABASE_URL=postgres://<login>:…@127.0.0.1:5432/<db> node --experimental-strip-types infra/scripts/check-runtime-role.mjs
 // (deploy.yml runs it through the Cloud SQL Auth Proxy; CI runs its tests against the migrated database).
-import { createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
 
 import { buildPoolConfig, RUNTIME_ROLE } from "../../packages/db/src/pool-config.ts";
 import { Client, pinSearchPath, withPinnedSearchPath } from "./pg-safe.mjs";
+import { PINS, readPinnable, SYSTEM_SCHEMAS } from "./rls-pins.mjs";
 
 /** Better Auth's tables: grants and no row-level security (ADR-0006). Any other public table needs it. */
 export const TABLES_WITHOUT_RLS = ["account", "session", "user", "verification"];
 
-/**
- * The views of the migrations (0020, 0028), pinned: sha256 of their options and pg_get_viewdef (read with the
- * pinned search_path, so every name is schema-qualified). A hash, not "does it call its access function": a
- * redefinition can call the function and still return every row (`… or true`). A migration that changes a
- * view must update its hash here; a Postgres upgrade that deparses differently fails safe the same way.
- */
-export const ALLOWED_VIEWS = {
-  customer_name: "478a4519a010373bdf60a2d8c9bc542b89d9ebd867609dd5f0f754043874ad2c",
-  site_choice: "4c1e7434991881a250ab2b3d2747a1a0eef114004a5c97d87a087693b56c37f0",
-};
-
-/**
- * The SECURITY DEFINER functions of the migrations that app_user may run, by exact signature (an overload is
- * a different function): the access functions and the actions built on them (ADR-0006). Taken from
- * packages/db/migrations; the trigger functions aren't executable by app_user. A new one fails the deploy
- * until it is added here on purpose.
- */
-export const ALLOWED_DEFINER_FUNCTIONS = [
-  "public.access_role(text,text)", "public.can_change_attachment(text,text)", "public.can_change_customer(text,text)",
-  "public.can_change_project(text,text)", "public.can_change_site(text,text)", "public.can_change_visit(text,text)",
-  "public.can_see_customer(text,text)", "public.can_see_customer_name(text,text)", "public.can_see_project(text,text)",
-  "public.can_see_site(text,text)", "public.can_work_on_project(text,text)", "public.clear_assignments(text,text)",
-  "public.clear_unseen_assignments(text,text)", "public.create_workspace(text,text)", "public.delete_attachment(text)",
-  "public.delete_task(text)", "public.delete_visit(text)", "public.find_invite(text)",
-  "public.has_workspace_role(text,text,text[])", "public.is_on_crew(text,text)", "public.is_project_person(text,text)",
-  "public.join_workspace(text,text)", "public.partner_serves_customer(text,text)", "public.restore_project(text)",
-];
-
-const viewHash = (options, definition) => createHash("sha256").update(`${options}\n${definition}`).digest("hex");
-
-const SYSTEM_SCHEMAS = ["pg_catalog", "information_schema", "pg_toast"];
 
 /**
  * The failed checks on `client` (empty when all pass). Read-only.
@@ -122,30 +93,52 @@ export async function checkRuntimeRole(client, role = RUNTIME_ROLE) {
   );
   const qualified = (r) => `${r.schema}.${r.name}`;
   const isView = (r) => r.kind === "v" || r.kind === "m";
-  const allowedView = (r) => r.kind === "v" && r.schema === "public" && Object.hasOwn(ALLOWED_VIEWS, r.name);
-  const views = reachable.rows.filter((r) => isView(r) && !allowedView(r));
+  const pinnedView = (r) => r.kind === "v" && Object.hasOwn(PINS.views, qualified(r));
+  const views = reachable.rows.filter((r) => isView(r) && !pinnedView(r));
   if (views.length > 0) failures.push(`views ${role} can use that aren't allowlisted: ${views.map(qualified).join(", ")}`);
-  for (const view of reachable.rows.filter(allowedView)) {
-    if (viewHash(view.options ?? "", view.definition) !== ALLOWED_VIEWS[view.name]) {
-      failures.push(`view ${qualified(view)} isn't the migrations' definition (update ALLOWED_VIEWS only for a reviewed migration)`);
-    }
-  }
   const outside = reachable.rows.filter((r) => !isView(r) && r.schema !== "public");
   if (outside.length > 0) failures.push(`tables outside public ${role} can use: ${outside.map(qualified).join(", ")}`);
   const extra = reachable.rows.filter((r) => r.extra_privilege);
   if (extra.length > 0) failures.push(`${role} has TRUNCATE, TRIGGER or REFERENCES on: ${extra.map(qualified).join(", ")}`);
 
-  const definers = await client.query(
-    `select p.oid::pg_catalog.regprocedure::text as signature
-     from pg_catalog.pg_proc p join pg_catalog.pg_namespace n on n.oid = p.pronamespace
-     where p.prosecdef and n.nspname <> all ($2::text[])
-       and pg_catalog.has_function_privilege($1::text::pg_catalog.name, p.oid, 'EXECUTE')
-     order by 1`,
-    [role, SYSTEM_SCHEMAS],
+  // Rules on tables run their actions with the table owner's rights (views' own _RETURN rules are views).
+  const rules = await client.query(
+    `select n.nspname || '.' || c.relname || '.' || r.rulename as name
+     from pg_catalog.pg_rewrite r join pg_catalog.pg_class c on c.oid = r.ev_class
+       join pg_catalog.pg_namespace n on n.oid = c.relnamespace
+     where c.relkind not in ('v', 'm') and n.nspname <> all ($1::text[]) order by 1`,
+    [SYSTEM_SCHEMAS],
   );
-  const unknownDefiners = definers.rows.map((f) => f.signature).filter((signature) => !ALLOWED_DEFINER_FUNCTIONS.includes(signature));
+  if (rules.rows.length > 0) failures.push(`rules on tables: ${rules.rows.map((r) => r.name).join(", ")}`);
+
+  // Pinned definitions (rls-pins.mjs). Every mismatch prints the computed hash, so a reviewed change is a
+  // one-line update of PINS.
+  const current = await readPinnable(client, role);
+  for (const view of Object.keys(current.views).filter((key) => Object.hasOwn(PINS.views, key))) {
+    if (current.views[view] !== PINS.views[view]) {
+      failures.push(`view ${view} isn't the migrations' definition (now sha256 ${current.views[view]}; update PINS.views only for a reviewed migration)`);
+    }
+  }
+  const unknownDefiners = Object.keys(current.functions).filter((key) => !Object.hasOwn(PINS.functions, key));
   if (unknownDefiners.length > 0) {
-    failures.push(`SECURITY DEFINER functions ${role} can run that aren't allowlisted: ${unknownDefiners.join(", ")}`);
+    failures.push(`SECURITY DEFINER functions ${role} can run that aren't allowlisted: ${unknownDefiners.map((key) => `${key} (sha256 ${current.functions[key]})`).join(", ")}`);
+  }
+  for (const key of Object.keys(current.functions).filter((key) => Object.hasOwn(PINS.functions, key))) {
+    if (current.functions[key] !== PINS.functions[key]) failures.push(`function ${key} changed (now sha256 ${current.functions[key]})`);
+  }
+  const unknownTriggers = Object.keys(current.triggers).filter((key) => !Object.hasOwn(PINS.triggers, key));
+  if (unknownTriggers.length > 0) {
+    failures.push(`SECURITY DEFINER triggers that aren't allowlisted: ${unknownTriggers.map((key) => `${key} (sha256 ${current.triggers[key]})`).join(", ")}`);
+  }
+  for (const key of Object.keys(current.triggers).filter((key) => Object.hasOwn(PINS.triggers, key))) {
+    if (current.triggers[key] !== PINS.triggers[key]) failures.push(`trigger function of ${key} changed (now sha256 ${current.triggers[key]})`);
+  }
+  for (const [key, hash] of Object.entries(current.policies)) {
+    if (!Object.hasOwn(PINS.policies, key)) failures.push(`policy ${key} isn't pinned (sha256 ${hash})`);
+    else if (hash !== PINS.policies[key]) failures.push(`policy ${key} changed (now sha256 ${hash})`);
+  }
+  for (const key of Object.keys(PINS.policies).filter((key) => !Object.hasOwn(current.policies, key))) {
+    failures.push(`policy ${key} is gone (pinned in PINS.policies)`);
   }
 
   // The probe, last: an error here aborts a surrounding transaction.
