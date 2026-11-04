@@ -18,7 +18,7 @@ locals {
 
 # Main: no lifecycle rule. Attachments are soft-deleted in the database and must stay restorable.
 resource "google_storage_bucket" "files" {
-  name                        = "${var.project_id}-files"
+  name                        = "${var.project_id}-${local.environments.main.bucket_suffix}"
   location                    = upper(var.region)
   storage_class               = "STANDARD"
   uniform_bucket_level_access = true
@@ -37,7 +37,7 @@ resource "google_storage_bucket" "files" {
 
 # Previews: objects are deleted 14 days after upload; no soft-delete retention (nothing to restore).
 resource "google_storage_bucket" "files_preview" {
-  name                        = "${var.project_id}-files-preview"
+  name                        = "${var.project_id}-${local.environments.preview.bucket_suffix}"
   location                    = upper(var.region)
   storage_class               = "STANDARD"
   uniform_bucket_level_access = true

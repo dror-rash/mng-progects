@@ -13,19 +13,39 @@ locals {
   ]
 
   # Main and PR previews share the project and the Cloud Run services but nothing they could leak through:
-  # each has its own runtime identities, database login, database, auth secret and bucket. The deploy
-  # workflow picks the names in infra/scripts/environment.sh; keep the two in step.
+  # each has its own deployer, runtime identities, database logins, database, auth secret and bucket. The
+  # deploy workflow takes the same names from infra/scripts/environment.sh; its test compares the two.
   environments = {
     main = {
-      runtime_suffix = "runtime" # <zone>-runtime
+      db_name        = "app"
+      db_login       = "app" # the runtime switches to app_user on connect (ADR-0006)
       db_secret      = "db-password"
+      migrate_login  = "app" # the Cloud SQL user below
+      migrate_secret = "db-password"
       auth_secret    = "better-auth-secret"
+      runtime_suffix = "runtime" # <zone>-runtime
+      bucket_suffix  = "files"
     }
     preview = {
-      runtime_suffix = "preview" # <zone>-preview
+      db_name        = "app_preview"
+      db_login       = "preview_runtime" # created by infra/scripts/provision-db-logins.mjs
       db_secret      = "db-preview-password"
+      migrate_login  = "preview_owner" # created by infra/scripts/provision-db-logins.mjs
+      migrate_secret = "db-preview-owner-password"
       auth_secret    = "better-auth-secret-preview"
+      runtime_suffix = "preview" # <zone>-preview
+      bucket_suffix  = "files-preview"
     }
+  }
+
+  # Every secret: the database passwords and the auth secrets of both environments.
+  secret_names = toset(flatten([for env in values(local.environments) : [env.db_secret, env.migrate_secret, env.auth_secret]]))
+
+  # Which database passwords each deployer reads. Main provisions the preview logins (it sets their
+  # passwords), so it reads theirs too; previews never read db-password. No deployer reads an auth secret.
+  deployer_secrets = {
+    main    = distinct([local.environments.main.migrate_secret, local.environments.preview.migrate_secret, local.environments.preview.db_secret])
+    preview = distinct([local.environments.preview.migrate_secret, local.environments.preview.db_secret])
   }
 
   # One runtime identity per zone and environment, keyed "<zone>/<environment>".
@@ -51,8 +71,10 @@ resource "google_artifact_registry_repository" "images" {
   format        = "DOCKER"
   description   = "Zone images built by GitHub Actions"
 
-  # Each zone is one image (package); deploys tag versions with the commit SHA. KEEP wins over DELETE, so the
-  # 10 newest versions of each image always stay; any other version goes after 30 days, tagged or not.
+  # Images are packages per environment and zone (main/<zone>, preview/<zone>; environment.sh IMAGE_PREFIX),
+  # tagged with the commit SHA. KEEP wins over DELETE and counts per package, so the 10 newest versions of
+  # each stay whatever their age, and preview pushes can't push main's live image out. Any other version
+  # goes after 30 days, tagged or not.
   cleanup_policy_dry_run = false
   cleanup_policies {
     id     = "keep-10-newest"
@@ -145,9 +167,11 @@ resource "google_cloud_run_v2_service_iam_member" "public" {
 }
 
 # ---------- GitHub Actions -> GCP (Workload Identity Federation, no JSON keys) ----------
+# Two deployers: `main` only for pushes to main, `preview` only for pull_request runs (both of this repository).
 resource "google_service_account" "deployer" {
-  account_id   = "github-deployer"
-  display_name = "Deploys from GitHub Actions"
+  for_each     = local.environments
+  account_id   = "deployer-${each.key}"
+  display_name = "Deploys ${each.key} from GitHub Actions"
   depends_on   = [google_project_service.enabled]
 }
 
@@ -166,6 +190,10 @@ resource "google_iam_workload_identity_pool_provider" "github" {
     "google.subject"       = "assertion.sub"
     "attribute.repository" = "assertion.repository"
     "attribute.ref"        = "assertion.ref"
+    "attribute.event_name" = "assertion.event_name"
+    # Which deployer a token may use: a push to main -> main, a pull_request run -> preview, else none.
+    # (pull_request_target, workflow_dispatch and other branches get neither.)
+    "attribute.deploy_target" = "assertion.event_name == 'push' && assertion.ref == 'refs/heads/main' ? 'main' : (assertion.event_name == 'pull_request' ? 'preview' : 'none')"
   }
 
   # Only tokens from this repository can authenticate.
@@ -177,32 +205,36 @@ resource "google_iam_workload_identity_pool_provider" "github" {
 }
 
 resource "google_service_account_iam_member" "github_can_impersonate_deployer" {
-  service_account_id = google_service_account.deployer.name
+  for_each           = local.environments
+  service_account_id = google_service_account.deployer[each.key].name
   role               = "roles/iam.workloadIdentityUser"
-  member             = "principalSet://iam.googleapis.com/${google_iam_workload_identity_pool.github.name}/attribute.repository/${var.github_repository}"
+  member             = "principalSet://iam.googleapis.com/${google_iam_workload_identity_pool.github.name}/attribute.deploy_target/${each.key}"
 }
 
-# Deployer permissions. run.developer deploys revisions and moves traffic/tags, but can't change who may
-# invoke a service (Terraform owns the allUsers binding above).
-resource "google_project_iam_member" "deployer_run_developer" {
-  project = var.project_id
-  role    = "roles/run.developer"
-  member  = "serviceAccount:${google_service_account.deployer.email}"
+# Deployer permissions, on the resources rather than the project. run.developer deploys revisions and moves
+# traffic/tags, but can't change who may invoke a service (Terraform owns the allUsers binding above).
+resource "google_cloud_run_v2_service_iam_member" "deployer_run_developer" {
+  for_each = { for pair in setproduct(var.zones, keys(local.environments)) : "${pair[0]}/${pair[1]}" => { zone = pair[0], environment = pair[1] } }
+  location = var.region
+  name     = google_cloud_run_v2_service.zone[each.value.zone].name
+  role     = "roles/run.developer"
+  member   = "serviceAccount:${google_service_account.deployer[each.value.environment].email}"
 }
 
 resource "google_artifact_registry_repository_iam_member" "deployer_push" {
+  for_each   = local.environments
   location   = google_artifact_registry_repository.images.location
   repository = google_artifact_registry_repository.images.name
   role       = "roles/artifactregistry.writer"
-  member     = "serviceAccount:${google_service_account.deployer.email}"
+  member     = "serviceAccount:${google_service_account.deployer[each.key].email}"
 }
 
-# Deploying a revision "acts as" its runtime identity (main or preview).
+# Deploying a revision "acts as" its runtime identity: each deployer only its own environment's.
 resource "google_service_account_iam_member" "deployer_acts_as_runtime" {
   for_each           = local.runtimes
   service_account_id = google_service_account.runtime[each.key].name
   role               = "roles/iam.serviceAccountUser"
-  member             = "serviceAccount:${google_service_account.deployer.email}"
+  member             = "serviceAccount:${google_service_account.deployer[each.value.environment].email}"
 }
 
 # ---------- Database (Cloud SQL Postgres) ----------
@@ -232,26 +264,26 @@ resource "google_sql_database_instance" "main" {
 }
 
 # "app" = production, "app_preview" = shared by all PR previews (never production data).
-# Names match MAIN_DB_NAME / PREVIEW_DB_NAME in infra/scripts/environment.sh.
 resource "google_sql_database" "databases" {
-  for_each = toset(["app", "app_preview"])
+  for_each = toset([for env in values(local.environments) : env.db_name])
   name     = each.key
   instance = google_sql_database_instance.main.name
 }
 
-# The owner login: runs migrations and is main's runtime login (switching to app_user, ADR-0006). The
-# preview login (preview_runtime) is created by infra/scripts/provision-db-logins.mjs on deploy, not here:
-# Cloud SQL makes every API-created user a member of cloudsqlsuperuser, which owns the databases.
+# Main's owner login: runs main's migrations, provisions the preview logins, and is main's runtime login
+# (switching to app_user, ADR-0006). The preview logins (preview_owner, preview_runtime) are created by
+# infra/scripts/provision-db-logins.mjs on main deploys, not here: Cloud SQL makes every API-created user a
+# member of cloudsqlsuperuser, which owns the databases.
 resource "google_sql_user" "app" {
-  name     = "app"
+  name     = local.environments.main.migrate_login
   instance = google_sql_database_instance.main.name
-  password = random_password.secret["db-password"].result
+  password = random_password.secret[local.environments.main.migrate_secret].result
 }
 
 # ---------- Secrets ----------
 # NOTE: secret values also live in Terraform state, so keep the state bucket private.
 resource "random_password" "secret" {
-  for_each = toset(flatten([for env in values(local.environments) : [env.db_secret, env.auth_secret]]))
+  for_each = local.secret_names
   length   = startswith(each.key, "db-") ? 32 : 48
   special  = false
 }
@@ -292,17 +324,19 @@ resource "google_project_iam_member" "runtime_cloudsql_client" {
   member   = "serviceAccount:${google_service_account.runtime[each.key].email}"
 }
 
-# The deployer runs migrations and provisions the preview login through the Cloud SQL Auth Proxy (owner
-# password), and runs the role check as each environment's login (preview password). No auth secrets.
+# The deployers run migrations, provisioning and the role check through the Cloud SQL Auth Proxy.
 resource "google_project_iam_member" "deployer_cloudsql_client" {
-  project = var.project_id
-  role    = "roles/cloudsql.client"
-  member  = "serviceAccount:${google_service_account.deployer.email}"
+  for_each = local.environments
+  project  = var.project_id
+  role     = "roles/cloudsql.client"
+  member   = "serviceAccount:${google_service_account.deployer[each.key].email}"
 }
 
 resource "google_secret_manager_secret_iam_member" "deployer_reads_db_passwords" {
-  for_each  = toset([for env in values(local.environments) : env.db_secret])
-  secret_id = google_secret_manager_secret.secret[each.key].id
+  for_each = merge([
+    for env, secrets in local.deployer_secrets : { for secret in secrets : "${env}/${secret}" => { deployer = env, secret = secret } }
+  ]...)
+  secret_id = google_secret_manager_secret.secret[each.value.secret].id
   role      = "roles/secretmanager.secretAccessor"
-  member    = "serviceAccount:${google_service_account.deployer.email}"
+  member    = "serviceAccount:${google_service_account.deployer[each.value.deployer].email}"
 }

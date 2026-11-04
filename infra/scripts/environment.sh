@@ -1,38 +1,47 @@
 # Per-environment names for deploys (task 068). Source it; don't run it:  . infra/scripts/environment.sh
-# The one place the workflow and deploy-service.sh choose preview vs main. Terraform creates the same names
-# (infra/main.tf, infra/storage.tf); keep them in step.
+# The one place the workflow and deploy-service.sh choose preview vs main. Terraform's `local.environments`
+# (infra/main.tf) carries the same names; test-environment.sh fails when the two differ.
 # Env in: PROJECT, IS_PR ("true" for PR previews).
 # Tests: bash infra/scripts/test-environment.sh
 : "${PROJECT:?PROJECT is required}"
 
 # Fixed for both environments.
-DB_OWNER_LOGIN="app"                  # owns the schema, runs migrations; main's runtime login (ADR-0006)
-DB_OWNER_PASSWORD_SECRET="db-password"
 MAIN_DB_NAME="app"
 PREVIEW_DB_NAME="app_preview"
-PREVIEW_DB_LOGIN="preview_runtime"    # created by provision-db-logins.mjs: CONNECT to app_preview only
-PREVIEW_DB_PASSWORD_SECRET="db-preview-password"
+MAIN_OWNER_LOGIN="app"                                   # Terraform's Cloud SQL user; owns `app`'s objects
+MAIN_OWNER_PASSWORD_SECRET="db-password"
+PREVIEW_OWNER_LOGIN="preview_owner"                      # provision-db-logins.mjs: owns `app_preview`'s objects
+PREVIEW_OWNER_PASSWORD_SECRET="db-preview-owner-password"
+PREVIEW_RUNTIME_LOGIN="preview_runtime"                  # provision-db-logins.mjs: SET-only member of app_user
+PREVIEW_RUNTIME_PASSWORD_SECRET="db-preview-password"
 
 if [ "${IS_PR:-false}" = "true" ]; then
   DEPLOY_ENV="preview"
   DB_NAME="$PREVIEW_DB_NAME"
-  DB_LOGIN="$PREVIEW_DB_LOGIN"
-  DB_PASSWORD_SECRET="$PREVIEW_DB_PASSWORD_SECRET"
+  DB_MIGRATE_LOGIN="$PREVIEW_OWNER_LOGIN"
+  DB_MIGRATE_PASSWORD_SECRET="$PREVIEW_OWNER_PASSWORD_SECRET"
+  DB_LOGIN="$PREVIEW_RUNTIME_LOGIN"
+  DB_PASSWORD_SECRET="$PREVIEW_RUNTIME_PASSWORD_SECRET"
   AUTH_SECRET_NAME="better-auth-secret-preview"
   FILES_BUCKET="${PROJECT}-files-preview"
   RUNTIME_SA_SUFFIX="preview"
+  IMAGE_PREFIX="preview"
 else
   DEPLOY_ENV="main"
   DB_NAME="$MAIN_DB_NAME"
-  DB_LOGIN="$DB_OWNER_LOGIN"
-  DB_PASSWORD_SECRET="$DB_OWNER_PASSWORD_SECRET"
+  DB_MIGRATE_LOGIN="$MAIN_OWNER_LOGIN"
+  DB_MIGRATE_PASSWORD_SECRET="$MAIN_OWNER_PASSWORD_SECRET"
+  DB_LOGIN="$MAIN_OWNER_LOGIN"                           # switches to app_user on connect (ADR-0006, task 074)
+  DB_PASSWORD_SECRET="$MAIN_OWNER_PASSWORD_SECRET"
   AUTH_SECRET_NAME="better-auth-secret"
   FILES_BUCKET="${PROJECT}-files"
   RUNTIME_SA_SUFFIX="runtime"
+  IMAGE_PREFIX="main"
 fi
 
 # The runtime identity of <service> in this environment: <service>-runtime (main) or <service>-preview.
 runtime_sa() { echo "${1}-${RUNTIME_SA_SUFFIX}@${PROJECT}.iam.gserviceaccount.com"; }
 
-export DEPLOY_ENV DB_NAME DB_LOGIN DB_PASSWORD_SECRET AUTH_SECRET_NAME FILES_BUCKET RUNTIME_SA_SUFFIX \
-  DB_OWNER_LOGIN DB_OWNER_PASSWORD_SECRET MAIN_DB_NAME PREVIEW_DB_NAME PREVIEW_DB_LOGIN PREVIEW_DB_PASSWORD_SECRET
+export DEPLOY_ENV DB_NAME DB_MIGRATE_LOGIN DB_MIGRATE_PASSWORD_SECRET DB_LOGIN DB_PASSWORD_SECRET AUTH_SECRET_NAME \
+  FILES_BUCKET RUNTIME_SA_SUFFIX IMAGE_PREFIX MAIN_DB_NAME PREVIEW_DB_NAME MAIN_OWNER_LOGIN MAIN_OWNER_PASSWORD_SECRET \
+  PREVIEW_OWNER_LOGIN PREVIEW_OWNER_PASSWORD_SECRET PREVIEW_RUNTIME_LOGIN PREVIEW_RUNTIME_PASSWORD_SECRET

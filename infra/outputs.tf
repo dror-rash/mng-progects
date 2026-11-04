@@ -8,9 +8,14 @@ output "gcp_wif_provider" {
   value       = google_iam_workload_identity_pool_provider.github.name
 }
 
-output "gcp_deployer_sa" {
-  description = "Set as GitHub repo variable GCP_DEPLOYER_SA."
-  value       = google_service_account.deployer.email
+output "gcp_deployer_sa_main" {
+  description = "Set as GitHub repo variable GCP_DEPLOYER_SA_MAIN (pushes to main)."
+  value       = google_service_account.deployer["main"].email
+}
+
+output "gcp_deployer_sa_preview" {
+  description = "Set as GitHub repo variable GCP_DEPLOYER_SA_PREVIEW (pull requests)."
+  value       = google_service_account.deployer["preview"].email
 }
 
 output "service_urls" {
