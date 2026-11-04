@@ -30,9 +30,31 @@ describe("isLocalDatabase", () => {
     expect(isLocalDatabase({ DATABASE_URL: "postgres://app@localhost.example.com/app" }).local).toBe(false);
   });
 
-  it("refuses a DATABASE_URL it can't read", () => {
-    expect(isLocalDatabase({ DATABASE_URL: "not a url" })).toEqual({ local: false, reason: "DATABASE_URL is not a valid URL." });
+  it("refuses a DATABASE_URL it can't read, or a socket", () => {
+    expect(isLocalDatabase({ DATABASE_URL: "not a url" }).local).toBe(false);
     expect(isLocalDatabase({ DATABASE_URL: "postgres:///app?host=/var/run/postgresql" }).local).toBe(false);
+  });
+
+  it("refuses a host or hostaddr in the query string that isn't local", () => {
+    expect(isLocalDatabase({ DATABASE_URL: "postgres://u:p@localhost/app?host=db.prod.example.com" })).toEqual({
+      local: false,
+      reason: 'DATABASE_URL points at "db.prod.example.com", not at localhost.',
+    });
+    expect(isLocalDatabase({ DATABASE_URL: "postgres://u@localhost/app?hostaddr=10.0.0.1" })).toEqual({
+      local: false,
+      reason: 'DATABASE_URL points at "10.0.0.1", not at localhost.',
+    });
+    expect(isLocalDatabase({ DATABASE_URL: "postgres://u@localhost/app?hostaddr=127.0.0.1" })).toEqual({ local: true });
+  });
+
+  it("refuses a local database that isn't the app's or a lane's (a proxy or tunnel to another one)", () => {
+    expect(isLocalDatabase({ DATABASE_URL: "postgres://u@127.0.0.1:5432/production" })).toEqual({
+      local: false,
+      reason: 'DATABASE_URL names the database "production", not app or app_lane<n>.',
+    });
+    expect(isLocalDatabase({ DATABASE_URL: "postgres://u@localhost/app_lane" }).local).toBe(false);
+    expect(isLocalDatabase({ DATABASE_URL: "postgres://u@localhost/app_lane2x" }).local).toBe(false);
+    expect(isLocalDatabase({ DATABASE_URL: "postgres://u@localhost/postgres" }).local).toBe(false);
   });
 
   it("refuses when Cloud SQL is configured", () => {
