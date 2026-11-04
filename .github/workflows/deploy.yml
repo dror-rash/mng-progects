@@ -80,9 +80,11 @@ jobs:
           if [ "$DEPLOY_ENV" = "main" ]; then
             # Under a lock: two deploys never migrate one database at once.
             DATABASE_URL="$MIGRATE_URL" run_node infra/scripts/with-db-lock.mjs "migrate-$DB_NAME" -- pnpm db:migrate
-            # The preview logins and database grants (idempotent; connected to the preview database).
+            # The preview logins and database grants (idempotent): roles and database grants on a connection to
+            # `app` (PR code can't write there), the schema grant and the migration lock on `app_preview`.
             PREVIEW_OWNER_PASSWORD="$(secret "$PREVIEW_OWNER_PASSWORD_SECRET")"; mask "$PREVIEW_OWNER_PASSWORD"
             PREVIEW_RUNTIME_PASSWORD="$(secret "$PREVIEW_RUNTIME_PASSWORD_SECRET")"; mask "$PREVIEW_RUNTIME_PASSWORD"
+            MAIN_DATABASE_URL="$MIGRATE_URL" \
             DATABASE_URL="$(db_url "$MAIN_OWNER_LOGIN" "$MIGRATE_PASSWORD" "$PREVIEW_DB_NAME")" \
             PREVIEW_OWNER_PASSWORD="$PREVIEW_OWNER_PASSWORD" PREVIEW_RUNTIME_PASSWORD="$PREVIEW_RUNTIME_PASSWORD" \
               run_node infra/scripts/provision-db-logins.mjs
