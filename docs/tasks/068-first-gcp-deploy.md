@@ -26,6 +26,10 @@ The POC must run on the internet, not just on a laptop. Row-level security has n
     - A `dashboard-preview` runtime service account with object access to the preview bucket only. Main deploys pass `--service-account` explicitly too.
     - A preview database login that can `CONNECT` only to `app_preview` (`REVOKE CONNECT ON DATABASE app FROM PUBLIC`).
     - A separate preview Better Auth secret.
+  - **Two deployers (owner, 2026-11-04):**
+    - main's deployer: usable only by a push to `main` (a Workload Identity Federation condition); acts as `*-runtime` service accounts only; reads main's secrets only;
+    - the preview deployer: used by PR runs; acts as `*-preview` service accounts only; reads the preview secrets only.
+  - **Previews never touch the database `app` nor use the owner login:** a SQL-created `preview_owner` login runs the migrations on `app_preview`. Login provisioning runs only on `main` deploys; previews only verify. So one `main` deploy is needed before the first preview.
   - **Preview test output:** Playwright traces and reports from preview runs are not uploaded anywhere public (the repo is public).
   - **`deploy.yml`:** deploys all three zones and builds the shell with both zone URLs.
   - **PR:** shows the `terraform plan` output.
@@ -53,11 +57,13 @@ The POC must run on the internet, not just on a laptop. Row-level security has n
 - [ ] On the preview, a file uploaded by hand downloads again (no `@smoke` scenario uploads).
 - [ ] Previews run as their own service account, database login and Better Auth secret; the preview login can't connect to `app`.
 - [ ] Preview Playwright traces and reports are not published.
+- [ ] A PR deploy can't read main's secrets or deploy as a `*-runtime` service account, shown on the first preview (for example the preview deployer's IAM bindings, or an access check that fails as expected).
+- [ ] The preview job never connects to the database `app`: it migrates `app_preview` as `preview_owner` and doesn't provision logins.
 
 ## Test plan
 - The `@smoke` scenarios (later `@poc`, task 069) against the preview URL; the full suite in CI's `e2e` job, against local servers.
 - The role-check script fails on purpose against a local connection that isn't `app_user`.
-- By hand on the first preview: the shell logs (client IP) and one upload and download.
+- By hand on the first preview: the shell logs (client IP), one upload and download, and that the preview deployer can't read main's secrets or act as a `*-runtime` account.
 
 ## Progress log
 - 2026-11-02 – Planned for the POC. The owner confirmed GCP and no custom domain.
@@ -71,7 +77,8 @@ The POC must run on the internet, not just on a laptop. Row-level security has n
   - preview Playwright traces and reports are not uploaded publicly (the repo is public);
   - the first preview is checked by hand for a client IP in Better Auth (shell logs) and for one upload and download.
 - 2026-11-04 – Follow-up planned: a separate runtime login role (amends ADR-0006's one login), task 074, after the POC.
+- 2026-11-04 – Owner's decision after the re-review: split the deployers now (it was parked). Main's deployer only from a push to `main`, acting as `*-runtime` and reading main's secrets; the preview deployer from PR runs, acting as `*-preview` and reading the preview secrets. Previews never connect to `app` or use the owner login: `preview_owner` (created by SQL) migrates `app_preview`; logins are provisioned on `main` deploys only and previews only verify them, so the first preview needs one `main` deploy before it. ADR-0006 is unchanged.
 
 ## Parking lot
 - Neon instead of Cloud SQL to scale to zero (re-test the `app_user` setup first).
-- Split the preview and production deployer accounts (the runtime accounts, database logins and auth secrets are split in this task).
+- Two PRs deploying at once both migrate `app_preview` concurrently (unless the deploy workflow gets a concurrency group for it).
