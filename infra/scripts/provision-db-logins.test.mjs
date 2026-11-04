@@ -132,6 +132,8 @@ test("a SCRAM verifier made in Node logs in with its password", async () => {
     url.password = password;
     const { rows } = await withClient({ connectionString: url.toString() }, (client) => client.query("select current_user::text as me"));
     assert.equal(rows[0].me, login);
+    url.password = `${password}-wrong`; // the server really checks passwords (not `trust`)
+    await assert.rejects(withClient({ connectionString: url.toString() }, () => undefined), /password authentication failed/);
   } finally {
     await withClient(loginConfig, (client) => client.query(`drop role ${login}`));
   }
