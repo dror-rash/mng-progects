@@ -16,8 +16,11 @@ const { Client } = createRequire(new URL("../../packages/db/package.json", impor
 if (!process.env.DATABASE_URL) throw new Error("Set DATABASE_URL to a migrated database.");
 const loginConfig = buildPoolConfig({ DATABASE_URL: process.env.DATABASE_URL }, null);
 
-/** One connection in both roles (see above). */
-const both = (client) => ({ main: client, preview: client });
+/** Provisioning with one connection in both roles (see above), schema grant included. */
+async function provisionAll(client, names) {
+  const { grantPreviewSchema } = await provisionDbLogins({ main: client, preview: client }, names);
+  await grantPreviewSchema();
+}
 
 const PASSWORDS = { previewOwnerPassword: "owner-pw-rolled-back-x1", previewRuntimePassword: "runtime-pw-rolled-back-y2" };
 
@@ -54,14 +57,14 @@ async function inRolledBackTransaction(fn) {
 
 const failuresAfter = (breakIt) =>
   inRolledBackTransaction(async (client, names) => {
-    await provisionDbLogins(both(client), names);
+    await provisionAll(client, names);
     await breakIt(client, names);
     return (await verifyDbLogins(client, names)).join("\n");
   });
 
 test("creates the preview logins: no CREATEROLE/CREATEDB, NOINHERIT, only app_user, only the preview database", async () => {
   await inRolledBackTransaction(async (client, names) => {
-    await provisionDbLogins(both(client), names);
+    await provisionAll(client, names);
     assert.deepEqual(await verifyDbLogins(client, names), []);
 
     const { rows } = await client.query(
@@ -82,7 +85,7 @@ test("creates the preview logins: no CREATEROLE/CREATEDB, NOINHERIT, only app_us
 
 test("lets the preview owner run the migrations' role and schema statements", async () => {
   await inRolledBackTransaction(async (client, names) => {
-    await provisionDbLogins(both(client), names);
+    await provisionAll(client, names);
     const { rows } = await client.query(
       `select pg_has_role($1, 'app_user', 'MEMBER WITH ADMIN OPTION') as admin_on_app_user,
               has_database_privilege($1, $2, 'CREATE') as create_schema,
@@ -97,15 +100,15 @@ test("lets the preview owner run the migrations' role and schema statements", as
 
 test("can run on every main deploy (idempotent, existing roles are fine)", async () => {
   await inRolledBackTransaction(async (client, names) => {
-    await provisionDbLogins(both(client), names);
-    await provisionDbLogins(both(client), names);
+    await provisionAll(client, names);
+    await provisionAll(client, names);
     assert.deepEqual(await verifyDbLogins(client, names), []);
   });
 });
 
 test("holds the preview migration lock while it provisions (same key as with-db-lock.mjs)", async () => {
   await inRolledBackTransaction(async (client, names) => {
-    await provisionDbLogins(both(client), names);
+    await provisionAll(client, names);
     assert.equal(migrationLockName(names.previewDb), `migrate-${names.previewDb}`);
     const other = await withClient(loginConfig, (second) =>
       second.query("select pg_try_advisory_lock(hashtext($1)) as got", [migrationLockName(names.previewDb)]),
@@ -118,7 +121,7 @@ test("never sends a password in plain text; stores SCRAM-SHA-256 verifiers", asy
   await inRolledBackTransaction(async (client, names) => {
     const sent = [];
     const spy = { query: (text, values) => (sent.push(String(text)), client.query(text, values)), escapeLiteral: (s) => client.escapeLiteral(s) };
-    await provisionDbLogins(both(spy), names);
+    await provisionAll(spy, names);
     for (const password of Object.values(PASSWORDS)) assert.ok(!sent.some((text) => text.includes(password)));
     const { rows } = await client.query("select rolpassword from pg_authid where rolname = any ($1)", [[names.previewOwner, names.previewRuntime]]);
     assert.equal(rows.length, 2);
@@ -155,7 +158,7 @@ test("runs as a non-superuser CREATEROLE login, like Cloud SQL's owner login", a
     await client.query("grant app_user to role_check_app with admin option");
     await client.query("set local role role_check_app");
     const asApp = { ...names, mainOwner: "role_check_app" };
-    await provisionDbLogins(both(client), asApp);
+    await provisionAll(client, asApp);
     assert.deepEqual(await verifyDbLogins(client, asApp), []);
   });
 });
@@ -200,7 +203,7 @@ test("verification fails when anyone (PUBLIC) can create temporary tables in the
 
 test("allows preview_owner's own grant of app_user from migration 0020, and nothing else", async () => {
   await inRolledBackTransaction(async (client, names) => {
-    await provisionDbLogins(both(client), names);
+    await provisionAll(client, names);
     await client.query(`set local role ${names.previewOwner}`);
     await client.query("grant app_user to current_user"); // what migration 0020 runs as preview_owner
     await client.query("reset role");
@@ -218,7 +221,7 @@ test("verification fails when preview_runtime's membership of app_user changes",
 
 test("limits the preview logins' connections, and verification fails without the limit", async () => {
   await inRolledBackTransaction(async (client, names) => {
-    await provisionDbLogins(both(client), names);
+    await provisionAll(client, names);
     const { rows } = await client.query("select rolname::text as name, rolconnlimit from pg_roles where rolname = any ($1) order by 1", [
       [names.previewOwner, names.previewRuntime],
     ]);
@@ -240,7 +243,7 @@ test("functions planted in the preview database's public schema are never called
       "has_schema_privilege(oid, text, text)", "has_database_privilege(text, text, text)"]) {
       await client.query(`create function public.${fn} returns boolean language plpgsql as $$ begin raise exception 'planted function called'; end $$`);
     }
-    await provisionDbLogins(both(client), names);
+    await provisionAll(client, names);
     assert.deepEqual(await verifyDbLogins(client, names), []);
     await client.query(`grant connect on database "${names.mainDb}" to ${names.previewRuntime}`);
     assert.match((await verifyDbLogins(client, names)).join("\n"), /role_check_preview_runtime can connect to the main database/);

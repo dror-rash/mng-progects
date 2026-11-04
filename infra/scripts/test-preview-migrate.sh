@@ -43,23 +43,30 @@ export MAIN_DB_NAME="$MAIN_DB" PREVIEW_DB_NAME="$PREVIEW_DB" MAIN_OWNER_LOGIN="$
 migrate() { (cd "$ROOT" && DATABASE_URL="$1" pnpm --silent --filter @repo/db db:migrate); }
 
 check "main: migrations run as a non-superuser owner login" migrate "$(url "$APP" "$APP_PW" "$MAIN_DB")"
-check "main: provisions the preview logins (as that login, connected to the preview database)" \
-  env DATABASE_URL="$(url "$APP" "$APP_PW" "$PREVIEW_DB")" PREVIEW_OWNER_PASSWORD="$OWNER_PW" PREVIEW_RUNTIME_PASSWORD="$RUNTIME_PW" \
+check "main: provisions the preview logins (as that login, on the main and preview databases)" \
+  env MAIN_DATABASE_URL="$(url "$APP" "$APP_PW" "$MAIN_DB")" DATABASE_URL="$(url "$APP" "$APP_PW" "$PREVIEW_DB")" PREVIEW_OWNER_PASSWORD="$OWNER_PW" PREVIEW_RUNTIME_PASSWORD="$RUNTIME_PW" \
   "${NODE[@]}" "$ROOT/infra/scripts/provision-db-logins.mjs"
 check "main: provisioning again changes nothing (idempotent)" \
-  env DATABASE_URL="$(url "$APP" "$APP_PW" "$PREVIEW_DB")" PREVIEW_OWNER_PASSWORD="$OWNER_PW" PREVIEW_RUNTIME_PASSWORD="$RUNTIME_PW" \
+  env MAIN_DATABASE_URL="$(url "$APP" "$APP_PW" "$MAIN_DB")" DATABASE_URL="$(url "$APP" "$APP_PW" "$PREVIEW_DB")" PREVIEW_OWNER_PASSWORD="$OWNER_PW" PREVIEW_RUNTIME_PASSWORD="$RUNTIME_PW" \
   "${NODE[@]}" "$ROOT/infra/scripts/provision-db-logins.mjs"
 check "main: role check passes as the owner login" \
   env DATABASE_URL="$(url "$APP" "$APP_PW" "$MAIN_DB")" "${NODE[@]}" "$ROOT/infra/scripts/check-runtime-role.mjs"
-check "preview: verifies the logins as preview_owner" \
+check "preview: verifies the logins as preview_owner (before its first migration)" \
   env DATABASE_URL="$(url "$OWNER" "$OWNER_PW" "$PREVIEW_DB")" "${NODE[@]}" "$ROOT/infra/scripts/provision-db-logins.mjs" --verify-only
 check "preview: migrations run as preview_owner on a fresh database" migrate "$(url "$OWNER" "$OWNER_PW" "$PREVIEW_DB")"
+check "preview: verifies again after migrating (0020's self-grant is the one allowed extra)" \
+  env DATABASE_URL="$(url "$OWNER" "$OWNER_PW" "$PREVIEW_DB")" "${NODE[@]}" "$ROOT/infra/scripts/provision-db-logins.mjs" --verify-only
+check "main: provisioning after a preview migrated still passes" \
+  env MAIN_DATABASE_URL="$(url "$APP" "$APP_PW" "$MAIN_DB")" DATABASE_URL="$(url "$APP" "$APP_PW" "$PREVIEW_DB")" PREVIEW_OWNER_PASSWORD="$OWNER_PW" PREVIEW_RUNTIME_PASSWORD="$RUNTIME_PW" \
+  "${NODE[@]}" "$ROOT/infra/scripts/provision-db-logins.mjs"
 check "preview: preview_owner owns the preview tables" \
   test "$(psql "$(url "$OWNER" "$OWNER_PW" "$PREVIEW_DB")" -qtAc "select pg_get_userbyid(relowner) from pg_class where oid = 'public.workspace'::regclass")" = "$OWNER"
 check "preview: role check passes as preview_runtime" \
   env DATABASE_URL="$(url "$RUNTIME" "$RUNTIME_PW" "$PREVIEW_DB")" "${NODE[@]}" "$ROOT/infra/scripts/check-runtime-role.mjs"
 check "preview_runtime can't connect to the main database" refused "$(url "$RUNTIME" "$RUNTIME_PW" "$MAIN_DB")"
 check "preview_owner can't connect to the main database" refused "$(url "$OWNER" "$OWNER_PW" "$MAIN_DB")"
+check "a function planted by a preview migration doesn't run during main's provisioning" \
+  sh -c "psql '$(url "$OWNER" "$OWNER_PW" "$PREVIEW_DB")' -qtAc \"create function public.pg_has_role(oid, text, text) returns boolean language plpgsql as \\\$\\\$ begin raise exception 'planted function called'; end \\\$\\\$\" >/dev/null && MAIN_DATABASE_URL='$(url "$APP" "$APP_PW" "$MAIN_DB")' DATABASE_URL='$(url "$APP" "$APP_PW" "$PREVIEW_DB")' PREVIEW_OWNER_PASSWORD='$OWNER_PW' PREVIEW_RUNTIME_PASSWORD='$RUNTIME_PW' ${NODE[*]} '$ROOT/infra/scripts/provision-db-logins.mjs'"
 check "preview_runtime can't create objects in the preview database" \
   sh -c "! psql '$(url "$RUNTIME" "$RUNTIME_PW" "$PREVIEW_DB")' -qtAc 'create table role_check_t (id int)' >/dev/null 2>&1"
 

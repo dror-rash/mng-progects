@@ -1,37 +1,52 @@
 #!/usr/bin/env node
-// Database logins of PR previews (task 068). Main deploys run it as main's owner login (`app`), connected to
-// the preview database, in one transaction under an advisory lock; it is idempotent:
+// Database logins of PR previews (task 068). Main deploys run it as main's owner login (`app`); it is
+// idempotent:
 //   - preview_owner: LOGIN NOINHERIT, owns app_preview's objects and runs its migrations. ADMIN on app_user
 //     (migration 0020 runs `GRANT app_user TO current_user`), CONNECT and CREATE on app_preview (drizzle-kit
 //     creates its schema), USAGE and CREATE on its `public` schema;
 //   - preview_runtime: LOGIN NOINHERIT, a SET-only member of app_user (the runtime switches with
 //     `-c role=app_user`), CONNECT on app_preview;
+//   - both have a CONNECTION LIMIT (db-f1-micro allows 25 connections in all, main's included);
 //   - neither can connect to `app`: CONNECT on it is revoked from PUBLIC and granted to the owner login;
 //   - TEMPORARY on app_preview is revoked from PUBLIC here: migration 0025 does it too, but run by
 //     preview_owner, which doesn't own the database, it only warns.
 // New roles are NOSUPERUSER, NOCREATEDB, NOCREATEROLE, NOREPLICATION and NOBYPASSRLS by default; verification
 // checks all of it. Passwords go in as SCRAM-SHA-256 verifiers computed here, never in plain text.
-// Previews run `--verify-only`: read-only, and it fails the deploy until a main deploy has provisioned.
+//
+// Two connections, because PR migrations can write to app_preview (functions planted in its `public`): the
+// role and database statements run on a connection to `app`, which PR code can't touch; only the schema grant
+// runs on app_preview. Both pin search_path and call catalog functions qualified (pg-safe.mjs). The app_preview
+// connection holds the preview migration lock (with-db-lock.mjs, same name) for the whole run, so a preview
+// never migrates halfway through.
+//
+// Previews run `--verify-only` on app_preview: read-only, and it fails the deploy until a main deploy has
+// provisioned.
 //
 // Why SQL and not Terraform's google_sql_user: Cloud SQL makes every API-created user a member of
 // cloudsqlsuperuser (CREATEROLE, CREATEDB, owner of the databases, so CONNECT to `app` whatever PUBLIC has).
 // Why not a Drizzle migration: logins differ per environment, and local databases have none.
 //
 // Usage (names from infra/scripts/environment.sh):
-//   DATABASE_URL=postgres://app:…@127.0.0.1:5432/app_preview MAIN_DB_NAME=app PREVIEW_DB_NAME=app_preview \
-//   MAIN_OWNER_LOGIN=app PREVIEW_OWNER_LOGIN=preview_owner PREVIEW_RUNTIME_LOGIN=preview_runtime \
-//   PREVIEW_OWNER_PASSWORD=… PREVIEW_RUNTIME_PASSWORD=… \
-//   node --experimental-strip-types infra/scripts/provision-db-logins.mjs [--verify-only]
+//   MAIN_DATABASE_URL=postgres://app:…@127.0.0.1:5432/app DATABASE_URL=postgres://app:…@127.0.0.1:5432/app_preview \
+//   MAIN_DB_NAME=app PREVIEW_DB_NAME=app_preview MAIN_OWNER_LOGIN=app PREVIEW_OWNER_LOGIN=preview_owner \
+//   PREVIEW_RUNTIME_LOGIN=preview_runtime PREVIEW_OWNER_PASSWORD=… PREVIEW_RUNTIME_PASSWORD=… \
+//   node --experimental-strip-types infra/scripts/provision-db-logins.mjs
+// Previews: DATABASE_URL=<preview_owner on app_preview> … provision-db-logins.mjs --verify-only
 import { createHash, createHmac, pbkdf2Sync, randomBytes } from "node:crypto";
-import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 
 import { buildPoolConfig, RUNTIME_ROLE } from "../../packages/db/src/pool-config.ts";
+import { Client, pinSearchPath, withPinnedSearchPath } from "./pg-safe.mjs";
 
-const { Client } = createRequire(new URL("../../packages/db/package.json", import.meta.url))("pg");
+/**
+ * Connection limits. db-f1-micro has max_connections 25 for everything; previews run one instance per zone
+ * (variables.tf) with a pool of up to 5, and only the @smoke set. preview_owner: two PRs at once hold a lock
+ * connection each, one migrates, and a verification may be running.
+ */
+export const CONNECTION_LIMITS = { previewOwner: 4, previewRuntime: 8 };
 
-/** pg_advisory_xact_lock key: two main deploys never provision at once. */
-export const ADVISORY_LOCK_KEY = 680_068;
+/** The advisory lock name preview migrations take (deploy.yml: with-db-lock.mjs "migrate-$DB_NAME"). */
+export const migrationLockName = (database) => `migrate-${database}`;
 
 const ident = (name) => `"${String(name).replaceAll('"', '""')}"`;
 
@@ -49,7 +64,7 @@ export function scramVerifier(password, salt = randomBytes(16), iterations = 409
 }
 
 /** Creates `login` unless it exists (also when another session creates it first: duplicate_object). */
-async function ensureLogin(client, login) {
+async function ensureLogin(client, login, connectionLimit) {
   await client.query("savepoint ensure_login");
   try {
     await client.query(`create role ${ident(login)} login`);
@@ -58,7 +73,7 @@ async function ensureLogin(client, login) {
     if (error.code !== "42710") throw error;
     await client.query("rollback to savepoint ensure_login");
   }
-  await client.query(`alter role ${ident(login)} with login noinherit`);
+  await client.query(`alter role ${ident(login)} with login noinherit connection limit ${Number(connectionLimit)}`);
 }
 
 async function setPassword(client, login, password) {
@@ -67,56 +82,78 @@ async function setPassword(client, login, password) {
 }
 
 /**
- * Creates or updates the preview logins and the grants. Call it inside a transaction, connected to the preview
- * database (the schema grant is per database), as main's owner login.
- * @param {{ query(text: string, values?: unknown[]): Promise<any>, escapeLiteral(s: string): string }} client
+ * Creates or updates the preview logins and the grants. The caller opens a transaction on each client, and
+ * commits `main` before `preview` (the preview grant names roles `main` creates).
+ * @param {{ main: Client, preview: Client }} clients main: connected to the main database; preview: to the
+ *   preview database. The tests pass one client for both.
  * @param {{ mainDb: string, previewDb: string, mainOwner: string, previewOwner: string, previewRuntime: string,
  *           previewOwnerPassword: string, previewRuntimePassword: string }} names
  */
-export async function provisionDbLogins(client, names) {
+export async function provisionDbLogins({ main, preview }, names) {
   const { mainDb, previewDb, mainOwner, previewOwner, previewRuntime } = names;
-  const { rows } = await client.query("select current_database() as db");
-  if (rows[0].db !== previewDb) throw new Error(`Connect to the preview database ${previewDb}, not ${rows[0].db}.`);
-  await client.query("select pg_advisory_xact_lock($1)", [ADVISORY_LOCK_KEY]);
+  await pinSearchPath(preview);
+  await pinSearchPath(main);
+  await preview.query("select pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtext($1::text))", [migrationLockName(previewDb)]);
 
-  for (const login of [previewOwner, previewRuntime]) await ensureLogin(client, login);
-  await setPassword(client, previewOwner, names.previewOwnerPassword);
-  await setPassword(client, previewRuntime, names.previewRuntimePassword);
+  await ensureLogin(main, previewOwner, CONNECTION_LIMITS.previewOwner);
+  await ensureLogin(main, previewRuntime, CONNECTION_LIMITS.previewRuntime);
+  await setPassword(main, previewOwner, names.previewOwnerPassword);
+  await setPassword(main, previewRuntime, names.previewRuntimePassword);
 
   const runtimeRole = ident(RUNTIME_ROLE);
-  await client.query(`grant ${runtimeRole} to ${ident(previewOwner)} with admin true, inherit false, set false`);
-  await client.query(`grant ${runtimeRole} to ${ident(previewRuntime)} with inherit false, set true`);
+  await main.query(`grant ${runtimeRole} to ${ident(previewOwner)} with admin true, inherit false, set false`);
+  await main.query(`grant ${runtimeRole} to ${ident(previewRuntime)} with inherit false, set true`);
 
-  await client.query(`revoke connect on database ${ident(mainDb)} from public, ${ident(previewOwner)}, ${ident(previewRuntime)}`);
-  await client.query(`grant connect on database ${ident(mainDb)} to ${ident(mainOwner)}`);
-  await client.query(`grant connect, create on database ${ident(previewDb)} to ${ident(previewOwner)}`);
-  await client.query(`grant connect on database ${ident(previewDb)} to ${ident(previewRuntime)}`);
-  await client.query(`revoke temporary on database ${ident(previewDb)} from public`);
-  await client.query(`grant usage, create on schema public to ${ident(previewOwner)}`);
+  await main.query(`revoke connect on database ${ident(mainDb)} from public, ${ident(previewOwner)}, ${ident(previewRuntime)}`);
+  await main.query(`grant connect on database ${ident(mainDb)} to ${ident(mainOwner)}`);
+  await main.query(`grant connect, create on database ${ident(previewDb)} to ${ident(previewOwner)}`);
+  await main.query(`grant connect on database ${ident(previewDb)} to ${ident(previewRuntime)}`);
+  await main.query(`revoke temporary on database ${ident(previewDb)} from public`);
+
+  return {
+    /** Run after `main` commits: the schema grant, on the preview database. */
+    async grantPreviewSchema() {
+      await preview.query(`grant usage, create on schema public to ${ident(previewOwner)}`);
+    },
+  };
 }
 
 /**
- * The failed checks (empty when all pass). Read-only; any login can run it connected to the preview database.
+ * The failed checks (empty when all pass). Read-only, on a connection to the preview database (the schema
+ * privilege is per database); everything else it reads is shared catalogs.
  * @returns {Promise<string[]>}
  */
 export async function verifyDbLogins(client, { mainDb, previewDb, mainOwner, previewOwner, previewRuntime }) {
+  await pinSearchPath(client);
   const failures = [];
   const { rows } = await client.query(
     `select r.rolname::text as name, r.rolcanlogin, r.rolsuper, r.rolcreaterole, r.rolcreatedb, r.rolbypassrls,
-            r.rolreplication, r.rolinherit,
-            pg_has_role(r.oid, $2, 'SET') as can_set_runtime,
-            pg_has_role(r.oid, $2, 'MEMBER WITH ADMIN OPTION') as runtime_admin,
-            pg_has_role(r.oid, $3, 'MEMBER') as main_owner_member,
-            array(select g.rolname::text from pg_auth_members m join pg_roles g on g.oid = m.roleid
-                  where m.member = r.oid and g.rolname <> $2 order by 1) as other_roles,
-            has_database_privilege(r.oid, $4, 'CONNECT') as main_connect,
-            has_database_privilege(r.oid, $5, 'CONNECT') as preview_connect,
-            has_database_privilege(r.oid, $5, 'CREATE') as preview_create,
-            has_schema_privilege(r.oid, 'public', 'CREATE') as public_create
-     from pg_roles r where r.rolname = any ($1)`,
+            r.rolreplication, r.rolinherit, r.rolconnlimit,
+            pg_catalog.pg_has_role(r.oid, $2::text::pg_catalog.name, 'MEMBER') as runtime_member,
+            pg_catalog.pg_has_role(r.oid, $3::text::pg_catalog.name, 'MEMBER') as main_owner_member,
+            array(select g.rolname::text from pg_catalog.pg_auth_members m join pg_catalog.pg_roles g on g.oid = m.roleid
+                  where m.member = r.oid and g.rolname <> $2::text order by 1) as other_roles,
+            array(select pg_catalog.concat_ws(':', case when m.grantor = r.oid then 'self' else 'other' end,
+                                               m.admin_option, m.inherit_option, m.set_option)
+                  from pg_catalog.pg_auth_members m join pg_catalog.pg_roles g on g.oid = m.roleid
+                  where m.member = r.oid and g.rolname = $2::text order by 1) as runtime_grants,
+            pg_catalog.has_database_privilege(r.oid, $4::text::pg_catalog.name, 'CONNECT') as main_connect,
+            pg_catalog.has_database_privilege(r.oid, $5::text::pg_catalog.name, 'CONNECT') as preview_connect,
+            pg_catalog.has_database_privilege(r.oid, $5::text::pg_catalog.name, 'CREATE') as preview_create,
+            pg_catalog.has_schema_privilege(r.oid, 'public'::pg_catalog.name, 'CREATE') as public_create
+     from pg_catalog.pg_roles r where r.rolname = any ($1::text[])`,
     [[previewOwner, previewRuntime], RUNTIME_ROLE, mainOwner, mainDb, previewDb],
   );
   const byName = Object.fromEntries(rows.map((row) => [row.name, row]));
+  // Memberships of app_user, as "<grantor>:<admin>:<inherit>:<set>". preview_owner: the provisioned grant
+  // (ADMIN only), plus the one migration 0020 makes as preview_owner itself (SET, no ADMIN) once a preview
+  // has migrated. That second one is harmless (preview_owner owns more than app_user can do) and isn't
+  // revoked: main deploys would race the next preview's migration.
+  const allowedGrants = {
+    [previewOwner]: [["other:t:f:f"], ["other:t:f:f", "self:f:f:t"]],
+    [previewRuntime]: [["other:f:f:t"]],
+  };
+  const limits = { [previewOwner]: CONNECTION_LIMITS.previewOwner, [previewRuntime]: CONNECTION_LIMITS.previewRuntime };
   for (const [login, isOwner] of [[previewOwner, true], [previewRuntime, false]]) {
     const role = byName[login];
     if (!role) {
@@ -127,26 +164,27 @@ export async function verifyDbLogins(client, { mainDb, previewDb, mainOwner, pre
     for (const attribute of ["rolsuper", "rolcreaterole", "rolcreatedb", "rolbypassrls", "rolreplication", "rolinherit"]) {
       if (role[attribute]) failures.push(`${login} has ${attribute}`);
     }
+    if (role.rolconnlimit !== limits[login]) failures.push(`${login}'s connection limit is ${role.rolconnlimit}, not ${limits[login]}`);
     if (role.main_owner_member) failures.push(`${login} is a member of main's owner login ${mainOwner}`);
     if (role.other_roles.length > 0) failures.push(`${login} is a member of roles other than ${RUNTIME_ROLE}: ${role.other_roles.join(", ")}`);
+    const grants = role.runtime_grants.join(",");
+    if (!allowedGrants[login].some((allowed) => allowed.join(",") === grants)) {
+      failures.push(`${login}'s memberships of ${RUNTIME_ROLE} aren't the provisioned ones: ${grants || "none"}`);
+    }
     if (role.main_connect) failures.push(`${login} can connect to the main database ${mainDb}`);
     if (!role.preview_connect) failures.push(`${login} can't connect to the preview database ${previewDb}`);
     if (isOwner) {
-      if (!role.runtime_admin) failures.push(`${login} has no ADMIN on ${RUNTIME_ROLE} (migration 0020 grants it to itself)`);
       if (!role.preview_create) failures.push(`${login} can't create schemas in ${previewDb} (drizzle-kit needs one)`);
       if (!role.public_create) failures.push(`${login} can't create in ${previewDb}'s public schema`);
-    } else {
-      if (!role.can_set_runtime) failures.push(`${login} can't SET ROLE ${RUNTIME_ROLE}`);
-      if (role.runtime_admin) failures.push(`${login} has ADMIN on ${RUNTIME_ROLE}`);
     }
   }
 
   const databases = await client.query(
-    `select exists (select 1 from pg_database d, aclexplode(coalesce(d.datacl, acldefault('d', d.datdba))) a
-                    where d.datname = $1 and a.grantee = 0 and a.privilege_type = 'CONNECT') as public_connect,
-            exists (select 1 from pg_database d, aclexplode(coalesce(d.datacl, acldefault('d', d.datdba))) a
-                    where d.datname = $2 and a.grantee = 0 and a.privilege_type = 'TEMPORARY') as public_temp,
-            has_database_privilege($3, $1, 'CONNECT') as owner_connect`,
+    `select exists (select 1 from pg_catalog.pg_database d, pg_catalog.aclexplode(coalesce(d.datacl, pg_catalog.acldefault('d', d.datdba))) a
+                    where d.datname = $1::text and a.grantee = 0 and a.privilege_type = 'CONNECT') as public_connect,
+            exists (select 1 from pg_catalog.pg_database d, pg_catalog.aclexplode(coalesce(d.datacl, pg_catalog.acldefault('d', d.datdba))) a
+                    where d.datname = $2::text and a.grantee = 0 and a.privilege_type = 'TEMPORARY') as public_temp,
+            pg_catalog.has_database_privilege($3::text::pg_catalog.name, $1::text::pg_catalog.name, 'CONNECT') as owner_connect`,
     [mainDb, previewDb, mainOwner],
   );
   const { public_connect: publicConnect, public_temp: publicTemp, owner_connect: ownerConnect } = databases.rows[0];
@@ -170,26 +208,43 @@ function namesFromEnv(env, { withPasswords }) {
   return names;
 }
 
+/** An open client from `url` (the login's own connection, no role switch, search_path pinned) on `database`. */
+async function connect(url, database) {
+  if (!url) throw new Error(`missing the connection URL for ${database}`);
+  const client = new Client(withPinnedSearchPath(buildPoolConfig({ DATABASE_URL: url }, null)));
+  await client.connect();
+  const { rows } = await client.query("select pg_catalog.current_database()::text as db");
+  if (rows[0].db !== database) {
+    await client.end();
+    throw new Error(`expected a connection to ${database}, got ${rows[0].db}`);
+  }
+  return client;
+}
+
 async function main() {
   const verifyOnly = process.argv.includes("--verify-only");
   const names = namesFromEnv(process.env, { withPasswords: !verifyOnly });
-  // The login's own connection (no role switch).
-  const client = new Client(buildPoolConfig(process.env, null));
-  await client.connect();
+  const preview = await connect(process.env.DATABASE_URL, names.previewDb);
+  let mainClient;
   try {
     let failures;
     if (verifyOnly) {
-      failures = await verifyDbLogins(client, names);
+      failures = await verifyDbLogins(preview, names);
     } else {
-      await client.query("begin");
+      mainClient = await connect(process.env.MAIN_DATABASE_URL, names.mainDb);
+      await preview.query("begin");
       try {
-        await provisionDbLogins(client, names);
-        failures = await verifyDbLogins(client, names);
-        await client.query(failures.length > 0 ? "rollback" : "commit");
+        await mainClient.query("begin");
+        const { grantPreviewSchema } = await provisionDbLogins({ main: mainClient, preview }, names);
+        await mainClient.query("commit");
+        await grantPreviewSchema();
+        await preview.query("commit");
       } catch (error) {
-        await client.query("rollback");
+        await mainClient.query("rollback").catch(() => {});
+        await preview.query("rollback").catch(() => {});
         throw error;
       }
+      failures = await verifyDbLogins(preview, names);
     }
     if (failures.length > 0) {
       console.error("Database logins check FAILED:");
@@ -202,7 +257,8 @@ async function main() {
         `reach ${names.previewDb}, not ${names.mainDb}; ${names.mainDb} is closed to PUBLIC.`,
     );
   } finally {
-    await client.end();
+    await preview.end();
+    await mainClient?.end();
   }
 }
 
