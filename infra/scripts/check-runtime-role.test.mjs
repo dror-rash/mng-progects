@@ -175,6 +175,60 @@ test("fails when the login can't SET ROLE app_user", async () => {
   }
 });
 
+// Round 4 (re-audit D, confirmed): rules and definer triggers run with their owner's rights, and policies and
+// definer functions decide what app_user sees, so each is pinned. A mismatch prints the computed hash.
+const HASH = /sha256 [0-9a-f]{64}/;
+
+test("fails on a rule on a table app_user can reach", async () => {
+  const failures = await checkAfter(async (client) => {
+    await client.query("create table public.role_check_log (id text)");
+    await client.query("grant insert on public.role_check_log to app_user");
+    await client.query("alter table public.role_check_log enable row level security");
+    await client.query("create rule role_check_rule as on insert to public.role_check_log do also insert into public.workspace_invite select * from public.workspace_invite");
+  });
+  assert.match(failures.join("\n"), /rules on tables: public\.role_check_log\.role_check_rule/);
+});
+
+test("fails on a trigger whose function is SECURITY DEFINER, even with EXECUTE revoked", async () => {
+  const failures = await checkAfter(async (client) => {
+    await client.query("create function public.role_check_trigger() returns trigger language plpgsql security definer as $$ begin return new; end $$");
+    await client.query("revoke execute on function public.role_check_trigger() from public");
+    await client.query("create trigger role_check_trigger before insert on public.workspace_invite for each row execute function public.role_check_trigger()");
+  });
+  assert.match(failures.join("\n"), /SECURITY DEFINER triggers that aren't allowlisted: public\.workspace_invite role_check_trigger public\.role_check_trigger\(\)/);
+});
+
+test("fails on an added policy (using true) and prints its hash", async () => {
+  const failures = await checkAfter(async (client) => {
+    await client.query("create policy role_check_all on public.organization for select to app_user using (true)");
+  });
+  const text = failures.join("\n");
+  assert.match(text, /policy public\.organization\/role_check_all isn't pinned/);
+  assert.match(text, HASH);
+});
+
+test("fails on a changed policy and prints its new hash", async () => {
+  let name;
+  const failures = await checkAfter(async (client) => {
+    const { rows } = await client.query("select policyname::text as name from pg_policies where tablename = 'organization' order by 1 limit 1");
+    name = rows[0].name;
+    await client.query(`alter policy "${name}" on public.organization using (true)`);
+  });
+  assert.match(failures.join("\n"), new RegExp(`policy public\\.organization/${name} changed \\(now ${HASH.source}`));
+});
+
+test("fails on a changed allowlisted definer function and prints its new hash", async () => {
+  const failures = await checkAfter(async (client) => {
+    await client.query("alter function public.can_see_project(text, text) set search_path = public");
+  });
+  assert.match(failures.join("\n"), new RegExp(`function public\\.can_see_project\\(text,text\\) changed \\(now ${HASH.source}`));
+});
+
+test("passes the migrations' rules, triggers, policies and functions as they are", async () => {
+  const failures = await withClient(buildPoolConfig(env), checkRuntimeRole);
+  assert.deepEqual(failures, []);
+});
+
 // The auditor's constructions (re-audit D): each must fail.
 test("fails when an allowlisted view is redefined without its access filter", async () => {
   const failures = await checkAfter(async (client) => {
