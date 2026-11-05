@@ -1,9 +1,10 @@
 "use server";
 
-import { alias, and, eq, getDb, isNotNull, ne, schema, sql, withAccess } from "@repo/db";
+import { alias, and, eq, getDb, inArray, isNotNull, schema, sql, withAccess } from "@repo/db";
 import { revalidatePath } from "next/cache";
 
 import { hasWorkspaceRole } from "@/features/access/predicates";
+import { GALLERY_KINDS, REPORT_KIND } from "@/features/attachments/attachment-limits";
 import { requireActionSession } from "@/features/auth/require-session";
 import { type FormState, invalid } from "@/features/forms/form-state";
 
@@ -138,7 +139,7 @@ async function restore(userId: string, kind: DeletedKind, id: string): Promise<s
         .where(
           and(
             eq(attachment.id, id),
-            kind === "report" ? eq(attachment.kind, "report") : ne(attachment.kind, "report"),
+            kind === "report" ? eq(attachment.kind, REPORT_KIND) : inArray(attachment.kind, [...GALLERY_KINDS]),
             isNotNull(attachment.deletedAt),
             admin(project.workspaceId),
           ),

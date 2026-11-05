@@ -7,6 +7,17 @@
 export const ATTACHMENT_KINDS = ["photo", "file", "report"] as const;
 export type AttachmentKind = (typeof ATTACHMENT_KINDS)[number];
 
+/** The kinds listed in "Photos and files" (project and visit pages). */
+export const GALLERY_KINDS = ["photo", "file"] as const satisfies readonly AttachmentKind[];
+
+/** The kind listed in a project's "Reports" section (task 064). */
+export const REPORT_KIND = "report" satisfies AttachmentKind;
+
+/** Whether an upload of `kind` may belong to a visit: reports belong to the project only (task 064). */
+export function allowedOnVisit(kind: AttachmentKind): boolean {
+  return kind !== REPORT_KIND;
+}
+
 export function parseAttachmentKind(value: unknown): AttachmentKind | null {
   return ATTACHMENT_KINDS.find((k) => k === value) ?? null;
 }

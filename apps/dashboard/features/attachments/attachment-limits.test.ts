@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { parseAttachmentKind, uploadLabel, uploadRefusal } from "./attachment-limits";
+import { allowedOnVisit, GALLERY_KINDS, parseAttachmentKind, REPORT_KIND, uploadLabel, uploadRefusal } from "./attachment-limits";
 
 const MB = 1024 * 1024;
 
@@ -52,5 +52,20 @@ describe("uploadLabel", () => {
     expect(uploadLabel("photo")).toBe("Add photos");
     expect(uploadLabel("file")).toBe("Add files");
     expect(uploadLabel("report")).toBe("Upload a report");
+  });
+});
+
+describe("GALLERY_KINDS and REPORT_KIND", () => {
+  it("puts photos and files in Photos and files, and reports apart", () => {
+    expect(GALLERY_KINDS).toEqual(["photo", "file"]);
+    expect(REPORT_KIND).toBe("report");
+  });
+});
+
+describe("allowedOnVisit", () => {
+  it("lets photos and files be added to a visit, but not reports", () => {
+    expect(allowedOnVisit("photo")).toBe(true);
+    expect(allowedOnVisit("file")).toBe(true);
+    expect(allowedOnVisit("report")).toBe(false);
   });
 });

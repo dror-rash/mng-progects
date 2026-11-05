@@ -1,5 +1,7 @@
 import { and, desc, eq, getDb, inArray, isNotNull, isNull, or, schema, sql, withAccess } from "@repo/db";
 
+import { GALLERY_KINDS, REPORT_KIND } from "./attachment-limits";
+
 // Photos and files (task 059) and reports (task 064). Row-level security shows a project's confirmed
 // attachments to whoever sees the project; these filter deleted ones. Callers check the project first.
 
@@ -30,7 +32,7 @@ export async function listProjectAttachments(userId: string, projectId: string) 
       .where(
         and(
           eq(schema.attachment.projectId, projectId),
-          inArray(schema.attachment.kind, ["photo", "file"]),
+          inArray(schema.attachment.kind, [...GALLERY_KINDS]),
           isNotNull(schema.attachment.confirmedAt),
           isNull(schema.attachment.deletedAt),
           visitNotDeleted,
@@ -57,7 +59,7 @@ export async function listProjectReports(userId: string, projectId: string) {
       .where(
         and(
           eq(schema.attachment.projectId, projectId),
-          eq(schema.attachment.kind, "report"),
+          eq(schema.attachment.kind, REPORT_KIND),
           isNotNull(schema.attachment.confirmedAt),
           isNull(schema.attachment.deletedAt),
         ),

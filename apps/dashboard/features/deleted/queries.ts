@@ -1,6 +1,7 @@
 import { and, eq, getDb, isNotNull, schema, withAccess } from "@repo/db";
 
 import { hasWorkspaceRole } from "@/features/access/predicates";
+import { REPORT_KIND } from "@/features/attachments/attachment-limits";
 import { visitName } from "@/features/visits/visit-name";
 
 import type { DeletedKind } from "./deleted-kind";
@@ -110,7 +111,7 @@ export async function listDeleted(userId: string, workspaceId: string): Promise<
       ...partners.map((r) => ({ kind: "partner" as const, where: null, ...r })),
       ...sites.map((r) => ({ kind: "site" as const, ...r })),
       ...siteContacts.map((r) => ({ kind: "site_contact" as const, ...r })),
-      ...attachments.map(({ kind, ...r }) => ({ kind: kind === "report" ? ("report" as const) : ("attachment" as const), ...r })),
+      ...attachments.map(({ kind, ...r }) => ({ kind: kind === REPORT_KIND ? ("report" as const) : ("attachment" as const), ...r })),
       ...visits.map(({ notes, visitedOn, ...r }) => ({ kind: "visit" as const, name: visitName(notes, visitedOn), ...r })),
     ].map((item) => ({ ...item, deletedAt: item.deletedAt! }));
     return items.sort((a, b) => b.deletedAt.getTime() - a.deletedAt.getTime() || a.name.localeCompare(b.name));
