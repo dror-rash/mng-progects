@@ -83,3 +83,4 @@ Technicians record measurements on forms that admins define (owner decision 9). 
 - Required forms per project or per site.
 - 2026-11-05 – Owner confirmed the recommended answers: five field types (Photo after the POC); a published form is archived and rebuilt rather than edited until after the POC.
 - 2026-11-05 – Started in lane 1 (`feat/form-templates`).
+- 2026-11-05 – Red: `@wip` removed, steps in `e2e/steps/form-templates.steps.ts` (forms built through the pages only; tampered posts copy the target form's hidden fields onto a "Decoy" draft in a workspace of my own, so the form id must be a hidden input, not a bound argument; field labels are the row headers of a table in the "Fields" region). All 7 scenarios fail on the missing pages (no "Reading forms" link; `/dashboard/forms/new` 404). "the auditor sees no {string} button" now waits for any page heading, not the Deleted items table.
