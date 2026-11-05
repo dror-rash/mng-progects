@@ -38,11 +38,13 @@ check "a preview runs as dashboard-preview"                sh -c "grep -q -- '--
 check "a preview is a tagged no-traffic revision"          sh -c "grep -q -- '--no-traffic --tag pr-7' '$TMP/log'"
 check "a preview deploys the image by digest"              sh -c "grep -q -- '--image $DIGEST' '$TMP/log'"
 check "a preview gets the preview bucket"                  sh -c "grep -q 'STORAGE_BUCKET=demo-files-preview' '$TMP/log'"
+check "a preview runs a pool of 2 per instance"            sh -c "grep -Eq '[ ,]DB_POOL_MAX=2(,| |$)' '$TMP/log'"
 
 run false deploy-service.sh shell "${DIGEST/dashboard/shell}" >/dev/null 2>&1
 check "main deploys to shell"                              sh -c "grep -q '^run deploy shell ' '$TMP/log'"
 check "main takes BETTER_AUTH_URL from the main shell"     sh -c "grep -q 'BETTER_AUTH_URL=https://shell-123.me-west1.run.app' '$TMP/log'"
 check "main isn't tagged"                                  sh -c "! grep -q -- '--tag' '$TMP/log'"
+check "main runs a pool of 4 per instance"                 sh -c "grep -Eq '[ ,]DB_POOL_MAX=4(,| |$)' '$TMP/log'"
 
 : > "$TMP/log"
 check "refuses an image without a digest"                  sh -c "! PATH='$TMP/bin:$PATH' GCLOUD_LOG='$TMP/log' PROJECT=demo REGION=me-west1 CLOUDSQL_CONNECTION=x IS_PR=false bash '$DIR/deploy-service.sh' shell me-west1-docker.pkg.dev/demo/images/shell:abc"
