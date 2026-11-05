@@ -1,6 +1,6 @@
 # Task 061: Readings (online): fill a reading form on a visit
 
-- **Status:** todo
+- **Status:** in-progress
 - **Milestone:** M13 Sites & Field Data (POC lane: 057 → 060 → 061 → 064)
 - **Zone / package:** `packages/db`, `apps/dashboard`, `e2e`, `infra/scripts/rls-pins.mjs`
 - **Feature file:** `docs/features/readings.feature`
@@ -73,6 +73,7 @@ Technicians record what they measure on site on the forms admins published, so e
 - 2026-11-05 – Drafted with the feature file (scenarios `@wip`).
 - 2026-11-05 – Owner confirmed the recommended answer: readings are append-only for the POC (delete after it, editing later).
 - 2026-11-05 – Checked against task 060 as merged (PR #48): depends on nothing open; migration 0038; the insert needs the version of a form that is Published now (published by `form_template_publish`; `can_see_form_version` is not the check); field types from `field-type.ts`; readings pages never link to `/forms`; scenario forms built through 060's pages, not the database. Ready.
+- 2026-11-05 – Started in lane 1 (`feat/readings`).
 
 ## Parking lot
 - Delete and restore a reading; edit a reading online.
