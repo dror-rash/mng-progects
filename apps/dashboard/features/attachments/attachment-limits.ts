@@ -1,9 +1,10 @@
 /**
- * What may be uploaded (task 059). The limits are *my call* until the owner answers open question 3 (sizes,
- * counts, retention); 20 MB covers phone photos. The server checks them before signing an upload and again
- * on the stored object.
+ * What may be uploaded (task 059): photos and files; reports (task 064) are a project's finished reports, with
+ * the files' limits for now. The limits are *my call* until the owner answers open question 3 (sizes, counts,
+ * retention); 20 MB covers phone photos. The server checks them before signing an upload and again on the
+ * stored object.
  */
-export const ATTACHMENT_KINDS = ["photo", "file"] as const;
+export const ATTACHMENT_KINDS = ["photo", "file", "report"] as const;
 export type AttachmentKind = (typeof ATTACHMENT_KINDS)[number];
 
 export function parseAttachmentKind(value: unknown): AttachmentKind | null {
@@ -25,20 +26,34 @@ const FILE_TYPES = [
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
 ];
 
-const LIMITS: Record<AttachmentKind, { types: string[]; maxBytes: number; typeError: string; sizeError: string }> = {
+const LIMITS: Record<AttachmentKind, { label: string; types: string[]; maxBytes: number; typeError: string; sizeError: string }> = {
   photo: {
+    label: "Add photos",
     types: PHOTO_TYPES,
     maxBytes: 20 * MB,
     typeError: "Photos must be JPEG, PNG, WebP or HEIC images",
     sizeError: "Photos can be up to 20 MB",
   },
   file: {
+    label: "Add files",
     types: FILE_TYPES,
     maxBytes: 50 * MB,
     typeError: "Files must be PDF, Word, Excel, CSV, text or images",
     sizeError: "Files can be up to 50 MB",
   },
+  report: {
+    label: "Upload a report",
+    types: FILE_TYPES,
+    maxBytes: 50 * MB,
+    typeError: "Reports must be PDF, Word, Excel, CSV, text or images",
+    sizeError: "Reports can be up to 50 MB",
+  },
 };
+
+/** The upload button's label for a kind. */
+export function uploadLabel(kind: AttachmentKind): string {
+  return LIMITS[kind].label;
+}
 
 /** The accept attribute for a kind's file picker. */
 export function acceptFor(kind: AttachmentKind): string {

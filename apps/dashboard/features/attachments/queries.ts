@@ -1,7 +1,7 @@
-import { and, desc, eq, getDb, isNotNull, isNull, or, schema, sql, withAccess } from "@repo/db";
+import { and, desc, eq, getDb, inArray, isNotNull, isNull, or, schema, sql, withAccess } from "@repo/db";
 
-// Photos and files (task 059). Row-level security shows a project's confirmed attachments to whoever sees
-// the project; these filter deleted ones. Callers check the project first.
+// Photos and files (task 059) and reports (task 064). Row-level security shows a project's confirmed
+// attachments to whoever sees the project; these filter deleted ones. Callers check the project first.
 
 const uploader = schema.user;
 
@@ -30,9 +30,36 @@ export async function listProjectAttachments(userId: string, projectId: string) 
       .where(
         and(
           eq(schema.attachment.projectId, projectId),
+          inArray(schema.attachment.kind, ["photo", "file"]),
           isNotNull(schema.attachment.confirmedAt),
           isNull(schema.attachment.deletedAt),
           visitNotDeleted,
+        ),
+      )
+      .orderBy(desc(schema.attachment.createdAt), desc(schema.attachment.id)),
+  );
+}
+
+/** The project's reports (confirmed, not deleted), newest first, with who uploaded each and when. */
+export async function listProjectReports(userId: string, projectId: string) {
+  return withAccess(userId, async () =>
+    getDb()
+      .select({
+        id: schema.attachment.id,
+        fileName: schema.attachment.fileName,
+        sizeBytes: schema.attachment.sizeBytes,
+        uploaderName: uploader.name,
+        uploadedAt: schema.attachment.createdAt,
+        canDelete: sql<boolean>`can_change_attachment(${userId}, ${schema.attachment.id})`,
+      })
+      .from(schema.attachment)
+      .leftJoin(uploader, eq(uploader.id, schema.attachment.uploadedBy))
+      .where(
+        and(
+          eq(schema.attachment.projectId, projectId),
+          eq(schema.attachment.kind, "report"),
+          isNotNull(schema.attachment.confirmedAt),
+          isNull(schema.attachment.deletedAt),
         ),
       )
       .orderBy(desc(schema.attachment.createdAt), desc(schema.attachment.id)),

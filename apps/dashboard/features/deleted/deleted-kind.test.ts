@@ -4,7 +4,7 @@ import { DELETED_KINDS, deletedKindLabel, parseDeletedKind } from "./deleted-kin
 
 describe("parseDeletedKind", () => {
   it("accepts every kind that can be deleted and restored", () => {
-    for (const kind of ["project", "task", "customer", "contact", "note", "partner", "site", "site_contact"]) {
+    for (const kind of ["project", "task", "customer", "contact", "note", "partner", "site", "site_contact", "visit", "attachment", "report"]) {
       expect(parseDeletedKind(kind)).toBe(kind);
     }
   });
@@ -25,6 +25,7 @@ describe("deletedKindLabel", () => {
     expect(deletedKindLabel("note")).toBe("Note");
     expect(deletedKindLabel("partner")).toBe("Partner");
     expect(deletedKindLabel("site_contact")).toBe("Site contact");
+    expect(deletedKindLabel("report")).toBe("Report");
   });
 });
 
@@ -41,6 +42,7 @@ describe("DELETED_KINDS", () => {
       "site_contact:Site contact",
       "visit:Visit",
       "attachment:Photo or file",
+      "report:Report",
     ]);
   });
 });

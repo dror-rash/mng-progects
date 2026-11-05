@@ -7,7 +7,8 @@ import { isAdmin } from "@/features/access/require-change";
 import { deleteAttachmentAction } from "@/features/attachments/actions";
 import { AttachmentUploader } from "@/features/attachments/attachment-uploader";
 import { AttachmentsSection } from "@/features/attachments/attachments-section";
-import { listProjectAttachments } from "@/features/attachments/queries";
+import { listProjectAttachments, listProjectReports } from "@/features/attachments/queries";
+import { ReportsSection } from "@/features/attachments/reports-section";
 import { removeCrewMemberAction } from "@/features/crews/actions";
 import { AddToCrewForm } from "@/features/crews/add-to-crew-form";
 import { CrewSection } from "@/features/crews/crew-section";
@@ -44,7 +45,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ projec
 
   // The customer is a link only for those who can open customer pages; partners see its name only. The
   // project it was copied from shows only to those who can see that one too (rule 4a).
-  const [tasks, customerPage, copiedFrom, site, crew, manageCrew, visits, attachments] = await Promise.all([
+  const [tasks, customerPage, copiedFrom, site, crew, manageCrew, visits, attachments, reports] = await Promise.all([
     listProjectTasks(session.user.id, project.id),
     project.customerName ? getOrganizationForUser(session.user.id, project.organizationId, "customer") : null,
     project.copiedFromId ? getProjectForUser(session.user.id, project.copiedFromId) : null,
@@ -53,6 +54,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ projec
     isAdmin(session.user.id, project.workspaceId),
     listProjectVisits(session.user.id, project.id),
     listProjectAttachments(session.user.id, project.id),
+    listProjectReports(session.user.id, project.id),
   ]);
   // Admins put the workspace's workers on the crew (task 056).
   const crewChoices = manageCrew ? await listCrewChoices(session.user.id, project) : [];
@@ -140,6 +142,13 @@ export default async function ProjectPage({ params }: { params: Promise<{ projec
           items={attachments}
           showVisits
           uploader={project.canWork ? <AttachmentUploader visitId={null} /> : undefined}
+          deleteAction={project.canWork ? deleteAttachmentAction : undefined}
+        />
+
+        <ReportsSection
+          projectId={project.id}
+          reports={reports}
+          uploader={project.canWork ? <AttachmentUploader visitId={null} kinds={["report"]} /> : undefined}
           deleteAction={project.canWork ? deleteAttachmentAction : undefined}
         />
 

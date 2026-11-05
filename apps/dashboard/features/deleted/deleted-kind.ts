@@ -13,6 +13,7 @@ export const DELETED_KINDS = [
   { kind: "site_contact", label: "Site contact" },
   { kind: "visit", label: "Visit" },
   { kind: "attachment", label: "Photo or file" },
+  { kind: "report", label: "Report" },
 ] as const;
 
 export type DeletedKind = (typeof DELETED_KINDS)[number]["kind"];

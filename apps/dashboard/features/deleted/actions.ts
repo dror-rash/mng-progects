@@ -1,6 +1,6 @@
 "use server";
 
-import { alias, and, eq, getDb, isNotNull, schema, sql, withAccess } from "@repo/db";
+import { alias, and, eq, getDb, isNotNull, ne, schema, sql, withAccess } from "@repo/db";
 import { revalidatePath } from "next/cache";
 
 import { hasWorkspaceRole } from "@/features/access/predicates";
@@ -127,14 +127,22 @@ async function restore(userId: string, kind: DeletedKind, id: string): Promise<s
       await db.update(visit).set(restored).where(eq(visit.id, id));
       return null;
     }
-    case "attachment": {
-      // A photo or file comes back only on a project (and visit) that isn't deleted (task 059).
+    case "attachment":
+    case "report": {
+      // A photo, file (task 059) or report (task 064) comes back only on a project (and visit) that isn't deleted.
       const [row] = await db
         .select({ projectDeletedAt: project.deletedAt, visitDeletedAt: visit.deletedAt })
         .from(attachment)
         .innerJoin(project, eq(project.id, attachment.projectId))
         .leftJoin(visit, eq(visit.id, attachment.visitId))
-        .where(and(eq(attachment.id, id), isNotNull(attachment.deletedAt), admin(project.workspaceId)));
+        .where(
+          and(
+            eq(attachment.id, id),
+            kind === "report" ? eq(attachment.kind, "report") : ne(attachment.kind, "report"),
+            isNotNull(attachment.deletedAt),
+            admin(project.workspaceId),
+          ),
+        );
       if (!row) throw new Error(NOT_FOUND);
       if (row.projectDeletedAt) return "Restore its project first";
       if (row.visitDeletedAt) return "Restore its visit first";

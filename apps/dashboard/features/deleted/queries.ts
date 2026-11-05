@@ -93,9 +93,9 @@ export async function listDeleted(userId: string, workspaceId: string): Promise<
       .leftJoin(user, eq(user.id, visit.deletedBy))
       .where(and(eq(project.workspaceId, workspaceId), isNotNull(visit.deletedAt), seesDeleted(project.workspaceId)));
 
-    // Photos and files (task 059): where = their project, named by their file name.
+    // Photos and files (task 059) and reports (task 064): where = their project, named by their file name.
     const attachments = await db
-      .select({ id: attachment.id, name: attachment.fileName, where: project.name, deletedAt: attachment.deletedAt, ...deletedBy })
+      .select({ id: attachment.id, kind: attachment.kind, name: attachment.fileName, where: project.name, deletedAt: attachment.deletedAt, ...deletedBy })
       .from(attachment)
       .innerJoin(project, eq(project.id, attachment.projectId))
       .leftJoin(user, eq(user.id, attachment.deletedBy))
@@ -110,7 +110,7 @@ export async function listDeleted(userId: string, workspaceId: string): Promise<
       ...partners.map((r) => ({ kind: "partner" as const, where: null, ...r })),
       ...sites.map((r) => ({ kind: "site" as const, ...r })),
       ...siteContacts.map((r) => ({ kind: "site_contact" as const, ...r })),
-      ...attachments.map((r) => ({ kind: "attachment" as const, ...r })),
+      ...attachments.map(({ kind, ...r }) => ({ kind: kind === "report" ? ("report" as const) : ("attachment" as const), ...r })),
       ...visits.map(({ notes, visitedOn, ...r }) => ({ kind: "visit" as const, name: visitName(notes, visitedOn), ...r })),
     ].map((item) => ({ ...item, deletedAt: item.deletedAt! }));
     return items.sort((a, b) => b.deletedAt.getTime() - a.deletedAt.getTime() || a.name.localeCompare(b.name));
