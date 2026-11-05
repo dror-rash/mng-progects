@@ -42,6 +42,7 @@ Rules:
 - Cookie settings (`useSecureCookies`) must match in all zones.
 - Better Auth rate-limits sign-up/sign-in in production builds. Only the Playwright test servers set `AUTH_DISABLE_RATE_LIMIT=true` (in `e2e/playwright.config.ts`); never set it in a deployed environment.
 - Schema changes: edit `packages/db/src/schema.ts` → `pnpm db:generate` → commit the migration. CI/CD applies migrations before deploy.
+- A migration that adds or changes a function, view, policy, trigger, table owner or RLS setting must update `infra/scripts/rls-pins.mjs` in the same PR (task 068): run `pnpm test:infra`, or print the new hashes with `node --experimental-strip-types infra/scripts/rls-pins.mjs --print` against a migrated database. CI's e2e job fails otherwise, and so would the deploy.
 
 ## Authorization (ADR-0005, ADR-0006)
 - Workspaces own projects and customers; tasks, contacts and notes inherit through their parent. Each membership (`workspace_member`) has a role: `admin` (everything), `auditor` (sees everything, changes nothing) or `partner` (with `partner_id`: only their partner's projects for customers assigned to it, and those customers' names).
@@ -58,16 +59,20 @@ Rules:
 - Invite links store only a SHA-256 hash of the token, expire after 7 days and can be revoked. Opening `/dashboard/invite/<token>` moves the token into a short-lived httpOnly cookie scoped to `/dashboard/invite` and redirects to `/dashboard/invite`, so the token never reaches a login `next=`, the address bar, a `Referer` (`Referrer-Policy: no-referrer`) or the request log. Joining reads the cookie and clears it.
 
 ## Environments
-`local` → `preview` (per PR) → `staging` → `production`. Playwright runs against `preview`.
+`local` → `preview` (per PR; the same GCP project and Cloud SQL instance, with its own deployer, Cloud Run services, image repository, runtime identities, database, database logins, auth secret and bucket) → `production` (`main`). No staging for the POC. Playwright runs the `@smoke` scenarios against `preview`; the full suite runs in CI against local servers. Names per environment: `infra/scripts/environment.sh` (Terraform's `local.environments` carries the same ones).
 
 ## Infrastructure (GCP)
-Cloud Run per zone (own runtime service account) · Cloud SQL Postgres · Artifact Registry · Secret Manager · Terraform in `infra/` (state in GCS) · GitHub → GCP auth via Workload Identity Federation (no keys). Setup steps: `infra/README.md`.
+Cloud Run: six services, one per zone and environment (`shell`, `example-zone`, `dashboard` for main; `shell-preview`, `example-zone-preview`, `dashboard-preview` for PRs), each with its runtime service account (`<zone>-runtime`, `<zone>-preview`) · Cloud SQL Postgres (databases `app` and `app_preview`) · Artifact Registry, two repositories (`images`, `images-preview`), each keeping the 10 newest versions of each zone's image and deleting any other version after 30 days · Secret Manager (main: `db-password`, `better-auth-secret`; previews: `db-preview-owner-password`, `db-preview-password`, `better-auth-secret-preview`) · GCS files buckets `<project>-files` and `<project>-files-preview` (objects deleted after 14 days), with signed URLs from the dashboard's identities only · a log exclusion for `/dashboard/invite/<token>` requests · Terraform in `infra/` (state in GCS) · GitHub → GCP auth via Workload Identity Federation (no keys; this repository only, by name and id). Setup and details: `infra/README.md`.
 
 ## Deployment
 - One `Dockerfile` for all zones (`--build-arg APP=<zone>`), using `turbo prune` and Next.js standalone output.
-- `deploy.yml`: build/push `example-zone` → deploy → resolve its URL → build/push `shell` with `EXAMPLE_ZONE_URL` → deploy.
-- PRs get tagged no-traffic revisions (`pr-<N>`); Playwright runs against the preview shell URL. `main` deploys with traffic.
-- Rewrites are baked in at build time, so any change to a zone's URL requires rebuilding the shell.
+- Two deployers: `deployer-main`, usable only by a push to `main`, and `deployer-preview`, used by PR runs. Each has the custom role `runDeployer` (the deploy and tag permissions of `run.developer`, without SSH into instances) on its own environment's services only, pushes only to its own repository and acts only as its own runtime identities. `deployer-preview` reads the two preview database passwords; `deployer-main` reads `db-password` and, because it provisions the preview logins, the two preview passwords. Neither reads an auth secret.
+- `deploy.yml`, database first, through the Cloud SQL Auth Proxy, migrations under an advisory lock (`with-db-lock.mjs`):
+  - `main`: migrate `app` as the owner login (`app`), then provision the preview logins (`provision-db-logins.mjs`; roles on a connection to `app`, only the schema grant on `app_preview`): `preview_owner` owns `app_preview`'s objects and migrates it; `preview_runtime` is a `SET`-only member of `app_user`. Neither can connect to `app`.
+  - PRs: verify the preview logins (read-only), then migrate `app_preview` as `preview_owner`. A preview never connects to `app` or uses the owner login, so one `main` deploy must come before the first preview.
+  - Then the runtime role check as the environment's runtime login (`check-runtime-role.mjs`) fails the deploy unless row-level security really applies.
+- Then build and deploy `example-zone` and `dashboard` to the environment's services, resolve their URLs (tagged `pr-<N>` URLs of the `-preview` services on PRs), and build the `shell` with `EXAMPLE_ZONE_URL` and `DASHBOARD_ZONE_URL`. Rewrites are baked in at build time, so any change to a zone's URL requires rebuilding the shell. Every deploy pins the digest its build pushed, never a tag.
+- PRs get no-traffic `pr-<N>` revisions of the `-preview` services with the preview identity, logins, secrets and bucket; Playwright runs the `@smoke` scenarios against the preview shell URL (one worker, no traces, no uploaded report: the repo is public). `preview-cleanup.yml` removes the tags when the PR closes. `main` deploys to its services with traffic and main's identity, login, secrets and bucket.
 
 ## Decisions
 See `docs/adr/`. Index:

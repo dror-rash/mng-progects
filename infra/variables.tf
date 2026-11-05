@@ -4,9 +4,14 @@ variable "project_id" {
 }
 
 variable "region" {
-  description = "Region for Cloud Run and Artifact Registry. Pick one close to your users."
+  description = "Region for Cloud Run, Artifact Registry, Cloud SQL and the file buckets (this project: me-west1). Required, so a missing tfvars line can't create everything somewhere else."
   type        = string
-  default     = "us-central1"
+}
+
+variable "github_repository_id" {
+  description = "Numeric id of the GitHub repo (gh api repos/<owner>/<name> --jq .id). Workload Identity checks it with the name."
+  type        = string
+  default     = "1424672458" # dror-rash/mng-projects
 }
 
 variable "github_repository" {
@@ -17,13 +22,24 @@ variable "github_repository" {
 variable "zones" {
   description = "Zone names. Each becomes a Cloud Run service named after it (must match apps/<name>)."
   type        = set(string)
-  default     = ["shell", "example-zone"]
+  default     = ["shell", "example-zone", "dashboard"]
+
+  validation {
+    condition     = contains(var.zones, "shell") && contains(var.zones, "dashboard")
+    error_message = "zones must include \"shell\" (the public origin) and \"dashboard\" (it owns the file buckets)."
+  }
 }
 
 variable "min_instances" {
   description = "Minimum Cloud Run instances per zone. 0 = scale to zero (cheapest, has cold starts)."
   type        = number
   default     = 0
+}
+
+variable "preview_max_instances" {
+  description = "Maximum Cloud Run instances per revision of a preview service (each open PR's tagged revision can scale to this; provider 6.50 has no service-wide maximum). preview_runtime's CONNECTION LIMIT bounds the total (provision-db-logins.mjs)."
+  type        = number
+  default     = 1
 }
 
 variable "max_instances" {

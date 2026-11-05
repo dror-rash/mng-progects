@@ -4,6 +4,7 @@ Feature: Authentication
   I want to create an account and log in once
   So that every part of the product knows who I am
 
+  @smoke
   Scenario: Visitor creates an account
     Given I am on the sign up page
     When I sign up with a new account

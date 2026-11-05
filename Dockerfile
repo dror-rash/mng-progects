@@ -1,6 +1,7 @@
 # One Dockerfile for every zone:
-#   docker build --build-arg APP=shell --build-arg EXAMPLE_ZONE_URL=https://... -t shell .
+#   docker build --build-arg APP=shell --build-arg EXAMPLE_ZONE_URL=https://... --build-arg DASHBOARD_ZONE_URL=https://... -t shell .
 #   docker build --build-arg APP=example-zone -t example-zone .
+#   docker build --build-arg APP=dashboard -t dashboard .
 FROM node:22-alpine AS base
 RUN corepack enable
 WORKDIR /app
@@ -14,8 +15,11 @@ RUN pnpm dlx turbo@^2 prune @repo/${APP} --docker
 # 2) Install (cached unless lockfile/package.json change) and build
 FROM base AS builder
 ARG APP
+# The shell's rewrites to the other zones are fixed at build time (apps/shell/next.config.ts).
 ARG EXAMPLE_ZONE_URL
+ARG DASHBOARD_ZONE_URL
 ENV EXAMPLE_ZONE_URL=${EXAMPLE_ZONE_URL} \
+    DASHBOARD_ZONE_URL=${DASHBOARD_ZONE_URL} \
     NEXT_TELEMETRY_DISABLED=1 \
     TURBO_TELEMETRY_DISABLED=1
 COPY --from=pruner /app/out/json/ .

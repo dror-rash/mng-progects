@@ -18,7 +18,6 @@ concurrency:
 env:
   PROJECT: ${{ vars.GCP_PROJECT_ID }}
   REGION: ${{ vars.GCP_REGION }}
-  REGISTRY: ${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/app
   CLOUDSQL_CONNECTION: ${{ vars.GCP_CLOUDSQL_CONNECTION }}
   APP_URL: ${{ vars.APP_URL }}
   IS_PR: ${{ github.event_name == 'pull_request' }}
@@ -29,56 +28,121 @@ jobs:
     # Fork PRs can't get OIDC tokens; skip them.
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
+    # Also bounds the wait for another PR's migration (with-db-lock.mjs).
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
 
+      # Each environment has its own deployer; Workload Identity only lets a push to main use deployer-main
+      # and a pull_request run use deployer-preview (infra/main.tf, attribute.deploy_target).
       - uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
-          service_account: ${{ vars.GCP_DEPLOYER_SA }}
+          service_account: ${{ github.event_name == 'pull_request' && vars.GCP_DEPLOYER_SA_PREVIEW || vars.GCP_DEPLOYER_SA_MAIN }}
       - uses: google-github-actions/setup-gcloud@v2
       - run: gcloud auth configure-docker "${REGION}-docker.pkg.dev" --quiet
       - uses: docker/setup-buildx-action@v3
 
-      # 0) Database migrations (previews migrate app_preview, main migrates app)
+      # Names per environment (services, image repository, database, logins, secrets) come from
+      # infra/scripts/environment.sh only.
+      - name: Environment
+        id: env
+        run: |
+          . infra/scripts/environment.sh
+          echo "registry=${REGION}-docker.pkg.dev/${PROJECT}/${IMAGE_REPOSITORY}" >> "$GITHUB_OUTPUT"
+
+      # 0) Database. main: migrate `app` as its owner, then provision the preview logins. Previews never touch
+      #    `app` or its owner login: verify the preview logins, migrate `app_preview` as preview_owner. Both:
+      #    the runtime role check as the environment's runtime login.
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile --filter @repo/db... --filter @repo/e2e...
-      - name: Migrate database
+      - name: Migrate and check the database
         run: |
+          . infra/scripts/environment.sh
           curl -fsSL -o cloud-sql-proxy \
             https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy/v2.14.1/cloud-sql-proxy.linux.amd64
           chmod +x cloud-sql-proxy
           ./cloud-sql-proxy --port 5432 "$CLOUDSQL_CONNECTION" > proxy.log 2>&1 &
           for i in $(seq 1 20); do (echo > /dev/tcp/127.0.0.1/5432) 2>/dev/null && break; sleep 1; done
 
-          DB_PASSWORD="$(gcloud secrets versions access latest --secret=db-password)"
-          echo "::add-mask::$DB_PASSWORD"
-          if [ "$IS_PR" = "true" ]; then DB_NAME=app_preview; else DB_NAME=app; fi
-          DATABASE_URL="postgres://app:${DB_PASSWORD}@127.0.0.1:5432/${DB_NAME}" pnpm db:migrate
+          secret() { gcloud secrets versions access latest --secret="$1"; }
+          mask() { echo "::add-mask::$1"; }
+          db_url() { echo "postgres://$1:$2@127.0.0.1:5432/$3"; }  # login, password, database
+          run_node() { node --experimental-strip-types --no-warnings "$@"; }
+          MIGRATE_PASSWORD="$(secret "$DB_MIGRATE_PASSWORD_SECRET")"; mask "$MIGRATE_PASSWORD"
+          RUNTIME_PASSWORD="$(secret "$DB_PASSWORD_SECRET")"; mask "$RUNTIME_PASSWORD"
+          MIGRATE_URL="$(db_url "$DB_MIGRATE_LOGIN" "$MIGRATE_PASSWORD" "$DB_NAME")"
+
+          if [ "$DEPLOY_ENV" = "main" ]; then
+            # Under a lock: two deploys never migrate one database at once.
+            DATABASE_URL="$MIGRATE_URL" run_node infra/scripts/with-db-lock.mjs "migrate-$DB_NAME" -- pnpm db:migrate
+            # The preview logins and database grants (idempotent): roles and database grants on a connection to
+            # `app` (PR code can't write there), the schema grant and the migration lock on `app_preview`.
+            PREVIEW_OWNER_PASSWORD="$(secret "$PREVIEW_OWNER_PASSWORD_SECRET")"; mask "$PREVIEW_OWNER_PASSWORD"
+            PREVIEW_RUNTIME_PASSWORD="$(secret "$PREVIEW_RUNTIME_PASSWORD_SECRET")"; mask "$PREVIEW_RUNTIME_PASSWORD"
+            MAIN_DATABASE_URL="$MIGRATE_URL" \
+            DATABASE_URL="$(db_url "$MAIN_OWNER_LOGIN" "$MIGRATE_PASSWORD" "$PREVIEW_DB_NAME")" \
+            PREVIEW_OWNER_PASSWORD="$PREVIEW_OWNER_PASSWORD" PREVIEW_RUNTIME_PASSWORD="$PREVIEW_RUNTIME_PASSWORD" \
+              run_node infra/scripts/provision-db-logins.mjs
+          else
+            # Read-only: fails until a main deploy has provisioned the preview logins.
+            DATABASE_URL="$MIGRATE_URL" run_node infra/scripts/provision-db-logins.mjs --verify-only
+            DATABASE_URL="$MIGRATE_URL" run_node infra/scripts/with-db-lock.mjs "migrate-$DB_NAME" -- pnpm db:migrate
+          fi
+          # As the environment's runtime login with `-c role=app_user`: fails the deploy unless row-level
+          # security really applies (ADR-0006: it isn't forced).
+          DATABASE_URL="$(db_url "$DB_LOGIN" "$RUNTIME_PASSWORD" "$DB_NAME")" run_node infra/scripts/check-runtime-role.mjs
           kill %1 || true
 
-      # 1) example-zone first: the shell needs its URL at build time
+      # 1) example-zone and dashboard first: the shell needs their URLs at build time. Each deploy pins the
+      #    digest its build pushed (a tag could be moved in between). PRs deploy to the <zone>-preview services.
       - name: Build & push example-zone
+        id: build_example
         uses: docker/build-push-action@v6
         with:
           context: .
           push: true
           build-args: APP=example-zone
-          tags: ${{ env.REGISTRY }}/example-zone:${{ github.sha }}
+          tags: ${{ steps.env.outputs.registry }}/example-zone:${{ github.sha }}
           cache-from: type=gha,scope=example-zone
           cache-to: type=gha,scope=example-zone,mode=max
       - name: Deploy example-zone
-        run: infra/scripts/deploy-service.sh example-zone "$REGISTRY/example-zone:${{ github.sha }}"
+        run: infra/scripts/deploy-service.sh example-zone "${{ steps.env.outputs.registry }}/example-zone@${{ steps.build_example.outputs.digest }}"
       - name: Resolve example-zone URL
         id: example
         run: echo "url=$(infra/scripts/service-url.sh example-zone)" >> "$GITHUB_OUTPUT"
 
-      # 2) shell, pointed at that example-zone revision
+      - name: Build & push dashboard
+        id: build_dashboard
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          build-args: APP=dashboard
+          tags: ${{ steps.env.outputs.registry }}/dashboard:${{ github.sha }}
+          cache-from: type=gha,scope=dashboard
+          cache-to: type=gha,scope=dashboard,mode=max
+      - name: Deploy dashboard
+        run: infra/scripts/deploy-service.sh dashboard "${{ steps.env.outputs.registry }}/dashboard@${{ steps.build_dashboard.outputs.digest }}"
+      - name: Resolve dashboard URL
+        id: dashboard
+        run: echo "url=$(infra/scripts/service-url.sh dashboard)" >> "$GITHUB_OUTPUT"
+
+      # 2) shell, pointed at those revisions (tagged pr-<N> URLs on PRs)
+      - name: Check zone URLs
+        env:
+          EXAMPLE_URL: ${{ steps.example.outputs.url }}
+          DASHBOARD_URL: ${{ steps.dashboard.outputs.url }}
+        run: |
+          for url in "$EXAMPLE_URL" "$DASHBOARD_URL"; do
+            case "$url" in https://?*) ;; *) echo "::error::A zone URL is missing (got '$url')"; exit 1 ;; esac
+          done
       - name: Build & push shell
+        id: build_shell
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -86,32 +150,38 @@ jobs:
           build-args: |
             APP=shell
             EXAMPLE_ZONE_URL=${{ steps.example.outputs.url }}
-          tags: ${{ env.REGISTRY }}/shell:${{ github.sha }}
+            DASHBOARD_ZONE_URL=${{ steps.dashboard.outputs.url }}
+          tags: ${{ steps.env.outputs.registry }}/shell:${{ github.sha }}
           cache-from: type=gha,scope=shell
           cache-to: type=gha,scope=shell,mode=max
       - name: Deploy shell
-        run: infra/scripts/deploy-service.sh shell "$REGISTRY/shell:${{ github.sha }}"
+        run: infra/scripts/deploy-service.sh shell "${{ steps.env.outputs.registry }}/shell@${{ steps.build_shell.outputs.digest }}"
       - name: Resolve shell URL
         id: shell
         run: echo "url=$(infra/scripts/service-url.sh shell)" >> "$GITHUB_OUTPUT"
+      # An empty BASE_URL would make Playwright start local servers instead of testing the preview.
+      - name: Check shell URL
+        env:
+          SHELL_URL: ${{ steps.shell.outputs.url }}
+        run: |
+          case "$SHELL_URL" in https://?*) ;; *) echo "::error::The shell URL is missing (got '$SHELL_URL')"; exit 1 ;; esac
 
-      # 3) Acceptance tests against the deployed preview
+      # 3) Acceptance tests against the deployed preview: the @smoke set only. The full suite needs
+      #    AUTH_DISABLE_RATE_LIMIT, which a deployment never sets (rule 13). One worker: the set signs up and
+      #    logs in from one runner IP, against production rate limits. The report and traces stay on the
+      #    runner: the repository is public, and failed traces hold the throwaway accounts' passwords and
+      #    cookies.
       - if: env.IS_PR == 'true'
         run: pnpm exec playwright install --with-deps chromium
         working-directory: e2e
         timeout-minutes: 10
-      - name: Run Playwright against preview
+      - name: Run Playwright @smoke against preview
         if: env.IS_PR == 'true'
-        run: pnpm test:e2e
+        working-directory: e2e
+        run: pnpm exec bddgen && pnpm exec playwright test --workers=1 --trace=off
         env:
           BASE_URL: ${{ steps.shell.outputs.url }}
-      - if: ${{ env.IS_PR == 'true' && !cancelled() }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: preview-playwright-report
-          path: e2e/playwright-report
-          retention-days: 7
-
+          E2E_TAGS: "@smoke"
       - name: Comment preview URL
         if: env.IS_PR == 'true'
         env:

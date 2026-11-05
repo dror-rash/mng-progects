@@ -7,6 +7,7 @@ Feature: Customers
   Background:
     Given I am signed in with an existing account
 
+  @smoke
   Scenario: Create a customer with its details
     When I open "/dashboard/customers"
     And I follow the "New customer" link
