@@ -19,6 +19,8 @@ import { getOrganizationForUser } from "@/features/organizations/queries";
 import { setProjectLifecycleAction } from "@/features/projects/actions";
 import { isCanceled, projectLifecycleLabel } from "@/features/projects/project-lifecycle";
 import { getProjectForUser } from "@/features/projects/queries";
+import { listProjectReadings } from "@/features/readings/queries";
+import { ReadingsSection } from "@/features/readings/readings-section";
 import { mapsLink } from "@/features/sites/maps-link";
 import { ProjectSiteSection } from "@/features/sites/project-site-section";
 import { getSiteForUser, listSiteContacts } from "@/features/sites/queries";
@@ -45,7 +47,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ projec
 
   // The customer is a link only for those who can open customer pages; partners see its name only. The
   // project it was copied from shows only to those who can see that one too (rule 4a).
-  const [tasks, customerPage, copiedFrom, site, crew, manageCrew, visits, attachments, reports] = await Promise.all([
+  const [tasks, customerPage, copiedFrom, site, crew, manageCrew, visits, readings, attachments, reports] = await Promise.all([
     listProjectTasks(session.user.id, project.id),
     project.customerName ? getOrganizationForUser(session.user.id, project.organizationId, "customer") : null,
     project.copiedFromId ? getProjectForUser(session.user.id, project.copiedFromId) : null,
@@ -53,6 +55,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ projec
     listCrew(session.user.id, project.id),
     isAdmin(session.user.id, project.workspaceId),
     listProjectVisits(session.user.id, project.id),
+    listProjectReadings(session.user.id, project.id),
     listProjectAttachments(session.user.id, project.id),
     listProjectReports(session.user.id, project.id),
   ]);
@@ -136,6 +139,8 @@ export default async function ProjectPage({ params }: { params: Promise<{ projec
         )}
 
         <VisitsSection projectId={project.id} visits={visits} canRecord={project.canWork} />
+
+        <ReadingsSection projectId={project.id} readings={readings} showVisitDates />
 
         <AttachmentsSection
           projectId={project.id}

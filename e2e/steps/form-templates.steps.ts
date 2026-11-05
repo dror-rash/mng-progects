@@ -1,4 +1,5 @@
 import { expect, type Page } from "@playwright/test";
+import type { DataTable } from "playwright-bdd";
 
 import { Given, type ScenarioState, signUp, Then, When } from "./fixtures";
 import { idOf, ids, pageOf, shownText } from "./partner-access.steps";
@@ -24,10 +25,16 @@ async function createForm(page: Page, name: string) {
   return new URL(page.url()).pathname.split("/").pop()!;
 }
 
+/** A field's settings beyond its label and type (task 061): a unit, a choice's options, Required. */
+type FieldSettings = { unit?: string; options?: string[]; required?: boolean };
+
 /** Adds a field to the draft form the page shows. */
-async function addField(page: Page, label: string, type: string) {
+async function addField(page: Page, label: string, type: string, { unit, options, required = false }: FieldSettings = {}) {
   await page.getByLabel("Label", { exact: true }).fill(label);
   await page.getByLabel("Type", { exact: true }).selectOption({ label: type });
+  if (unit) await page.getByLabel("Unit", { exact: true }).fill(unit);
+  if (options) await page.getByLabel("Options", { exact: true }).fill(options.join("\n"));
+  await page.getByLabel("Required", { exact: true }).setChecked(required);
   await pressAndWait(page, "Add field");
   await expect(fieldsOf(page).getByRole("button", { name: `Remove ${label}`, exact: true })).toBeVisible();
 }
@@ -44,7 +51,7 @@ async function hiddenFieldsOf(page: Page, button: string) {
 }
 
 /** Sets the hidden fields of the form with the button `button`; each one must be on that form. */
-async function setHiddenFields(page: Page, button: string, values: Record<string, string>) {
+export async function setHiddenFields(page: Page, button: string, values: Record<string, string>) {
   await page.locator("form", { has: page.getByRole("button", { name: button, exact: true }) }).evaluate((form, fields) => {
     for (const [name, value] of Object.entries(fields)) {
       const input = form.querySelector<HTMLInputElement>(`input[name="${name}"]`);
@@ -54,22 +61,29 @@ async function setHiddenFields(page: Page, button: string, values: Record<string
   }, values);
 }
 
+/** The label of the form's (first) Number field: a reading form's input is labelled by it. */
+export const fieldOf = (state: ScenarioState, name: string) => idOf(state, `${name}:field`);
+
 /**
  * Builds the form `name` with one Number field through the pages, as `page` (an admin of its current
  * workspace), and publishes it unless `draft`. Keeps the hidden fields of its "Add field", "Publish" and
  * "Remove <field>" forms while it is a draft, so later steps can post them from another form.
  */
-async function buildForm(page: Page, state: ScenarioState, name: string, field: string, draft = false) {
+export async function buildForm(page: Page, state: ScenarioState, name: string, field: string, draft = false) {
   ids(state)[name] = await createForm(page, name);
   await addField(page, field, "Number");
+  ids(state)[`${name}:field`] = field;
   state.hiddenFields ??= {};
   for (const button of ["Add field", "Publish", `Remove ${field}`]) {
     state.hiddenFields[`${name}:${button}`] = await hiddenFieldsOf(page, button);
   }
-  if (!draft) {
-    await pressAndWait(page, "Publish");
-    await expect(page.getByRole("button", { name: "Add field", exact: true })).toHaveCount(0);
-  }
+  if (!draft) await publish(page);
+}
+
+/** Publishes the draft form the page shows. */
+async function publish(page: Page) {
+  await pressAndWait(page, "Publish");
+  await expect(page.getByRole("button", { name: "Add field", exact: true })).toHaveCount(0);
 }
 
 /** Opens a form's page and waits for it. */
@@ -94,6 +108,37 @@ Given(
     await buildForm(page, state, name, field);
   },
 );
+
+// Readings (task 061): a form with several fields, one row each (label, type, unit, required "yes"/"no",
+// options comma-separated), published through the pages.
+Given(
+  "I have a published reading form {string} with the fields:",
+  async ({ page, state }, name: string, table: DataTable) => {
+    ids(state)[name] = await createForm(page, name);
+    for (const row of table.hashes()) {
+      await addField(page, row.label!, row.type!, {
+        unit: row.unit || undefined,
+        options: row.options ? lines(row.options) : undefined,
+        required: row.required === "yes",
+      });
+    }
+    // Steps that fill one value fill the first Number field.
+    const number = table.hashes().find((row) => row.type === "Number");
+    if (number) ids(state)[`${name}:field`] = number.label!;
+    await publish(page);
+  },
+);
+
+Given("I have a draft reading form {string} with the field {string}", async ({ page, state }, name: string, field: string) => {
+  await buildForm(page, state, name, field, true);
+});
+
+Given("the form {string} is archived", async ({ page, state }, name: string) => {
+  await openForm(page, state, name);
+  await pressAndWait(page, "Archive");
+  await expect(page.getByRole("button", { name: "Archive", exact: true })).toHaveCount(0);
+  await expect(shownText(page, "Archived")).toBeVisible();
+});
 
 When("I open the form {string}", async ({ page, state }, name: string) => {
   await openForm(page, state, name);

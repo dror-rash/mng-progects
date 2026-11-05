@@ -267,6 +267,20 @@
       "when": 1793859329390,
       "tag": "0037_form_templates",
       "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1793893929766,
+      "tag": "0038_readings",
+      "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1793898788354,
+      "tag": "0039_readings_append_only",
+      "breakpoints": true
     }
   ]
 }

@@ -10,6 +10,8 @@ import { listVisitAttachments } from "@/features/attachments/queries";
 import { AppHeader } from "@/features/layout/app-header";
 import { recordWorkspace } from "@/features/layout/record-workspace";
 import { getProjectForUser } from "@/features/projects/queries";
+import { listVisitReadings } from "@/features/readings/queries";
+import { ReadingsSection } from "@/features/readings/readings-section";
 import { getSiteForUser } from "@/features/sites/queries";
 import { formatDueDate } from "@/features/tasks/due-dates";
 import { deleteVisitAction } from "@/features/visits/actions";
@@ -30,9 +32,10 @@ export default async function VisitPage({ params }: { params: Promise<{ projectI
   if (!project || !visit) {
     notFound();
   }
-  const [site, attachments] = await Promise.all([
+  const [site, attachments, readings] = await Promise.all([
     getSiteForUser(session.user.id, project.siteId),
     listVisitAttachments(session.user.id, project.id, visit.id),
+    listVisitReadings(session.user.id, visit.id),
   ]);
 
   return (
@@ -101,6 +104,12 @@ export default async function VisitPage({ params }: { params: Promise<{ projectI
             )}
           </CardContent>
         </Card>
+        <ReadingsSection
+          projectId={project.id}
+          readings={readings}
+          showVisitDates={false}
+          addHref={project.canWork ? `/projects/${project.id}/visits/${visit.id}/readings/new` : undefined}
+        />
         <AttachmentsSection
           projectId={project.id}
           items={attachments}

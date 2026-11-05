@@ -12,6 +12,7 @@ import {
   foreignKey,
   index,
   integer,
+  jsonb,
   numeric,
   pgTable,
   pgView,
@@ -410,6 +411,37 @@ export const formField = pgTable(
       "form_field_options_check",
       sql`(${table.type} = 'choice') = (${table.options} is not null) and (${table.options} is null or cardinality(${table.options}) >= 2)`,
     ),
+  ],
+);
+
+/**
+ * A reading (task 061, ADR-0008): one filled reading form on one visit, against the form version it was filled
+ * in, so it keeps its fields after the form is archived. `values` is keyed by field id and checked in code
+ * (features/readings/reading-values.ts). The id comes from the browser, so a form sent twice records one
+ * reading. Append-only for now: the delete columns are for later tasks. Access follows the visit (migration 0038).
+ */
+export const formSubmission = pgTable(
+  "form_submission",
+  {
+    id: text("id").primaryKey(),
+    visitId: text("visit_id")
+      .notNull()
+      .references(() => siteVisit.id, { onDelete: "cascade" }),
+    versionId: text("version_id")
+      .notNull()
+      .references(() => formTemplateVersion.id, { onDelete: "cascade" }),
+    values: jsonb("values").$type<Record<string, unknown>>().notNull().default({}),
+    submittedBy: text("submitted_by").references(() => user.id, { onDelete: "set null" }),
+    /** When it was filled in on the device; the server's time for readings saved online. */
+    recordedAt: timestamp("recorded_at").notNull().defaultNow(),
+    submittedAt: timestamp("submitted_at").notNull().defaultNow(),
+    deletedAt: timestamp("deleted_at"),
+    deletedBy: text("deleted_by").references(() => user.id, { onDelete: "set null" }),
+  },
+  (table) => [
+    index("form_submission_visit_idx").on(table.visitId, table.submittedAt),
+    index("form_submission_version_idx").on(table.versionId),
+    check("form_submission_values_check", sql`jsonb_typeof(${table.values}) = 'object'`),
   ],
 );
 
