@@ -5,6 +5,8 @@ import type { ReactNode } from "react";
 
 import { visitName } from "@/features/visits/visit-name";
 
+import { formatSize } from "./format-size";
+
 type Item = {
   id: string;
   kind: string;
@@ -16,12 +18,6 @@ type Item = {
   visitNotes: string | null;
   canDelete: boolean;
 };
-
-function formatSize(bytes: number) {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
 
 /**
  * A project's or a visit's photos and files (task 059): photos as thumbnails, files by name and size, each

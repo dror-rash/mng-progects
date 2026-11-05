@@ -1,6 +1,6 @@
 # Task 064: Uploaded reports on a project
 
-- **Status:** todo
+- **Status:** in-review
 - **Milestone:** M13 Sites & Field Data (POC lane: 057 → 060 → 061 → 064)
 - **Zone / package:** `apps/dashboard`, `e2e` (`packages/db` and `infra/scripts/rls-pins.mjs` only if a migration turns out to be needed, see Scope)
 - **Feature file:** `docs/features/reports.feature`
@@ -32,11 +32,11 @@ The finished report (often written outside the app) belongs with the project, wh
 - Offline uploads (task 063).
 
 ## Acceptance criteria
-- [ ] Upload a report on a project; it shows in Reports (not in Photos and files) and downloads under its name. ("I upload a report and download it from the project")
-- [ ] A wrong type or a file over 50 MB is refused, with nothing left behind. ("A report must be a document, up to 50 MB")
-- [ ] Delete and restore. ("I delete my report, and an admin restores it")
-- [ ] Crew workers upload; auditors read without buttons; only the uploader and admins delete; the project's partner users see it. ("A crew worker uploads a report; the auditor and the partner see it")
-- [ ] Another partner's report address is not found; a tampered upload is refused; a worker doesn't see a non-crew project's report. ("Another partner's report stays hidden, its address included", "A worker doesn't see the report of a project they're not on", "My report uploads are refused for another partner's project")
+- [x] Upload a report on a project; it shows in Reports (not in Photos and files) and downloads under its name. ("I upload a report and download it from the project")
+- [x] A wrong type or a file over 50 MB is refused, with nothing left behind. ("A report must be a document, up to 50 MB")
+- [x] Delete and restore. ("I delete my report, and an admin restores it")
+- [x] Crew workers upload; auditors read without buttons; only the uploader and admins delete; the project's partner users see it. ("A crew worker uploads a report; the auditor and the partner see it")
+- [x] Another partner's report address is not found; a tampered upload is refused; a worker doesn't see a non-crew project's report. ("Another partner's report stays hidden, its address included", "A worker doesn't see the report of a project they're not on", "My report uploads are refused for another partner's project")
 
 ## Approach (brief)
 - Unit tests first: `attachment-limits.test.ts` (the `report` kind, its types, sizes and messages).
@@ -57,9 +57,15 @@ The finished report (often written outside the app) belongs with the project, wh
 
 ## Progress log
 - 2026-11-05 – Drafted with the feature file (scenarios `@wip`).
+- 2026-11-05 – Owner confirmed the recommended answers: task 059's file types and 50 MB limit; whoever can work on the project uploads reports, the uploader and admins delete.
+- 2026-11-05 – Started in lane 2 (`feat/uploaded-reports`).
+- 2026-11-05 – Red: `@wip` removed, steps in `e2e/steps/reports.steps.ts` (helpers shared from `attachments.steps.ts`, `signUp` returns the account). 5 scenarios fail on the missing "Upload a report" input / "Reports" region; the two hidden-address scenarios already pass (the route and policies don't look at the kind), kept as regression guards.
+- 2026-11-05 – Green: `report` in `ATTACHMENT_KINDS` (files' types, 50 MB, report messages, `uploadLabel`), `startUploadAction` refuses a report with a visit, `listProjectReports` + `ReportsSection` (story: reports, empty, read-only) with `AttachmentUploader kinds`, Photos and files lists `photo`/`file` only, Deleted page kind `report` ("Report"). No migration. `@task:064` 7/7, `@task:059` 9/9; full e2e 275/291 with 16 timeouts under load (lane 1 concurrent), all 43 scenarios of those files pass alone; unit 347 (dashboard), lint and typecheck green.
+- 2026-11-05 – Access audit: no leaks; six leak-suite scenarios added to `reports.feature` (`@task:064`, no `@wip`): a worker's or partner's delete posted by id, the auditor's direct upload, a report on a visit, a worker off the crew, a deleted report's address and restore.
+- 2026-11-05 – Review fixes: the first round's unit tests (`attachment-limits`, `deleted-kind`) were run red but landed in the same commit as the code, not as a separate red commit (review finding). Now: `GALLERY_KINDS` / `REPORT_KIND` replace the kind strings in the attachment and Deleted queries and restore; `allowedOnVisit(kind)` (unit tested, red first) holds "a report can't be on a visit"; `formatSize` unit test; the `ReportsSection` story shows a stand-in "Upload a report" button. Unit 352 (dashboard), lint and typecheck green; e2e not rerun cleanly, as another session was running Playwright in this lane at the same time.
+- 2026-11-05 – QA PASS: `@task:064` 13/13 (alone), `@task:059` 9/9, full e2e 275/297 under two-lane load with all 22 failures passing on rerun; unit, lint, typecheck, `test:infra`, build and Storybook build pass. In review.
 
 ## Parking lot
 - Reports on a visit; a report title, date and the visits it covers.
 - PDF-only reports (open question 3).
 - A Reports column or filter on the projects table.
-- 2026-11-05 – Owner confirmed the recommended answers: task 059's file types and 50 MB limit; whoever can work on the project uploads reports, the uploader and admins delete.

@@ -9,9 +9,9 @@ import { cleanText } from "@/features/forms/clean-text";
 import { requireProjectWorkAccess } from "@/features/projects/require-project-access";
 import { getProjectVisit } from "@/features/visits/queries";
 
-import { parseAttachmentKind, uploadRefusal } from "./attachment-limits";
+import { allowedOnVisit, parseAttachmentKind, uploadRefusal } from "./attachment-limits";
 
-// Photos and files (task 059). The browser uploads straight to storage: `startUploadAction` checks access
+// Photos and files (task 059) and reports (task 064). The browser uploads straight to storage: `startUploadAction` checks access
 // and the limits, records the upload (unconfirmed) and signs a URL; the browser sends the file; then
 // `finishUploadAction` checks the stored object and confirms it, or throws it away. Access problems (another
 // partner's project, a made-up id, someone else's upload) throw the same not-found error; the limits come
@@ -40,7 +40,7 @@ export async function startUploadAction(input: {
   const session = await requireActionSession();
   const kind = parseAttachmentKind(input.kind);
   const fileName = cleanText(input.fileName).slice(0, MAX_NAME);
-  if (!kind || !UUID.test(String(input.attachmentId)) || !fileName) {
+  if (!kind || (input.visitId && !allowedOnVisit(kind)) || !UUID.test(String(input.attachmentId)) || !fileName) {
     throw new Error("Not found");
   }
   const key = await withAccess(session.user.id, async (): Promise<{ refusal: string } | { storageKey: string; contentType: string }> => {

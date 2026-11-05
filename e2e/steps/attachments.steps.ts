@@ -24,7 +24,7 @@ const TYPES: Record<string, string> = {
   txt: "text/plain",
 };
 
-function fileOf(name: string, size?: number) {
+export function fileOf(name: string, size?: number) {
   const ext = name.split(".").pop()!;
   const buffer = size ? Buffer.alloc(size, 1) : ext === "jpg" ? JPEG : Buffer.from(`Test file ${name}\n`);
   return { name, mimeType: TYPES[ext] ?? "application/octet-stream", buffer };
@@ -33,7 +33,7 @@ function fileOf(name: string, size?: number) {
 const section = (page: Page) => page.getByRole("region", { name: "Photos and files", exact: true });
 
 /** The upload error under the buttons (Next.js also renders an empty role="alert" announcer). */
-const uploadError = (page: Page) => page.getByRole("alert").filter({ hasText: /\S/ });
+export const uploadError = (page: Page) => page.getByRole("alert").filter({ hasText: /\S/ });
 
 /** Picks the file (or a file on disk) with the hidden input behind the button, then waits for the upload to settle. */
 async function addFile(page: Page, button: string, file: ReturnType<typeof fileOf> | string) {
@@ -84,30 +84,45 @@ Then("the photo {string} opens as an image", async ({ page }, name: string) => {
 });
 
 Then("the file {string} downloads as {string}", async ({ page }, name: string, fileName: string) => {
-  const response = await page.request.get(await hrefOf(page, name), { maxRedirects: 0 });
+  await expectDownloadAs(page, await hrefOf(page, name), fileName);
+});
+
+/** The attachment's address redirects to a signed download of the object, as an attachment named `fileName`. */
+export async function expectDownloadAs(page: Page, href: string, fileName: string) {
+  const response = await page.request.get(href, { maxRedirects: 0 });
   expect(response.status()).toBe(307);
   const signed = new URL(response.headers().location!);
   expect(signed.searchParams.get("response-content-disposition")).toBe(`attachment; filename="${fileName}"`);
   const download = await page.request.get(signed.toString());
   expect(download.status()).toBe(200);
-});
+}
 
 // --- The leak suite's two-partner workspace (partner-access.steps.ts) --------------------------------------
 
-/** The admin's photo, stored for real and written to the database as confirmed. */
-async function adminPhoto(state: Parameters<typeof idOf>[0], name: string, projectId: string, visitId: string | null) {
+/** The admin's upload, stored for real and written to the database as confirmed (its id: "<name>:attachment"). */
+export async function adminAttachment(
+  state: Parameters<typeof idOf>[0],
+  kind: "photo" | "file" | "report",
+  name: string,
+  projectId: string,
+  visitId: string | null,
+) {
   const workspaceId = idOf(state, "workspace");
+  const { mimeType, buffer } = fileOf(name);
   const key = objectKey({ workspaceId, projectId });
-  const { url, headers } = await createUploadUrl({ key, contentType: "image/jpeg" });
-  const upload = await fetch(url, { method: "PUT", headers, body: JPEG });
+  const { url, headers } = await createUploadUrl({ key, contentType: mimeType });
+  const upload = await fetch(url, { method: "PUT", headers, body: buffer });
   expect(upload.ok).toBe(true);
   const id = crypto.randomUUID();
   await getMaintenanceDb().execute(
     sql`insert into attachment (id, workspace_id, project_id, visit_id, kind, storage_key, file_name, content_type, size_bytes, uploaded_by, confirmed_at)
-        values (${id}, ${workspaceId}, ${projectId}, ${visitId}, 'photo', ${key}, ${name}, 'image/jpeg', ${JPEG.length}, ${idOf(state, "Admin")}, now())`,
+        values (${id}, ${workspaceId}, ${projectId}, ${visitId}, ${kind}, ${key}, ${name}, ${mimeType}, ${buffer.length}, ${idOf(state, "Admin")}, now())`,
   );
   Object.assign(ids(state), { [`${name}:attachment`]: id });
 }
+
+const adminPhoto = (state: Parameters<typeof idOf>[0], name: string, projectId: string, visitId: string | null) =>
+  adminAttachment(state, "photo", name, projectId, visitId);
 
 Given("the admin added the photo {string} to {string}", async ({ state }, name: string, project: string) => {
   await adminPhoto(state, name, idOf(state, project), null);
@@ -121,7 +136,7 @@ Given("the visit {string} is deleted", async ({ state }, notes: string) => {
   await getMaintenanceDb().execute(sql`update site_visit set deleted_at = now() where id = ${idOf(state, `${notes}:visit`)}`);
 });
 
-const attachmentPath = (id: string) => `/dashboard/attachments/${id}`;
+export const attachmentPath = (id: string) => `/dashboard/attachments/${id}`;
 
 When("I open the address of the photo {string}", async ({ state }, name: string) => {
   state.keptUrl = attachmentPath(idOf(state, `${name}:attachment`));

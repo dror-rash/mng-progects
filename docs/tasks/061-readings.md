@@ -12,6 +12,7 @@ Technicians record what they measure on site on the forms admins published, so e
 ## Rules
 - A **reading** is one filled form on one **visit** (design: `form_submission.visit_id`). It records the form **version** it was filled against, so it keeps its fields after the form is archived (or, later, replaced).
 - **Which forms:** any **published** form of the project's workspace (design *my call*: a technician picks any published form). Drafts and archived forms aren't offered.
+- **Forms aren't private per customer (task 060 design):** a published form's name, description and field labels are visible to every partner user and worker in the workspace (the database lets them read published and archived forms, whatever customer or partner they work for). So readings pages may list and show any published form to anyone who can fill readings, and must not rely on a form being hidden from other partners; only the readings themselves (the visit's access) are private. Forms limited to some customers or partners are parked.
 - **Values** are checked against the version's fields by a parser in code (ADR-0008), with the error on the field:
   - Number: a number ("Voltage must be a number"); shown with its unit ("230 V").
   - Text: free text. Yes/no: Yes or No. Choice: one of the options ("Choose Cable condition from the list"). Date: a calendar day (`"YYYY-MM-DD"`).
@@ -67,10 +68,11 @@ Technicians record what they measure on site on the forms admins published, so e
 
 ## Progress log
 - 2026-11-05 – Drafted with the feature file (scenarios `@wip`).
+- 2026-11-05 – Owner confirmed the recommended answer: readings are append-only for the POC (delete after it, editing later).
 
 ## Parking lot
 - Delete and restore a reading; edit a reading online.
 - Show a reading's form version ("version 2") once forms get new versions (task 060 parking lot).
 - Readings outside a visit; a "Readings" filter by form on the project.
+- Per-customer (or per-partner) reading forms: a form only some customers' or partners' users can see and fill (today every published form is visible to the whole workspace, task 060).
 - Comparing readings across sites and over time (charts, exports).
-- 2026-11-05 – Owner confirmed the recommended answer: readings are append-only for the POC (delete after it, editing later).

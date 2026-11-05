@@ -2,17 +2,24 @@
 
 import { Button } from "@repo/ui/button";
 import { useRouter } from "next/navigation";
-import { useRef, useState } from "react";
+import { Fragment, useRef, useState } from "react";
 
-import { acceptFor, type AttachmentKind } from "./attachment-limits";
+import { acceptFor, type AttachmentKind, uploadLabel } from "./attachment-limits";
 import { finishUploadAction, startUploadAction } from "./actions";
 
 /**
- * "Add photos" and "Add files" (task 059): each file goes straight to storage through a signed URL, one
- * after another, then the server confirms it. On phones "Add photos" opens the camera or the library. The
- * project comes from the section's hidden `projectId` field, so the page and the form agree on it.
+ * "Add photos" and "Add files" (task 059), or "Upload a report" (task 064): each file goes straight to
+ * storage through a signed URL, one after another, then the server confirms it. On phones "Add photos" opens
+ * the camera or the library. The project comes from the section's hidden `projectId` field, so the page and
+ * the form agree on it.
  */
-export function AttachmentUploader({ visitId }: { visitId: string | null }) {
+export function AttachmentUploader({
+  visitId,
+  kinds = ["photo", "file"],
+}: {
+  visitId: string | null;
+  kinds?: readonly AttachmentKind[];
+}) {
   const router = useRouter();
   const container = useRef<HTMLDivElement>(null);
   const [busy, setBusy] = useState(false);
@@ -65,7 +72,7 @@ export function AttachmentUploader({ visitId }: { visitId: string | null }) {
   }
 
   const picker = (kind: AttachmentKind, label: string) => (
-    <>
+    <Fragment key={kind}>
       <input
         type="file"
         aria-label={label}
@@ -85,14 +92,13 @@ export function AttachmentUploader({ visitId }: { visitId: string | null }) {
       >
         {label}
       </Button>
-    </>
+    </Fragment>
   );
 
   return (
     <div ref={container} className="space-y-2">
       <div className="flex flex-wrap gap-2">
-        {picker("photo", "Add photos")}
-        {picker("file", "Add files")}
+        {kinds.map((kind) => picker(kind, uploadLabel(kind)))}
       </div>
       <p role="status" className="text-xs text-muted-foreground">{status}</p>
       {error && (
