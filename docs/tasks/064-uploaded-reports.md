@@ -1,6 +1,6 @@
 # Task 064: Uploaded reports on a project
 
-- **Status:** in-review
+- **Status:** done (PR #47)
 - **Milestone:** M13 Sites & Field Data (POC lane: 057 → 060 → 061 → 064)
 - **Zone / package:** `apps/dashboard`, `e2e` (`packages/db` and `infra/scripts/rls-pins.mjs` only if a migration turns out to be needed, see Scope)
 - **Feature file:** `docs/features/reports.feature`
@@ -64,6 +64,7 @@ The finished report (often written outside the app) belongs with the project, wh
 - 2026-11-05 – Access audit: no leaks; six leak-suite scenarios added to `reports.feature` (`@task:064`, no `@wip`): a worker's or partner's delete posted by id, the auditor's direct upload, a report on a visit, a worker off the crew, a deleted report's address and restore.
 - 2026-11-05 – Review fixes: the first round's unit tests (`attachment-limits`, `deleted-kind`) were run red but landed in the same commit as the code, not as a separate red commit (review finding). Now: `GALLERY_KINDS` / `REPORT_KIND` replace the kind strings in the attachment and Deleted queries and restore; `allowedOnVisit(kind)` (unit tested, red first) holds "a report can't be on a visit"; `formatSize` unit test; the `ReportsSection` story shows a stand-in "Upload a report" button. Unit 352 (dashboard), lint and typecheck green; e2e not rerun cleanly, as another session was running Playwright in this lane at the same time.
 - 2026-11-05 – QA PASS: `@task:064` 13/13 (alone), `@task:059` 9/9, full e2e 275/297 under two-lane load with all 22 failures passing on rerun; unit, lint, typecheck, `test:infra`, build and Storybook build pass. In review.
+- 2026-11-05 – Merged (PR #47). Its preview deploy failed one `@smoke` scenario on `too many connections for role "preview_runtime"` (three preview zones × pool 5 against a limit of 6): task 075, not this task.
 
 ## Parking lot
 - Reports on a visit; a report title, date and the visits it covers.
