@@ -81,3 +81,4 @@ Technicians record measurements on forms that admins define (owner decision 9). 
 - New versions of a published form; rename; reorder and edit fields; un-archive; copy a form.
 - A "Forms" menu entry for admins (task 070 kept the menu to three items).
 - Required forms per project or per site.
+- 2026-11-05 – Owner confirmed the recommended answers: five field types (Photo after the POC); a published form is archived and rebuilt rather than edited until after the POC.

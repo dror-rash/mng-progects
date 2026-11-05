@@ -73,3 +73,4 @@ Technicians record what they measure on site on the forms admins published, so e
 - Show a reading's form version ("version 2") once forms get new versions (task 060 parking lot).
 - Readings outside a visit; a "Readings" filter by form on the project.
 - Comparing readings across sites and over time (charts, exports).
+- 2026-11-05 – Owner confirmed the recommended answer: readings are append-only for the POC (delete after it, editing later).
