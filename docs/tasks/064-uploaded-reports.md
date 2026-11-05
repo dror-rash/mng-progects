@@ -64,3 +64,4 @@ The finished report (often written outside the app) belongs with the project, wh
 - A Reports column or filter on the projects table.
 - 2026-11-05 – Owner confirmed the recommended answers: task 059's file types and 50 MB limit; whoever can work on the project uploads reports, the uploader and admins delete.
 - 2026-11-05 – Started in lane 2 (`feat/uploaded-reports`).
+- 2026-11-05 – Red: `@wip` removed, steps in `e2e/steps/reports.steps.ts` (helpers shared from `attachments.steps.ts`, `signUp` returns the account). 5 scenarios fail on the missing "Upload a report" input / "Reports" region; the two hidden-address scenarios already pass (the route and policies don't look at the kind), kept as regression guards.

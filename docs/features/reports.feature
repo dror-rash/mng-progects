@@ -10,7 +10,7 @@ Feature: Uploaded reports
     And "Acme Ltd" has a site "Haifa warehouse"
     And I have a project named "Panel upgrade" at the site "Haifa warehouse"
 
-  @wip @task:064
+  @task:064
   Scenario: I upload a report and download it from the project
     When I am on the "Panel upgrade" project page
     And I add the file "inspection-report.pdf" with "Upload a report"
@@ -19,7 +19,7 @@ Feature: Uploaded reports
     And the "Photos and files" section does not show "inspection-report.pdf"
     And the report "inspection-report.pdf" downloads as "inspection-report.pdf"
 
-  @wip @task:064
+  @task:064
   Scenario: A report must be a document, up to 50 MB
     When I am on the "Panel upgrade" project page
     And I add the file "walkthrough.mp4" with "Upload a report"
@@ -28,7 +28,7 @@ Feature: Uploaded reports
     Then I see the error "Reports can be up to 50 MB"
     And the "Reports" section shows "No reports yet."
 
-  @wip @task:064
+  @task:064
   Scenario: I delete my report, and an admin restores it
     When I am on the "Panel upgrade" project page
     And I add the file "inspection-report.pdf" with "Upload a report"
@@ -41,7 +41,7 @@ Feature: Uploaded reports
     Then the reports listed are "inspection-report.pdf"
 
   # Roles and isolation: the leak suite's workspace (partner-access.feature, workers.feature).
-  @wip @task:064
+  @task:064
   Scenario: A crew worker uploads a report; the auditor and the partner see it
     Given a workspace with the partners "Northwind" and "Globex", an admin and an auditor
     And the customer "Acme Ltd" is assigned to "Northwind" and "Globex"
@@ -60,7 +60,7 @@ Feature: Uploaded reports
     When the "Northwind" user opens the "NW Site" project page
     Then the "Northwind" user sees the text "crew-report.pdf"
 
-  @wip @task:064
+  @task:064
   Scenario: Another partner's report stays hidden, its address included
     Given a workspace with the partners "Northwind" and "Globex", an admin and an auditor
     And the customer "Acme Ltd" is assigned to "Northwind" and "Globex"
@@ -71,7 +71,7 @@ Feature: Uploaded reports
     When I open the address of the report "globex-report.pdf"
     Then it is not found, the same as a made-up photo address
 
-  @wip @task:064
+  @task:064
   Scenario: A worker doesn't see the report of a project they're not on
     Given a workspace with the partners "Northwind" and "Globex", an admin and an auditor
     And the customer "Acme Ltd" is assigned to "Northwind" and "Globex"
@@ -81,7 +81,7 @@ Feature: Uploaded reports
     When I open the address of the report "globex-report.pdf"
     Then it is not found, the same as a made-up photo address
 
-  @wip @task:064
+  @task:064
   Scenario: My report uploads are refused for another partner's project
     Given a workspace with the partners "Northwind" and "Globex", an admin and an auditor
     And the customer "Acme Ltd" is assigned to "Northwind" and "Globex"
