@@ -105,12 +105,20 @@ ones: `bash infra/scripts/test-environment.sh` fails when they differ.
   API-created user a member of `cloudsqlsuperuser`, which owns the databases (so it could connect to `app`). Both are
   `LOGIN NOINHERIT`, no `CREATEROLE`/`CREATEDB`, with SCRAM-SHA-256 verifiers computed in Node, and a
   `CONNECTION LIMIT`:
-  - `preview_runtime` 6. Each open PR's revision can scale to 1 instance per zone, and the app's pool is fixed at
-    5 (`packages/db`, not configurable yet), so the worst case is 3 × 1 × 5 = 15 per active PR; the `@smoke` set
-    (one worker) keeps about 5 busy, plus the role check's 1. Assumed: one preview tested at a time; a second at
-    once may hit the limit and fail its own e2e, never `main`.
+  - `preview_runtime` 7. Each open PR's revision can scale to 1 instance per zone, and previews run a pool of 2
+    per instance (`DB_POOL_MAX=2`, set by `deploy-service.sh` from `environment.sh`; every zone, the shell
+    included), so the worst case is 3 zones × 1 instance × 2 = 6 per active PR, plus the role check's 1 at deploy
+    time = 7 (`CONNECTION_BUDGET` in `provision-db-logins.mjs`; its test fails when it and `environment.sh`
+    differ). Assumed: one preview tested at a time; a second at once may hit the limit and fail its own e2e,
+    never `main`. (Until task 075 the pool was fixed at 5: three zones could open 15 against a limit of 6, and
+    the first previews failed `@smoke` with `too many connections for role "preview_runtime"`.)
   - `preview_owner` 3: one PR migrating (lock + migration) and one waiting on the lock.
-  - Previews take at most 9 of `db-f1-micro`'s 22 login connections (25, 3 reserved); `main` keeps 13.
+  - Previews take at most 7 + 3 = 10 of `db-f1-micro`'s 22 login connections (25, 3 reserved); `main` keeps
+    22 − 10 = 12, and its worst case is 3 zones × 1 busy instance × 4 (`DB_POOL_MAX=4`) = 12, so it fits.
+  - A change to these limits reaches previews only after a main deploy (main provisions, previews only verify):
+    until then every preview deploy fails its verification (`preview_runtime's connection limit is 6, not 7`).
+    Merge such a change, let the main deploy finish, then rerun or rebase open PRs. Open PRs based on the older
+    `main` expect the older limit and fail until rebased.
   - `preview_owner` owns `app_preview`'s objects. It holds ADMIN on `app_user` (migration 0020 runs
     `GRANT app_user TO current_user`), `CONNECT`/`CREATE` on `app_preview` (drizzle-kit creates its `drizzle`
     schema) and `CREATE` on its `public` schema. The database itself stays owned by `cloudsqlsuperuser`.
@@ -227,11 +235,12 @@ CI runs the tests of all these scripts against the migrated database, and `test-
 - Behind a custom domain, set `APP_URL` so Better Auth's base URL and origin checks match.
 
 ## Known limits / follow-ups
-- `main` runs up to 5 instances per zone with a pool of 5 connections each, more than `db-f1-micro`'s 25. Fine at
-  POC traffic; lower `max_instances` or the pool size before real load.
-- The pool size is fixed at 5 in `packages/db` (`pool-config.ts`). An env setting (e.g. `DB_POOL_MAX`) would let
-  previews use 2 and raise how many previews fit (app follow-up). Until then `main`'s worst case (3 zones × 1
-  busy instance × 5 = 15 connections) exceeds its share (13 of 22) when previews are at their connection limits.
+- Connections on `db-f1-micro` (22 for logins; task 075): previews at most 10 (`preview_runtime` 3 × 1 × 2 + 1 =
+  7, `preview_owner` 3), `main` 12 (3 zones × 1 busy instance × `DB_POOL_MAX=4`). That fills all 22 with no
+  margin, and counts one busy instance per zone: `main` can scale to 5 instances per zone (5 × 3 × 4 = 60), and a
+  main deploy briefly adds its own (migration lock + migration 2, then provisioning 2, then the role check 1)
+  while the old revision still serves. Idle pool connections close after 10 s (`pg`'s default), so this only
+  bites under real load. Before real load: a bigger tier or a connection pooler, or lower `max_instances`.
 - Services are public (`allUsers`). If org policy forbids that, put a load balancer with IAP in front.
 - Previews share the production project and Cloud SQL instance. Use a separate project for staging if data
   isolation must not depend on database grants.

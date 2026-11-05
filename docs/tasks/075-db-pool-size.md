@@ -21,10 +21,10 @@ The app's database pool is fixed at 5 connections per instance (`buildPoolConfig
 - The maintenance connection's pool (seeds, e2e fixtures, DB tests).
 
 ## Acceptance criteria
-- [ ] With `DB_POOL_MAX` unset the pool has 5 connections; set to 2 it has 2; an invalid value fails with a message naming `DB_POOL_MAX`.
-- [ ] Preview revisions run with `DB_POOL_MAX=2`, and `preview_runtime`'s connection limit matches the recomputed number (the preview verification fails otherwise).
-- [ ] `infra/README.md` shows the arithmetic, and `main`'s worst case fits its share.
-- [ ] `pnpm test:infra` passes.
+- [x] With `DB_POOL_MAX` unset the pool has 5 connections; set to 2 it has 2; an invalid value fails with a message naming `DB_POOL_MAX`.
+- [x] Preview revisions run with `DB_POOL_MAX=2`, and `preview_runtime`'s connection limit matches the recomputed number (the preview verification fails otherwise).
+- [x] `infra/README.md` shows the arithmetic, and `main`'s worst case fits its share.
+- [x] `pnpm test:infra` passes.
 
 ## Approach (brief)
 A small parser for `DB_POOL_MAX` next to `buildPoolConfig` (TDD in `pool-config.test.ts`), then the deploy script and its test (`test-deploy-service.sh`), then the provisioning limit and its test, then the README numbers.
@@ -42,6 +42,7 @@ A small parser for `DB_POOL_MAX` next to `buildPoolConfig` (TDD in `pool-config.
 - 2026-11-05 – Planned from task 068's review rounds 4–5: the pool size is fixed at 5, and `main`'s worst case (15) exceeds its connection share (13) on `db-f1-micro`. After the POC unless the first deploy shows connection errors.
 - 2026-11-05 – The first previews (PRs #47, #48) failed `@smoke` "Create a customer" with `too many connections for role "preview_runtime"`: three preview zones each open up to 5 connections against a limit of 6. Owner's answers: `main` runs `DB_POOL_MAX=4` per instance (worst case 3 × 4 = 12, inside its share); the shell uses the same pool size as the other zones; run now, in parallel with task 061.
 - 2026-11-05 – Started in lane 2 (`chore/db-pool-size`).
+- 2026-11-05 – Implemented. `buildPoolConfig` reads `DB_POOL_MAX` (`parsePoolMax`: unset or empty keeps 5; anything but a positive whole number throws naming it). `environment.sh` holds the sizes (`MAIN_DB_POOL_MAX=4`, `PREVIEW_DB_POOL_MAX=2`, `DB_POOL_MAX` per environment) and `deploy-service.sh` sets it on every zone. `preview_runtime`'s limit is now computed: 3 zones × 1 instance × 2 + the role check 1 = 7 (`CONNECTION_BUDGET` in `provision-db-logins.mjs`; a test fails when it and `environment.sh` differ). Previews 7 + 3 = 10 of 22, `main` keeps 12 = its worst case 3 × 1 × 4 (no margin; README). Order: previews only verify, so after merge the main deploy must finish before any preview passes (`connection limit is 6, not 7`), and open PRs on the older `main` fail until rebased. No Terraform change. `pnpm test`, `pnpm test:infra`, `test:db`, lint, typecheck and `@smoke` (1 worker) pass in the lane.
 
 ## Parking lot
 - (none yet)
