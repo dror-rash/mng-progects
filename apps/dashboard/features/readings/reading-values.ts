@@ -83,6 +83,11 @@ export function parseReadingValues(formData: FormData, fields: ReadingField[]): 
   return { ok: true, value: values };
 }
 
+/** Whether a stored value counts as filled in (`readingValueText` shows the rest as "Not filled in"). */
+export function isFilledIn(_value: unknown): boolean {
+  throw new Error("Not implemented");
+}
+
 /** How a stored value shows on a reading: "230 V", "Yes", "Nov 2, 2026", or "Not filled in". */
 export function readingValueText(field: ReadingField, value: unknown): string {
   if (value === undefined || value === null || value === "") return NOT_FILLED_IN;

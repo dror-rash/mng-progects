@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { fieldInputName, parseReadingValues, type ReadingField, readingValueText } from "./reading-values";
+import { fieldInputName, isFilledIn, parseReadingValues, type ReadingField, readingValueText } from "./reading-values";
 
 const voltage: ReadingField = { id: "f1", label: "Voltage", type: "number", required: true, unit: "V", options: null };
 const trips: ReadingField = { id: "f2", label: "Breaker trips", type: "yes_no", required: false, unit: null, options: null };
@@ -126,5 +126,15 @@ describe("readingValueText", () => {
   it("shows a stored value of an unexpected shape as text", () => {
     expect(readingValueText(voltage, "230")).toBe("230");
     expect(readingValueText(checkedOn, "not a date")).toBe("not a date");
+  });
+});
+
+describe("isFilledIn", () => {
+  it("counts a missing, null or empty stored value as not filled in", () => {
+    for (const value of [undefined, null, ""]) expect(isFilledIn(value)).toBe(false);
+  });
+
+  it("counts any other value as filled in, false and 0 included", () => {
+    for (const value of [0, false, "Worn", 230, true]) expect(isFilledIn(value)).toBe(true);
   });
 });
