@@ -274,6 +274,13 @@
       "when": 1793893929766,
       "tag": "0038_readings",
       "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1793898788354,
+      "tag": "0039_readings_append_only",
+      "breakpoints": true
     }
   ]
 }
