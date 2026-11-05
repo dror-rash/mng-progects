@@ -10,6 +10,7 @@ Feature: Readings
     And "Acme Ltd" has a site "Haifa warehouse"
     And I have a project named "Panel upgrade" at the site "Haifa warehouse"
     And "Panel upgrade" has a visit 2 days ago with the notes "Panel delivered"
+    # Reading forms are built and published through task 060's pages, as an admin of my workspace.
     And I have a published reading form "Panel check" with the fields:
       | label           | type   | unit | required | options             |
       | Voltage         | Number | V    | yes      |                     |
