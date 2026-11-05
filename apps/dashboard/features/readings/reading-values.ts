@@ -19,10 +19,10 @@ export type ReadingField = {
 /** A reading's stored values (`form_submission.values`), keyed by field id. */
 export type ReadingValues = Record<string, number | string | boolean>;
 
-/** A Yes/no field's two answers, as posted. */
+/** A Yes/no field's two answers: as posted, as shown, and as stored. */
 export const YES_NO = [
-  { value: "yes", label: "Yes" },
-  { value: "no", label: "No" },
+  { value: "yes", label: "Yes", stored: true },
+  { value: "no", label: "No", stored: false },
 ] as const;
 
 export const MAX_TEXT = 5000;
@@ -49,9 +49,8 @@ function parseValue(field: ReadingField, raw: FormDataEntryValue | null): { valu
       return NUMBER.test(text) && Number.isFinite(n) ? { value: n } : { error: `${field.label} must be a number` };
     }
     case "yes_no": {
-      if (text === "yes") return { value: true };
-      if (text === "no") return { value: false };
-      return { error: `Choose Yes or No for ${field.label}` };
+      const answer = YES_NO.find((option) => option.value === text);
+      return answer ? { value: answer.stored } : { error: `Choose Yes or No for ${field.label}` };
     }
     case "choice":
       return field.options?.includes(text) ? { value: text } : { error: `Choose ${field.label} from the list` };
@@ -84,16 +83,16 @@ export function parseReadingValues(formData: FormData, fields: ReadingField[]): 
 }
 
 /** Whether a stored value counts as filled in (`readingValueText` shows the rest as "Not filled in"). */
-export function isFilledIn(_value: unknown): boolean {
-  throw new Error("Not implemented");
+export function isFilledIn(value: unknown): boolean {
+  return value !== undefined && value !== null && value !== "";
 }
 
 /** How a stored value shows on a reading: "230 V", "Yes", "Nov 2, 2026", or "Not filled in". */
 export function readingValueText(field: ReadingField, value: unknown): string {
-  if (value === undefined || value === null || value === "") return NOT_FILLED_IN;
+  if (!isFilledIn(value)) return NOT_FILLED_IN;
   const type = parseFieldType(field.type);
   if (type === "number" && typeof value === "number") return field.unit ? `${value} ${field.unit}` : String(value);
-  if (type === "yes_no" && typeof value === "boolean") return value ? "Yes" : "No";
+  if (type === "yes_no" && typeof value === "boolean") return YES_NO.find((option) => option.stored === value)!.label;
   if (type === "date" && typeof value === "string") {
     const day = parseDueDate(value);
     if (day.ok && day.value) return formatDueDate(day.value);

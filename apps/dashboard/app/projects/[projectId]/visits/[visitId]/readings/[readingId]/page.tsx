@@ -6,7 +6,7 @@ import { AppHeader } from "@/features/layout/app-header";
 import { recordWorkspace } from "@/features/layout/record-workspace";
 import { getProjectForUser } from "@/features/projects/queries";
 import { getReading } from "@/features/readings/queries";
-import { readingValueText } from "@/features/readings/reading-values";
+import { isFilledIn, readingValueText } from "@/features/readings/reading-values";
 import { formatDueDate } from "@/features/tasks/due-dates";
 import { requireWorkspace } from "@/features/workspaces/require-workspace";
 
@@ -55,8 +55,9 @@ export default async function ReadingPage({ params }: { params: Promise<{ projec
           <CardContent>
             <dl className="divide-y text-sm">
               {reading.fields.map((field) => {
-                const text = readingValueText(field, reading.values[field.id]);
-                const empty = reading.values[field.id] === undefined;
+                const value = reading.values[field.id];
+                const text = readingValueText(field, value);
+                const empty = !isFilledIn(value);
                 return (
                   <div key={field.id} className="grid grid-cols-[minmax(0,1fr)_minmax(0,2fr)] gap-4 py-2 first:pt-0">
                     <dt className="font-medium">{field.label}</dt>
