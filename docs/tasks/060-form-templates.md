@@ -75,7 +75,6 @@ Technicians record measurements on forms that admins define (owner decision 9). 
 
 ## Progress log
 - 2026-11-05 – Drafted with the feature file (scenarios `@wip`).
-- 2026-11-05 – Merged (PR #48). On its preview, migration 0037 and the runtime role check passed on Cloud SQL; the one failing `@smoke` scenario was task 075's connection limit.
 
 ## Parking lot
 - Photo, signature and pass/fail field types; min/max on numbers.
