@@ -37,7 +37,7 @@ Build a modern, full-stack Project Management application on a Next.js multi-zon
 **POC, due 2026-11-13** (owner, 2026-11-02): deployed on GCP, demo data only, no custom domain. Order:
 1. Task 067 agent team (ADR-0010): agents, hooks, lanes.
 2. In parallel lanes:
-   - 068 first GCP deploy (M11);
+   - 068 first GCP deploy (M11) (done: PR #46, `main` deployed 2026-11-05);
    - M13 056 worker role → 058 site visits → 059 photos;
    - 057 storage → 060 form templates → 061 readings → 064 uploaded reports;
    - 070 home and menu, in parallel with 071 hierarchy in the database (then `reset:local` and `seed:demo` locally) → 072 hierarchy pages (owner, 2026-11-04; all three done: PRs #41, #42, #44).
@@ -97,3 +97,4 @@ M13 tasks 062, 063 and 065 continue after the POC.
 - 2026-11-04 – Task 074 planned from task 068's review (todo, after the POC): a separate runtime database login that owns nothing and is only a member of `app_user`, amending ADR-0006's one login, because the owner login plus `-c role=app_user` lets a `SET ROLE` escape row-level security on a pooled connection. Three open questions for the owner in the task.
 - 2026-11-05 – Task 075 planned from task 068's review (todo, after the POC unless the first deploy shows connection errors): a configurable database pool size (`DB_POOL_MAX`), previews at 2 per instance, and the preview and `main` connection shares recomputed for `db-f1-micro`. Two open questions for the owner in the task.
 - 2026-11-05 – Task 068 in review: Terraform and deploy pipeline for the first GCP deploy (project `mng-projects-poc`, me-west1): three zones, separate preview services, image repositories, deployers, identities, database logins, secrets and buckets; deploys by digest; a runtime role check that pins every function, view, policy and owner so row-level security can't be bypassed unnoticed; previews run the `@smoke` set. `terraform plan`: 102 to add. Not yet applied; one `main` deploy must precede the first preview.
+- 2026-11-05 – Task 068 done (PR #46): applied in `mng-projects-poc` (me-west1); the first `main` deploy passed with the row-level-security role check on Cloud SQL 16.15. The preview checks (client IP, upload, deployer refusal at deploy time) happen on the first preview, task 069's PR.

@@ -1,6 +1,6 @@
 # Task 068: First GCP deploy (M11)
 
-- **Status:** in-review
+- **Status:** done
 - **Milestone:** M11 Deploy to GCP (POC-critical, 2026-11-13)
 - **Zone / package:** `infra/`, `.github/workflows/`, `packages/db` (runtime role check)
 - **Feature file:** none new. The deployed app passes the `@smoke` scenarios (later `@poc`, task 069): `BASE_URL=<shell run.app URL> E2E_TAGS=@smoke pnpm test:e2e` against a PR preview. The full suite keeps running in CI's `e2e` job.
@@ -58,14 +58,14 @@ The POC must run on the internet, not just on a laptop. Row-level security has n
 - [ ] `terraform plan` shows no changes after apply.
 - [ ] A PR gets a preview URL, and the `@smoke` scenarios (later `@poc`, task 069) pass against it. The full suite keeps running in CI's `e2e` job.
 - [ ] `main` deploys, and an owner can sign up and see the dashboard on the `run.app` URL.
-- [ ] The runtime role check passes on Cloud SQL and is part of the deploy.
+- [x] The runtime role check passes on Cloud SQL and is part of the deploy.
 - [ ] Requests with invite tokens are not in Cloud Run logs.
 - [ ] On the first preview, Better Auth sees a client IP: the shell's logs have no "Rate limiting could not determine a client IP".
 - [ ] On the preview, a file uploaded by hand downloads again (no `@smoke` scenario uploads).
 - [ ] Previews run as their own service account, database login and Better Auth secret; the preview login can't connect to `app`.
 - [ ] Preview Playwright traces and reports are not published.
 - [ ] A PR deploy can't read main's secrets or deploy as a `*-runtime` service account, shown on the first preview (for example the preview deployer's IAM bindings, or an access check that fails as expected).
-- [ ] Previews deploy to the `-preview` services from `images-preview`; the preview deployer can't deploy to main's services, push to `images` or read main's secrets.
+- [ ] Previews deploy to the `-preview` services from `images-preview`; the preview deployer can't deploy to main's services, push to `images` or read main's secrets. (IAM side checked 2026-11-05; the deploy side waits for the first preview.)
 - [ ] Checked by hand on the first deploys (main, then the first preview):
   - on the first `main` deploy, record Cloud SQL's `server_version` here; if a pin in `infra/scripts/rls-pins.mjs` fails on it, add the hash the failure prints to that pin's list (don't replace the existing one);
   - `runDeployer` is enough to deploy, tag a revision and remove tags (the cleanup job);
@@ -113,6 +113,17 @@ The POC must run on the internet, not just on a laptop. Row-level security has n
   - `pnpm test:infra` runs all the infra script tests locally;
   - the pool size follow-up (main's worst case 15 connections against its share of 13 on `db-f1-micro`) is task 075.
 
+- 2026-11-05 – Applied by the owner (102 resources), GitHub variables set, PR #46 merged; the first `main` deploy passed (run 41972438518, 8m34s). Checked by hand:
+  - Cloud SQL `POSTGRES_16_15.R20260712.01_44` on `db-f1-micro`; the runtime role check passed with the existing pins (no hash added);
+  - `runDeployer` was enough to deploy all three zones; tagging and removing tags waits for the first preview and its cleanup;
+  - `shell`, `dashboard` and `example-zone` run `images/<zone>@sha256:…` as their own `*-runtime` accounts;
+  - the preview logins were provisioned (SCRAM-SHA-256 passwords set); that Cloud SQL accepts them is shown when the first preview connects;
+  - the preview deployer has no binding on main's three services, the `images` repository, `better-auth-secret`, `db-password` or the `*-runtime` accounts; project-wide it has only `roles/cloudsql.client`;
+  - signed out, the shell URL redirects to `/login` (200), and `/dashboard` to `/login?next=/dashboard/`.
+
+  Still open, on the first preview (task 069's PR): the `@smoke` run, a client IP in the shell logs, an upload and download by hand, the preview deployer refused at deploy time, tag removal by the cleanup job. Still open, for the owner: sign up on the `main` URL and see the dashboard.
+
 ## Parking lot
 - Neon instead of Cloud SQL to scale to zero (re-test the `app_user` setup first).
 - PRs with different unmerged migrations share `app_preview`: drizzle applies one PR's migrations on top of another PR's schema.
+- `terraform plan` shows 6 in-place changes after apply: Cloud Run fills a service-level `scaling` block with zeros that the config doesn't declare. Cosmetic; declare it or ignore it in a later infra change.
