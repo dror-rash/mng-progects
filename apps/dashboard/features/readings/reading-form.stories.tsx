@@ -21,11 +21,13 @@ const refuses = (error: string, field?: string) => async (_prev: FormState, data
   return field ? { error, field, values } : { error, values };
 };
 
+const accepts = async (_prev: FormState, _data: FormData): Promise<FormState> => ({});
+
 const meta = {
   title: "Dashboard/ReadingForm",
   component: ReadingForm,
   parameters: { layout: "padded" },
-  args: { projectId: "p1", visitId: "v1", versionId: "ver1", fields, cancelHref: "#", action: async () => ({}) },
+  args: { projectId: "p1", visitId: "v1", versionId: "ver1", fields, cancelHref: "#", action: accepts },
 } satisfies Meta<typeof ReadingForm>;
 
 export default meta;
