@@ -3,7 +3,7 @@ import { sql } from "@repo/db";
 import { getMaintenanceDb } from "@repo/db/maintenance";
 
 import { Given, type ScenarioState, signUp, Then, userId, When } from "./fixtures";
-import { buildForm, setHiddenFields } from "./form-templates.steps";
+import { buildForm, fieldOf, setHiddenFields } from "./form-templates.steps";
 import { idOf, ids, pageOf, projectPath } from "./partner-access.steps";
 import { insertCustomerWithSite } from "./project-form";
 import { createWorkspace, pressAndWait } from "./workspaces.steps";
@@ -100,10 +100,10 @@ Then("the readings listed are {string}", async ({ page }, expected: string) => {
   }
 });
 
-/** The "Add a reading" page's forms: links to `?form=<form id>`. */
+/** The "Add a reading" page's forms: one list item each, its link to `?form=<form id>`. */
 Then("the forms offered are {string}", async ({ page }, expected: string) => {
   await expect(page.getByRole("heading", { name: "Add a reading", level: 1 })).toBeVisible();
-  await expect(page.getByRole("main").locator('a[href*="form="]')).toHaveText(names(expected));
+  await expect(page.getByRole("main").getByRole("listitem").getByRole("link")).toHaveText(names(expected));
 });
 
 Given(
@@ -133,7 +133,7 @@ When("the auditor opens the visit {string} of the project {string}", async ({ pe
 Given("the admin filled in the reading {string} on the visit {string}", async ({ people, state }, form: string, notes: string) => {
   const admin = await pageOf(state, people, "admin");
   await openReadingForm(admin, visitPath(state, notes), form);
-  await admin.getByRole("spinbutton").fill("230");
+  await admin.getByLabel(fieldOf(state, form), { exact: true }).fill("230");
   ids(state)[`${notes}:reading`] = await saveReading(admin, form);
 });
 
@@ -149,7 +149,7 @@ async function postReadingWith(page: Page, state: ScenarioState, notes: string, 
   const path = await anyVisitPath(page, state, notes);
   state.replay = async (value) => {
     await openReadingForm(page, path, form);
-    await page.getByRole("spinbutton").fill("231");
+    await page.getByLabel(fieldOf(state, form), { exact: true }).fill("231");
     await setHiddenFields(page, "Save reading", { [name]: value });
     await pressAndWait(page, "Save reading");
   };
@@ -237,7 +237,7 @@ When(
     );
     await auditor.goto(`/dashboard/projects/${projectId}/visits/${visitId}/readings/new?form=${idOf(state, "Decoy check")}`);
     await expect(auditor.getByRole("button", { name: "Save reading", exact: true })).toBeVisible();
-    await auditor.getByRole("spinbutton").fill("231");
+    await auditor.getByLabel(fieldOf(state, "Decoy check"), { exact: true }).fill("231");
     await setHiddenFields(auditor, "Save reading", {
       projectId: idOf(state, `${notes}:visit-project`),
       visitId: idOf(state, `${notes}:visit`),

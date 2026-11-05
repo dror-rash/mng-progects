@@ -61,6 +61,9 @@ export async function setHiddenFields(page: Page, button: string, values: Record
   }, values);
 }
 
+/** The label of the form's (first) Number field: a reading form's input is labelled by it. */
+export const fieldOf = (state: ScenarioState, name: string) => idOf(state, `${name}:field`);
+
 /**
  * Builds the form `name` with one Number field through the pages, as `page` (an admin of its current
  * workspace), and publishes it unless `draft`. Keeps the hidden fields of its "Add field", "Publish" and
@@ -69,6 +72,7 @@ export async function setHiddenFields(page: Page, button: string, values: Record
 export async function buildForm(page: Page, state: ScenarioState, name: string, field: string, draft = false) {
   ids(state)[name] = await createForm(page, name);
   await addField(page, field, "Number");
+  ids(state)[`${name}:field`] = field;
   state.hiddenFields ??= {};
   for (const button of ["Add field", "Publish", `Remove ${field}`]) {
     state.hiddenFields[`${name}:${button}`] = await hiddenFieldsOf(page, button);
@@ -118,6 +122,9 @@ Given(
         required: row.required === "yes",
       });
     }
+    // Steps that fill one value fill the first Number field.
+    const number = table.hashes().find((row) => row.type === "Number");
+    if (number) ids(state)[`${name}:field`] = number.label!;
     await publish(page);
   },
 );
