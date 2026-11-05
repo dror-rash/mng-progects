@@ -1,6 +1,6 @@
 # Task 064: Uploaded reports on a project
 
-- **Status:** todo
+- **Status:** in-progress
 - **Milestone:** M13 Sites & Field Data (POC lane: 057 → 060 → 061 → 064)
 - **Zone / package:** `apps/dashboard`, `e2e` (`packages/db` and `infra/scripts/rls-pins.mjs` only if a migration turns out to be needed, see Scope)
 - **Feature file:** `docs/features/reports.feature`
@@ -63,3 +63,4 @@ The finished report (often written outside the app) belongs with the project, wh
 - PDF-only reports (open question 3).
 - A Reports column or filter on the projects table.
 - 2026-11-05 – Owner confirmed the recommended answers: task 059's file types and 50 MB limit; whoever can work on the project uploads reports, the uploader and admins delete.
+- 2026-11-05 – Started in lane 2 (`feat/uploaded-reports`).
