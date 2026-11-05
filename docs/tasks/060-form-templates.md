@@ -1,6 +1,6 @@
 # Task 060: Reading forms (templates), built and published by admins
 
-- **Status:** todo
+- **Status:** in-progress
 - **Milestone:** M13 Sites & Field Data (POC lane: 057 → 060 → 061 → 064)
 - **Zone / package:** `packages/db`, `apps/dashboard`, `e2e`, `infra/scripts/rls-pins.mjs`
 - **Feature file:** `docs/features/form-templates.feature`
@@ -82,3 +82,4 @@ Technicians record measurements on forms that admins define (owner decision 9). 
 - A "Forms" menu entry for admins (task 070 kept the menu to three items).
 - Required forms per project or per site.
 - 2026-11-05 – Owner confirmed the recommended answers: five field types (Photo after the POC); a published form is archived and rebuilt rather than edited until after the POC.
+- 2026-11-05 – Started in lane 1 (`feat/form-templates`).
