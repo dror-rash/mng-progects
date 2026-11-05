@@ -1,6 +1,6 @@
 # Task 061: Readings (online): fill a reading form on a visit
 
-- **Status:** in-review
+- **Status:** done (PR #50)
 - **Milestone:** M13 Sites & Field Data (POC lane: 057 → 060 → 061 → 064)
 - **Zone / package:** `packages/db`, `apps/dashboard`, `e2e`, `infra/scripts/rls-pins.mjs`
 - **Feature file:** `docs/features/readings.feature`
@@ -96,6 +96,7 @@ Technicians record what they measure on site on the forms admins published, so e
   - **Steps:** the reading-form inputs are found by their field's label (`fieldOf`; `buildForm` and the data-table step record it), not by `spinbutton`; offered forms are the links in `main`'s list items, not an `a[href*="form="]` selector. Scenario text is unchanged.
   - **Accepted (access audit, low):** someone who knows a reading's id can tell it exists. Posting it as a new reading's id gets "Something went wrong" instead of a recorded reading (the insert conflict). This is the same trade-off as task 058's visits, and it needs the UUID.
   - **Runs:** `@task:061` and `@task:060` against production builds (`pnpm build`, `CI=1`, `--workers=2`): 24/24. In dev mode the same code first gave 23/24 (a step bug: `fieldOf` had no field for the data-table form, now fixed). Two later dev-mode runs right after a `pnpm build` gave 7 of 24, then 10 of 12, failures, all 30 s timeouts (in the Background, the project page not reached). The load average was 10–21, and the same code passed against builds. `pnpm test` 496 passed (dashboard 405), `test:db` 149, lint and typecheck clean.
+- 2026-11-05 – Merged (PR #50): CI `verify`, `e2e` and the preview `deploy` passed (`@smoke` 3/3 on the preview). Lane 1 removed.
 
 ## Parking lot
 - Delete and restore a reading; edit a reading online.

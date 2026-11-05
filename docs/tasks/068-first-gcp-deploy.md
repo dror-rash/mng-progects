@@ -56,16 +56,16 @@ The POC must run on the internet, not just on a laptop. Row-level security has n
 
 ## Acceptance criteria
 - [ ] `terraform plan` shows no changes after apply.
-- [ ] A PR gets a preview URL, and the `@smoke` scenarios (later `@poc`, task 069) pass against it. The full suite keeps running in CI's `e2e` job.
+- [x] A PR gets a preview URL, and the `@smoke` scenarios (later `@poc`, task 069) pass against it. The full suite keeps running in CI's `e2e` job.
 - [ ] `main` deploys, and an owner can sign up and see the dashboard on the `run.app` URL.
 - [x] The runtime role check passes on Cloud SQL and is part of the deploy.
 - [ ] Requests with invite tokens are not in Cloud Run logs.
-- [ ] On the first preview, Better Auth sees a client IP: the shell's logs have no "Rate limiting could not determine a client IP".
+- [x] On the first preview, Better Auth sees a client IP: the shell's logs have no "Rate limiting could not determine a client IP".
 - [ ] On the preview, a file uploaded by hand downloads again (no `@smoke` scenario uploads).
 - [ ] Previews run as their own service account, database login and Better Auth secret; the preview login can't connect to `app`.
 - [ ] Preview Playwright traces and reports are not published.
-- [ ] A PR deploy can't read main's secrets or deploy as a `*-runtime` service account, shown on the first preview (for example the preview deployer's IAM bindings, or an access check that fails as expected).
-- [ ] Previews deploy to the `-preview` services from `images-preview`; the preview deployer can't deploy to main's services, push to `images` or read main's secrets. (IAM side checked 2026-11-05; the deploy side waits for the first preview.)
+- [x] A PR deploy can't read main's secrets or deploy as a `*-runtime` service account, shown on the first preview (for example the preview deployer's IAM bindings, or an access check that fails as expected).
+- [x] Previews deploy to the `-preview` services from `images-preview`; the preview deployer can't deploy to main's services, push to `images` or read main's secrets. (IAM side checked 2026-11-05; the deploy side waits for the first preview.)
 - [ ] Checked by hand on the first deploys (main, then the first preview):
   - on the first `main` deploy, record Cloud SQL's `server_version` here; if a pin in `infra/scripts/rls-pins.mjs` fails on it, add the hash the failure prints to that pin's list (don't replace the existing one);
   - `runDeployer` is enough to deploy, tag a revision and remove tags (the cleanup job);
@@ -122,6 +122,7 @@ The POC must run on the internet, not just on a laptop. Row-level security has n
   - signed out, the shell URL redirects to `/login` (200), and `/dashboard` to `/login?next=/dashboard/`.
 
   Still open, on the first preview (task 069's PR): the `@smoke` run, a client IP in the shell logs, an upload and download by hand, the preview deployer refused at deploy time, tag removal by the cleanup job. Still open, for the owner: sign up on the `main` URL and see the dashboard.
+- 2026-11-05 – First green preview (PR #50, task 061): `@smoke` 3/3 against `pr-50---shell-preview`; the runtime role check passed on `app_preview` as `preview_runtime` and migrations ran as `preview_owner`, so Cloud SQL accepts the preview logins' passwords. The shell-preview logs have no "could not determine a client IP" (83 entries during the run). All six services run their image by digest, the previews from `images-preview`. The preview deployer has no binding on main's services, `images`, `better-auth-secret`, `db-password` or the `*-runtime` accounts (re-read after the deploy; project-wide only `roles/cloudsql.client`). The Policy Troubleshooter API is disabled, and enabling it would be a change outside Terraform, so no access check was run as that account. After the merge, the Preview cleanup job removed the `pr-50` tags (no tags left on the three preview services), so `runDeployer` covers deploy, tag and untag. Still open: an upload and download by hand on a preview (task 069's PR); the invite-token log criterion (no invite request has run on a deployment yet); and the owner signing up on the `main` URL.
 
 ## Parking lot
 - Neon instead of Cloud SQL to scale to zero (re-test the `app_user` setup first).
