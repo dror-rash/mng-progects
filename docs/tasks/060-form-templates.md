@@ -1,6 +1,6 @@
 # Task 060: Reading forms (templates), built and published by admins
 
-- **Status:** in-progress
+- **Status:** in-review
 - **Milestone:** M13 Sites & Field Data (POC lane: 057 → 060 → 061 → 064)
 - **Zone / package:** `packages/db`, `apps/dashboard`, `e2e`, `infra/scripts/rls-pins.mjs`
 - **Feature file:** `docs/features/form-templates.feature`
@@ -48,13 +48,13 @@ Technicians record measurements on forms that admins define (owner decision 9). 
 - Required forms per project or site (design parking lot).
 
 ## Acceptance criteria
-- [ ] An admin creates a form, adds Number (with unit), Yes/no and Choice fields, removes one, publishes it; it shows as Published in the list and its fields can no longer change. ("I build and publish a reading form")
-- [ ] A form needs a name; a field needs a label; a choice needs two options; publishing needs a field. ("A form and its fields are checked")
-- [ ] A published form can't change, even from a stale or tampered form. ("A published form can't change")
-- [ ] An admin archives a published form; it shows as Archived. ("I archive a published form")
-- [ ] Auditors see forms without buttons; workers get not found on the pages. ("Auditors read forms; workers don't see the pages")
-- [ ] Another workspace's form is not found, like a made-up one. ("Another workspace's form stays hidden")
-- [ ] A partner user gets not found on a form's address, and their posted form changes are refused like a made-up id. ("Form changes from someone who isn't an admin are refused")
+- [x] An admin creates a form, adds Number (with unit), Yes/no and Choice fields, removes one, publishes it; it shows as Published in the list and its fields can no longer change. ("I build and publish a reading form")
+- [x] A form needs a name; a field needs a label; a choice needs two options; publishing needs a field. ("A form and its fields are checked")
+- [x] A published form can't change, even from a stale or tampered form. ("A published form can't change")
+- [x] An admin archives a published form; it shows as Archived. ("I archive a published form")
+- [x] Auditors see forms without buttons; workers get not found on the pages. ("Auditors read forms; workers don't see the pages")
+- [x] Another workspace's form is not found, like a made-up one. ("Another workspace's form stays hidden")
+- [x] A partner user gets not found on a form's address, and their posted form changes are refused like a made-up id. ("Form changes from someone who isn't an admin are refused")
 
 ## Approach (brief)
 - Migration and DB tests first (`packages/db/src/form-templates.db.test.ts`): who sees drafts and published forms, admin-only writes, the published-version trigger, other workspaces see nothing.
@@ -85,6 +85,7 @@ Technicians record measurements on forms that admins define (owner decision 9). 
   - **Item 2, publishing:** with the fixtures publishing forms by their status alone, the DB tests failed 7. Workers saw no published fields because the version stayed unpublished, so the frozen-version checks failed too; a draft's version could be published; a form could be inserted as published, or published with no fields. Now `form_template_check` refuses an insert past draft and draft → published without a field on the latest version. The new `form_template_publish` (AFTER trigger) publishes that version. `form_template_version_check` refuses a version inserted published, or published while its form isn't. The publish action sets only the form's status. Red for the app: "I archive a published form" timed out on the refused version update.
   - **Item 1, leak:** an outsider inserting a field into another workspace's published version got 23514 ("a published form version can't change") where a draft or made-up id got 42501. `form_field_check` now leaves a runtime user who can't change the version to RLS before reading or locking it, so all three get 42501.
   - **Pins and nits:** RLS pins updated. `removeFieldAction` throws Not found when no row was deleted. Status writes use `satisfies FormStatus`. The `StaleRemove` story presses "Remove Voltage" and expects the alert. `keep-new-input` moved to `features/reading-forms/` (CLAUDE.md's Forms rules unchanged); retyping the exact value just sent clears it.
+- 2026-11-05 – QA PASS: `@task:060` 12/12, full e2e 292/296 with the 4 timeouts passing alone; unit (dashboard 373), DB 136, `test:infra`, lint, typecheck, build and Storybook build pass. `NewReadingFormForm` and `FormActionButton` have no stories of their own: they call server actions, as `site-form` and `visit-form` do. In review.
 
 ## Parking lot
 - Photo, signature and pass/fail field types; min/max on numbers.
