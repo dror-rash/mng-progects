@@ -66,7 +66,7 @@ export async function setHiddenFields(page: Page, button: string, values: Record
  * workspace), and publishes it unless `draft`. Keeps the hidden fields of its "Add field", "Publish" and
  * "Remove <field>" forms while it is a draft, so later steps can post them from another form.
  */
-async function buildForm(page: Page, state: ScenarioState, name: string, field: string, draft = false) {
+export async function buildForm(page: Page, state: ScenarioState, name: string, field: string, draft = false) {
   ids(state)[name] = await createForm(page, name);
   await addField(page, field, "Number");
   state.hiddenFields ??= {};

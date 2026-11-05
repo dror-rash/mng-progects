@@ -2,10 +2,11 @@ import { expect, type Page } from "@playwright/test";
 import { sql } from "@repo/db";
 import { getMaintenanceDb } from "@repo/db/maintenance";
 
-import { Given, type ScenarioState, Then, userId, When } from "./fixtures";
-import { setHiddenFields } from "./form-templates.steps";
+import { Given, type ScenarioState, signUp, Then, userId, When } from "./fixtures";
+import { buildForm, setHiddenFields } from "./form-templates.steps";
 import { idOf, ids, pageOf, projectPath } from "./partner-access.steps";
-import { pressAndWait } from "./workspaces.steps";
+import { insertCustomerWithSite } from "./project-form";
+import { createWorkspace, pressAndWait } from "./workspaces.steps";
 
 // Readings (task 061, ADR-0008): a published reading form filled on a visit. Forms are built through task
 // 060's pages (form-templates.steps.ts); readings are always filled through the pages, from the visit's
@@ -27,6 +28,19 @@ async function myVisitPath(page: Page, notes: string) {
 /** A visit of the leak suite's workspace (site-visits.steps.ts wrote it), by its notes. */
 const visitPath = (state: ScenarioState, notes: string) =>
   `/dashboard/projects/${idOf(state, `${notes}:visit-project`)}/visits/${idOf(state, `${notes}:visit`)}`;
+
+/** A visit by its notes: the leak suite's when a step wrote it there, else mine (the Background's). */
+const anyVisitPath = async (page: Page, state: ScenarioState, notes: string) =>
+  state.ids?.[`${notes}:visit`] ? visitPath(state, notes) : myVisitPath(page, notes);
+
+/** The id of the (one) version of a form this scenario built: no page shows it, so it is read (only read). */
+async function versionOf(state: ScenarioState, form: string) {
+  const { rows } = await getMaintenanceDb().execute<{ id: string }>(
+    sql`select id from form_template_version where template_id = ${idOf(state, form)}`,
+  );
+  expect(rows, `no version of "${form}"`).toHaveLength(1);
+  return rows[0]!.id;
+}
 
 /** Opens the visit's page and waits for it. */
 async function openVisit(page: Page, path: string) {
@@ -66,7 +80,7 @@ function watchPosts(page: Page, state: ScenarioState) {
 
 When("I open the {string} reading form on the visit {string}", async ({ page, state }, form: string, notes: string) => {
   watchPosts(page, state);
-  await openReadingForm(page, await myVisitPath(page, notes), form);
+  await openReadingForm(page, await anyVisitPath(page, state, notes), form);
 });
 
 /** A Yes/no field: its radios are grouped under the field's label. */
@@ -130,10 +144,11 @@ When("I open the address of the reading on the visit {string}", async ({ page, s
   await state.replay(idOf(state, `${notes}:reading`));
 });
 
-/** Fills the form on my visit `notes` and posts it with the hidden field `name` set to the id `replay` gets. */
+/** Fills the form on the visit `notes` and posts it with the hidden field `name` set to the id `replay` gets. */
 async function postReadingWith(page: Page, state: ScenarioState, notes: string, form: string, name: string, id: string) {
+  const path = await anyVisitPath(page, state, notes);
   state.replay = async (value) => {
-    await openReadingForm(page, visitPath(state, notes), form);
+    await openReadingForm(page, path, form);
     await page.getByRole("spinbutton").fill("231");
     await setHiddenFields(page, "Save reading", { [name]: value });
     await pressAndWait(page, "Save reading");
@@ -150,13 +165,8 @@ When(
 
 When(
   "I add the reading {string} on the visit {string} with the form {string}",
-  async ({ page, state }, form: string, notes: string, draft: string) => {
-    // No page shows a draft's version id: read it (only read it) from the database.
-    const { rows } = await getMaintenanceDb().execute<{ id: string }>(
-      sql`select id from form_template_version where template_id = ${idOf(state, draft)}`,
-    );
-    expect(rows, `no version of "${draft}"`).toHaveLength(1);
-    await postReadingWith(page, state, notes, form, "versionId", rows[0]!.id);
+  async ({ page, state }, form: string, notes: string, other: string) => {
+    await postReadingWith(page, state, notes, form, "versionId", await versionOf(state, other));
   },
 );
 
@@ -167,3 +177,72 @@ Then("the admin sees no readings on {string}", async ({ people, state }, project
   await expect(readingsSection(admin)).toContainText("No readings yet.");
   await expect(readingsSection(admin).getByRole("listitem")).toHaveCount(0);
 });
+
+// --- The rest of the leak suite (the access audit) -----------------------------------------------------------
+
+/** Another person, in a workspace of their own (made on their first visit), builds and publishes the form. */
+Given(
+  "another user has a published reading form {string} with the field {string}",
+  async ({ people, state }, name: string, field: string) => {
+    const other = await people.newPerson();
+    await signUp(other, "Other User");
+    await buildForm(other, state, name, field);
+  },
+);
+
+When("I open the Add a reading page of the visit {string}", async ({ page, state }, notes: string) => {
+  await page.goto(`${await anyVisitPath(page, state, notes)}/readings/new`);
+});
+
+When(
+  "I open the Add a reading page of the visit {string} with the form {string}",
+  async ({ page, state }, notes: string, form: string) => {
+    await page.goto(`${await anyVisitPath(page, state, notes)}/readings/new?form=${idOf(state, form)}`);
+  },
+);
+
+When(
+  "I add the reading {string} on the visit {string} with the id of the reading on the visit {string}",
+  async ({ page, state }, form: string, notes: string, other: string) => {
+    await postReadingWith(page, state, notes, form, "readingId", idOf(state, `${other}:reading`));
+  },
+);
+
+/**
+ * The auditor has no reading form on the leak workspace's visits, so they post the one of a decoy: a workspace
+ * of their own (where they are an admin) with a published form and a visit, its hidden fields pointed at the
+ * project, the visit and the form's version. The server must refuse it on the role, not on the missing form.
+ */
+When(
+  "the auditor posts the {string} reading form on the visit {string}",
+  async ({ people, state }, form: string, notes: string) => {
+    const auditor = await pageOf(state, people, "auditor");
+    await createWorkspace(auditor, "Auditor's own");
+    await buildForm(auditor, state, "Decoy check", "Decoy reading");
+    const { rows } = await getMaintenanceDb().execute<{ id: string }>(
+      sql`select workspace_id as id from form_template where id = ${idOf(state, "Decoy check")}`,
+    );
+    const workspaceId = rows[0]!.id;
+    const { organizationId, siteId } = await insertCustomerWithSite(workspaceId, "Decoy client");
+    const projectId = crypto.randomUUID();
+    const visitId = crypto.randomUUID();
+    const db = getMaintenanceDb();
+    await db.execute(
+      sql`insert into project (id, name, workspace_id, organization_id, site_id)
+          values (${projectId}, 'Decoy', ${workspaceId}, ${organizationId}, ${siteId})`,
+    );
+    await db.execute(
+      sql`insert into site_visit (id, project_id, visited_on, notes, created_by)
+          values (${visitId}, ${projectId}, current_date, 'Decoy visit', ${idOf(state, "Auditor")})`,
+    );
+    await auditor.goto(`/dashboard/projects/${projectId}/visits/${visitId}/readings/new?form=${idOf(state, "Decoy check")}`);
+    await expect(auditor.getByRole("button", { name: "Save reading", exact: true })).toBeVisible();
+    await auditor.getByRole("spinbutton").fill("231");
+    await setHiddenFields(auditor, "Save reading", {
+      projectId: idOf(state, `${notes}:visit-project`),
+      visitId: idOf(state, `${notes}:visit`),
+      versionId: await versionOf(state, form),
+    });
+    await pressAndWait(auditor, "Save reading");
+  },
+);
