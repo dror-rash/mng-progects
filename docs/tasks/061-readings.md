@@ -75,6 +75,10 @@ Technicians record what they measure on site on the forms admins published, so e
 - 2026-11-05 – Checked against task 060 as merged (PR #48): depends on nothing open; migration 0038; the insert needs the version of a form that is Published now (published by `form_template_publish`; `can_see_form_version` is not the check); field types from `field-type.ts`; readings pages never link to `/forms`; scenario forms built through 060's pages, not the database. Ready.
 - 2026-11-05 – Started in lane 1 (`feat/readings`).
 - 2026-11-05 – Acceptance steps written (`e2e/steps/readings.steps.ts`; 060's `addField` takes Unit, Options and Required); `@wip` removed. Red: all 7 scenarios fail on the missing "Add a reading" link on the visit page; the Background's forms build and publish through 060's pages; `@task:060` still green.
+- 2026-11-05 – DB first: `readings.db.test.ts` red (`relation "form_submission" does not exist`, 11 skipped; commit 3b0251d), then migration 0038 (`form_submission`, `can_fill_reading`, select and insert policies, `form_submission_keep`) and the RLS pins: 13 DB test files / 148 tests green, `pnpm test:infra` green. The keep-author trigger lets the author become null when that account is deleted (tested).
+- 2026-11-05 – `reading-values.test.ts` red against a throwing stub (15 failed; cb41282), then `reading-values.ts` (15 passed). `reading-form.test.tsx` and `readings-section.test.tsx` red against `null` stubs (8 failed; 3865e02), then the components with stories (23 passed).
+- 2026-11-05 – Queries, action and pages (the acceptance scenarios were their red): `@task:061` 7/7; `@task:060` and `@task:058` 22/22; `pnpm test` 494 passed.
+- 2026-11-05 – Full `pnpm test:e2e` with dev servers: 136 of 316 failed on 30 s timeouts, more as the run went on (dev-server degradation; readings scenarios that had passed failed too). Against production builds, as CI runs it (`pnpm build`, `CI=1 pnpm test:e2e`): 312 passed, 4 failed in one window (`@task:049`: timeouts and an `ECONNRESET` on a sign-up post); `@task:049` alone again: 29/29. Not retried away: one stall in one run, cause unknown.
 
 ## Parking lot
 - Delete and restore a reading; edit a reading online.
@@ -82,3 +86,5 @@ Technicians record what they measure on site on the forms admins published, so e
 - Readings outside a visit; a "Readings" filter by form on the project.
 - Per-customer (or per-partner) reading forms: a form only some customers' or partners' users can see and fill (today every published form is visible to the whole workspace, task 060).
 - Comparing readings across sites and over time (charts, exports).
+- A form archived between opening its page and saving a reading: the check before the insert answers "Choose a form from the list", but in the instant between that check and the insert the policy refuses it and the user gets "Something went wrong". Lock the form row (`for share`) if it matters.
+- **Bug found (task 058, not this task's):** deleting an account that recorded a visit fails: `site_visit.created_by` is `ON DELETE SET NULL`, and `site_visit_keep_project` refuses any change of `created_by`, the foreign key's own update included ("a visit keeps its project and author"). `form_submission_keep` lets the author become null for this reason. Fix in a new migration (allow `NEW.created_by IS NULL`).
