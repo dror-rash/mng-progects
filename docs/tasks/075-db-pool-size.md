@@ -1,6 +1,6 @@
 # Task 075: A configurable database pool size
 
-- **Status:** todo (after the POC, unless the first deploy shows connection errors)
+- **Status:** todo (now: the first preview showed connection errors)
 - **Milestone:** M11 Deploy to GCP (follow-up)
 - **Zone / package:** `packages/db` (`pool-config.ts`), `infra/` (deploy script, preview login limits, README)
 - **Feature file:** none (no visible behavior); unit tests and the infra script tests
@@ -40,6 +40,7 @@ A small parser for `DB_POOL_MAX` next to `buildPoolConfig` (TDD in `pool-config.
 
 ## Progress log
 - 2026-11-05 – Planned from task 068's review rounds 4–5: the pool size is fixed at 5, and `main`'s worst case (15) exceeds its connection share (13) on `db-f1-micro`. After the POC unless the first deploy shows connection errors.
+- 2026-11-05 – The first previews (PRs #47, #48) failed `@smoke` "Create a customer" with `too many connections for role "preview_runtime"`: three preview zones each open up to 5 connections against a limit of 6. Owner's answers: `main` runs `DB_POOL_MAX=4` per instance (worst case 3 × 4 = 12, inside its share); the shell uses the same pool size as the other zones; run now, in parallel with task 061.
 
 ## Parking lot
 - (none yet)
