@@ -1,6 +1,6 @@
 # Task 061: Readings (online): fill a reading form on a visit
 
-- **Status:** in-progress
+- **Status:** in-review
 - **Milestone:** M13 Sites & Field Data (POC lane: 057 → 060 → 061 → 064)
 - **Zone / package:** `packages/db`, `apps/dashboard`, `e2e`, `infra/scripts/rls-pins.mjs`
 - **Feature file:** `docs/features/readings.feature`
@@ -44,18 +44,18 @@ Technicians record what they measure on site on the forms admins published, so e
 - The generated report (task 065).
 
 ## Acceptance criteria
-- [ ] Fill a published form on a visit; the reading shows on its page, on the visit and on the project. ("I fill in a reading on a visit")
-- [ ] A required field left empty is refused with the error on the field, and the values entered stay. ("A reading's values are checked against its form"; number, choice and date checks, which a browser input can't send wrong, are unit tests of `reading-values.ts`)
-- [ ] Only published forms are offered; a reading keeps its fields after its form is archived. ("Only published forms are offered, and readings outlive their form")
-- [ ] The same form sent twice records one reading. ("Sending the same reading twice records it once")
-- [ ] Crew workers fill readings; auditors read them and get no "Add a reading". ("A crew worker fills a reading; the auditor reads it")
-- [ ] Another partner's reading and a deleted visit's reading are not found. ("Another partner's readings stay hidden, and so do a deleted visit's")
-- [ ] A reading posted for another partner's visit, or with a draft form, is refused. ("My reading forms are refused for another partner's visit and for a draft form")
-- [ ] Another workspace's published form is refused like a made-up one and isn't offered, even with its id in the address. ("Another workspace's published form is refused like a made-up one"; access audit)
-- [ ] A reading posted with the id of another partner's reading is refused, and nothing is recorded. ("A reading form that reuses another partner's reading id is refused"; access audit)
-- [ ] The Add a reading page of another partner's visit is "Visit not found", like a made-up one. ("Another partner's visit has no Add a reading page"; access audit)
-- [ ] A worker taken off the crew can't save a reading on the project's visit or open its readings. ("A worker taken off the crew loses the visit's readings"; access audit)
-- [ ] An auditor posting the reading form is refused. ("The auditor can't add a reading by posting the form directly"; access audit)
+- [x] Fill a published form on a visit; the reading shows on its page, on the visit and on the project. ("I fill in a reading on a visit")
+- [x] A required field left empty is refused with the error on the field, and the values entered stay. ("A reading's values are checked against its form"; number, choice and date checks, which a browser input can't send wrong, are unit tests of `reading-values.ts`)
+- [x] Only published forms are offered; a reading keeps its fields after its form is archived. ("Only published forms are offered, and readings outlive their form")
+- [x] The same form sent twice records one reading. ("Sending the same reading twice records it once")
+- [x] Crew workers fill readings; auditors read them and get no "Add a reading". ("A crew worker fills a reading; the auditor reads it")
+- [x] Another partner's reading and a deleted visit's reading are not found. ("Another partner's readings stay hidden, and so do a deleted visit's")
+- [x] A reading posted for another partner's visit, or with a draft form, is refused. ("My reading forms are refused for another partner's visit and for a draft form")
+- [x] Another workspace's published form is refused like a made-up one and isn't offered, even with its id in the address. ("Another workspace's published form is refused like a made-up one"; access audit)
+- [x] A reading posted with the id of another partner's reading is refused, and nothing is recorded. ("A reading form that reuses another partner's reading id is refused"; access audit)
+- [x] The Add a reading page of another partner's visit is "Visit not found", like a made-up one. ("Another partner's visit has no Add a reading page"; access audit)
+- [x] A worker taken off the crew can't save a reading on the project's visit or open its readings. ("A worker taken off the crew loses the visit's readings"; access audit)
+- [x] An auditor posting the reading form is refused. ("The auditor can't add a reading by posting the form directly"; access audit)
 
 ## Approach (brief)
 - Migration and DB tests first (`packages/db/src/readings.db.test.ts`): who reads and writes, only the version of a form that is Published now (a draft's and an archived form's are refused, for admins too), deleted visits hide readings, idempotent insert and the clash rule.
