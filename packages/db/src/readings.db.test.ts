@@ -201,12 +201,20 @@ describe("who fills readings", () => {
 });
 
 describe("readings are append-only", () => {
-  it("changes and deletes nothing for anyone at runtime", async () => {
+  it("refuses changes and deletes for anyone at runtime", async () => {
     for (const user of [ids.admin, ids.pa]) {
-      expect(await writeAs(user, sql`update form_submission set "values" = '{}'::jsonb where id = ${ids.readingA}`)).toBe(0);
-      expect(await writeAs(user, sql`delete from form_submission where id = ${ids.readingA}`)).toBe(0);
+      expect(await writeAs(user, sql`update form_submission set "values" = '{}'::jsonb where id = ${ids.readingA}`)).toBe("refused");
+      expect(await writeAs(user, sql`delete from form_submission where id = ${ids.readingA}`)).toBe("refused");
     }
     expect(await sees(ids.admin, ids.readingA)).toBe(true);
+  });
+
+  it("doesn't let the runtime role update or delete readings at all", async () => {
+    const rows = await getMaintenanceDb().execute<{ can_update: boolean; can_delete: boolean }>(
+      sql`select has_table_privilege('app_user', 'form_submission', 'UPDATE') as can_update,
+                 has_table_privilege('app_user', 'form_submission', 'DELETE') as can_delete`,
+    );
+    expect(rows.rows[0]).toEqual({ can_update: false, can_delete: false });
   });
 
   it("keeps a reading's visit, version and author, even for the owner", async () => {
