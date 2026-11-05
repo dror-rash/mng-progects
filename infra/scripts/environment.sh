@@ -14,6 +14,11 @@ PREVIEW_OWNER_LOGIN="preview_owner"                      # provision-db-logins.m
 PREVIEW_OWNER_PASSWORD_SECRET="db-preview-owner-password"
 PREVIEW_RUNTIME_LOGIN="preview_runtime"                  # provision-db-logins.mjs: SET-only member of app_user
 PREVIEW_RUNTIME_PASSWORD_SECRET="db-preview-password"
+# Database connections per instance (DB_POOL_MAX, packages/db pool-config.ts; task 075). Cloud SQL's 22 login
+# connections are shared: provision-db-logins.mjs derives preview_runtime's CONNECTION LIMIT from the preview
+# size (its test fails when they differ), and infra/README.md shows the arithmetic.
+MAIN_DB_POOL_MAX="4"                                     # 3 zones x 1 busy instance x 4 = 12
+PREVIEW_DB_POOL_MAX="2"                                  # 3 zones x 1 instance x 2 = 6 per active preview
 
 if [ "${IS_PR:-false}" = "true" ]; then
   DEPLOY_ENV="preview"
@@ -22,6 +27,7 @@ if [ "${IS_PR:-false}" = "true" ]; then
   DB_MIGRATE_PASSWORD_SECRET="$PREVIEW_OWNER_PASSWORD_SECRET"
   DB_LOGIN="$PREVIEW_RUNTIME_LOGIN"
   DB_PASSWORD_SECRET="$PREVIEW_RUNTIME_PASSWORD_SECRET"
+  DB_POOL_MAX="$PREVIEW_DB_POOL_MAX"
   AUTH_SECRET_NAME="better-auth-secret-preview"
   FILES_BUCKET="${PROJECT}-files-preview"
   RUNTIME_SA_SUFFIX="preview"
@@ -34,6 +40,7 @@ else
   DB_MIGRATE_PASSWORD_SECRET="$MAIN_OWNER_PASSWORD_SECRET"
   DB_LOGIN="$MAIN_OWNER_LOGIN"                           # switches to app_user on connect (ADR-0006, task 074)
   DB_PASSWORD_SECRET="$MAIN_OWNER_PASSWORD_SECRET"
+  DB_POOL_MAX="$MAIN_DB_POOL_MAX"
   AUTH_SECRET_NAME="better-auth-secret"
   FILES_BUCKET="${PROJECT}-files"
   RUNTIME_SA_SUFFIX="runtime"
@@ -46,6 +53,7 @@ runtime_sa() { echo "${1}-${RUNTIME_SA_SUFFIX}@${PROJECT}.iam.gserviceaccount.co
 # The Cloud Run service of <zone> in this environment: <zone> (main) or <zone>-preview.
 service_name() { echo "${1}${SERVICE_SUFFIX}"; }
 
-export DEPLOY_ENV DB_NAME DB_MIGRATE_LOGIN DB_MIGRATE_PASSWORD_SECRET DB_LOGIN DB_PASSWORD_SECRET AUTH_SECRET_NAME \
+export DEPLOY_ENV DB_NAME DB_MIGRATE_LOGIN DB_MIGRATE_PASSWORD_SECRET DB_LOGIN DB_PASSWORD_SECRET DB_POOL_MAX AUTH_SECRET_NAME \
   FILES_BUCKET RUNTIME_SA_SUFFIX SERVICE_SUFFIX IMAGE_REPOSITORY MAIN_DB_NAME PREVIEW_DB_NAME MAIN_OWNER_LOGIN MAIN_OWNER_PASSWORD_SECRET \
-  PREVIEW_OWNER_LOGIN PREVIEW_OWNER_PASSWORD_SECRET PREVIEW_RUNTIME_LOGIN PREVIEW_RUNTIME_PASSWORD_SECRET
+  PREVIEW_OWNER_LOGIN PREVIEW_OWNER_PASSWORD_SECRET PREVIEW_RUNTIME_LOGIN PREVIEW_RUNTIME_PASSWORD_SECRET \
+  MAIN_DB_POOL_MAX PREVIEW_DB_POOL_MAX

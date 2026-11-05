@@ -44,6 +44,9 @@ expect "previews push to their own image repository"    images-preview          
 expect "main pushes to the main image repository"      images                      "$(in_env false '$IMAGE_REPOSITORY')"
 expect "a preview deploys to its own services"         dashboard-preview           "$(in_env true '$(service_name dashboard)')"
 expect "main deploys to the main services"             dashboard                   "$(in_env false '$(service_name dashboard)')"
+expect "previews run 2 database connections per instance" 2                    "$(in_env true '$DB_POOL_MAX')"
+expect "main runs 4 database connections per instance"   4                    "$(in_env false '$DB_POOL_MAX')"
+expect "the pool sizes agree with the per-environment ones" "4 2"             "$(in_env true '$MAIN_DB_POOL_MAX $PREVIEW_DB_POOL_MAX')"
 expect "refuses to run without PROJECT"                refused \
   "$( (unset PROJECT; IS_PR=false; . "$DIR/environment.sh") >/dev/null 2>&1 && echo sourced || echo refused)"
 

@@ -15,7 +15,8 @@ case "$image" in
 esac
 service="$(service_name "$zone")"
 
-env_vars="CLOUD_SQL_CONNECTION_NAME=${CLOUDSQL_CONNECTION},DB_USER=${DB_LOGIN},DB_NAME=${DB_NAME}"
+# DB_POOL_MAX: connections per instance, per environment (environment.sh), the same for every zone.
+env_vars="CLOUD_SQL_CONNECTION_NAME=${CLOUDSQL_CONNECTION},DB_USER=${DB_LOGIN},DB_NAME=${DB_NAME},DB_POOL_MAX=${DB_POOL_MAX}"
 flags=()
 if [ "$DEPLOY_ENV" = "preview" ]; then
   # Tagged no-traffic revision; relaxed origin check (unknown *.run.app host), no BETTER_AUTH_URL.
