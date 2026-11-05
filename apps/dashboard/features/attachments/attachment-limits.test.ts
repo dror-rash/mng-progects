@@ -1,15 +1,17 @@
 import { describe, expect, it } from "vitest";
 
-import { parseAttachmentKind, uploadRefusal } from "./attachment-limits";
+import { allowedOnVisit, GALLERY_KINDS, parseAttachmentKind, REPORT_KIND, uploadLabel, uploadRefusal } from "./attachment-limits";
 
 const MB = 1024 * 1024;
 
 describe("parseAttachmentKind", () => {
-  it("knows photos and files, nothing else", () => {
+  it("knows photos, files and reports, nothing else", () => {
     expect(parseAttachmentKind("photo")).toBe("photo");
     expect(parseAttachmentKind("file")).toBe("file");
-    expect(parseAttachmentKind("report")).toBeNull();
+    expect(parseAttachmentKind("report")).toBe("report");
+    expect(parseAttachmentKind("Report")).toBeNull();
     expect(parseAttachmentKind("x")).toBeNull();
+    expect(parseAttachmentKind(undefined)).toBeNull();
   });
 });
 
@@ -30,7 +32,40 @@ describe("uploadRefusal", () => {
     expect(uploadRefusal("file", "application/pdf", 50 * MB + 1)).toBe("Files can be up to 50 MB");
   });
 
+  it("takes the files' documents and images as reports up to 50 MB, with report messages", () => {
+    for (const type of ["application/pdf", "text/csv", "text/plain", "image/jpeg", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"]) {
+      expect(uploadRefusal("report", type, 50 * MB)).toBeNull();
+    }
+    expect(uploadRefusal("report", "video/mp4", 10)).toBe("Reports must be PDF, Word, Excel, CSV, text or images");
+    expect(uploadRefusal("report", "application/octet-stream", 10)).toBe("Reports must be PDF, Word, Excel, CSV, text or images");
+    expect(uploadRefusal("report", "application/pdf", 50 * MB + 1)).toBe("Reports can be up to 50 MB");
+    expect(uploadRefusal("report", "application/pdf", 0)).toBe("The file is empty");
+  });
+
   it("refuses empty files", () => {
     expect(uploadRefusal("file", "application/pdf", 0)).toBe("The file is empty");
+  });
+});
+
+describe("uploadLabel", () => {
+  it("names each kind's upload button", () => {
+    expect(uploadLabel("photo")).toBe("Add photos");
+    expect(uploadLabel("file")).toBe("Add files");
+    expect(uploadLabel("report")).toBe("Upload a report");
+  });
+});
+
+describe("GALLERY_KINDS and REPORT_KIND", () => {
+  it("puts photos and files in Photos and files, and reports apart", () => {
+    expect(GALLERY_KINDS).toEqual(["photo", "file"]);
+    expect(REPORT_KIND).toBe("report");
+  });
+});
+
+describe("allowedOnVisit", () => {
+  it("lets photos and files be added to a visit, but not reports", () => {
+    expect(allowedOnVisit("photo")).toBe(true);
+    expect(allowedOnVisit("file")).toBe(true);
+    expect(allowedOnVisit("report")).toBe(false);
   });
 });

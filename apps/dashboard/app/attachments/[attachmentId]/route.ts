@@ -4,8 +4,8 @@ import { createDownloadUrl } from "@repo/storage";
 import { getOpenableAttachment } from "@/features/attachments/queries";
 
 /**
- * Opens a photo or file (task 059): for whoever may see it, a redirect to a short-lived signed storage URL
- * (photos inline, files saved under their name). Everything else (signed out, another partner's, unconfirmed,
+ * Opens a photo, file (task 059) or report (task 064): for whoever may see it, a redirect to a short-lived signed storage URL
+ * (photos inline, files and reports saved under their name). Everything else (signed out, another partner's, unconfirmed,
  * deleted, made up) is the same 404, so the address tells nothing.
  */
 export async function GET(_request: Request, { params }: { params: Promise<{ attachmentId: string }> }) {

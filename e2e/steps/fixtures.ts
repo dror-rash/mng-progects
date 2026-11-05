@@ -33,11 +33,12 @@ export type People = { newPerson: () => Promise<Page> };
 
 export const origin = process.env.BASE_URL ?? `http://localhost:${process.env.SHELL_PORT ?? 3000}`;
 
-/** Signs up and signs in a new person (in their own browser context) with a unique email. */
-export async function signUp(page: Page, name: string) {
+/** Signs up and signs in a new person (in their own browser context) with a unique email; returns the account. */
+export async function signUp(page: Page, name: string): Promise<Account> {
   const credentials = { email: `${name.toLowerCase().replace(/\W+/g, "-")}-${crypto.randomUUID()}@example.com`, password: "correct-horse-battery" };
   expect((await page.request.post("/api/auth/sign-up/email", { data: { name, ...credentials }, headers: { origin } })).ok()).toBeTruthy();
   expect((await page.request.post("/api/auth/sign-in/email", { data: credentials, headers: { origin } })).ok()).toBeTruthy();
+  return credentials;
 }
 
 /** The signed-in user's id, as Better Auth reports it. */
