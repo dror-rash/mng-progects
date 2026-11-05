@@ -114,11 +114,15 @@ ones: `bash infra/scripts/test-environment.sh` fails when they differ.
     the first previews failed `@smoke` with `too many connections for role "preview_runtime"`.)
   - `preview_owner` 3: one PR migrating (lock + migration) and one waiting on the lock.
   - Previews take at most 7 + 3 = 10 of `db-f1-micro`'s 22 login connections (25, 3 reserved); `main` keeps
-    22 − 10 = 12, and its worst case is 3 zones × 1 busy instance × 4 (`DB_POOL_MAX=4`) = 12, so it fits.
+    22 − 10 = 12, and its worst case is 3 zones × 1 busy instance × 4 (`DB_POOL_MAX=4`) = 12: it fits at steady
+    state with no margin (see Known limits). `app` has no `CONNECTION LIMIT`, and operator sessions (`psql`,
+    `db:studio`) and a main deploy's own migrate/provisioning connections come out of `main`'s 12.
   - A change to these limits reaches previews only after a main deploy (main provisions, previews only verify):
     until then every preview deploy fails its verification (`preview_runtime's connection limit is 6, not 7`).
     Merge such a change, let the main deploy finish, then rerun or rebase open PRs. Open PRs based on the older
-    `main` expect the older limit and fail until rebased.
+    `main` expect the older limit and fail until rebased. If that main deploy's preview-login step warns and
+    skips (`::warning::Preview login step skipped`), the limit stays old and previews keep failing until the
+    next main deploy completes it.
   - `preview_owner` owns `app_preview`'s objects. It holds ADMIN on `app_user` (migration 0020 runs
     `GRANT app_user TO current_user`), `CONNECT`/`CREATE` on `app_preview` (drizzle-kit creates its `drizzle`
     schema) and `CREATE` on its `public` schema. The database itself stays owned by `cloudsqlsuperuser`.
@@ -239,8 +243,11 @@ CI runs the tests of all these scripts against the migrated database, and `test-
   7, `preview_owner` 3), `main` 12 (3 zones × 1 busy instance × `DB_POOL_MAX=4`). That fills all 22 with no
   margin, and counts one busy instance per zone: `main` can scale to 5 instances per zone (5 × 3 × 4 = 60), and a
   main deploy briefly adds its own (migration lock + migration 2, then provisioning 2, then the role check 1)
-  while the old revision still serves. Idle pool connections close after 10 s (`pg`'s default), so this only
-  bites under real load. Before real load: a bigger tier or a connection pooler, or lower `max_instances`.
+  while the old revision still serves. Idle pool connections close after 10 s (`pg`'s default). That timer
+  runs between requests because CPU is always allocated (`run.googleapis.com/cpu-throttling: false`, checked
+  on `dashboard-preview` and `shell`), so an older revision's instances (the previous push of the same PR, or
+  `main`'s old revision during a rollout) release their connections within about 10 s of their last request.
+  So this only bites under real load. Before real load: a bigger tier or a connection pooler, or lower `max_instances`.
 - Services are public (`allUsers`). If org policy forbids that, put a load balancer with IAP in front.
 - Previews share the production project and Cloud SQL instance. Use a separate project for staging if data
   isolation must not depend on database grants.
