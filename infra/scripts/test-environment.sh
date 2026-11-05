@@ -46,7 +46,8 @@ expect "a preview deploys to its own services"         dashboard-preview        
 expect "main deploys to the main services"             dashboard                   "$(in_env false '$(service_name dashboard)')"
 expect "previews run 2 database connections per instance" 2                    "$(in_env true '$DB_POOL_MAX')"
 expect "main runs 4 database connections per instance"   4                    "$(in_env false '$DB_POOL_MAX')"
-expect "the pool sizes agree with the per-environment ones" "4 2"             "$(in_env true '$MAIN_DB_POOL_MAX $PREVIEW_DB_POOL_MAX')"
+expect "previews' DB_POOL_MAX is PREVIEW_DB_POOL_MAX"   "$(in_env true '$PREVIEW_DB_POOL_MAX')" "$(in_env true '$DB_POOL_MAX')"
+expect "main's DB_POOL_MAX is MAIN_DB_POOL_MAX"         "$(in_env false '$MAIN_DB_POOL_MAX')"   "$(in_env false '$DB_POOL_MAX')"
 expect "refuses to run without PROJECT"                refused \
   "$( (unset PROJECT; IS_PR=false; . "$DIR/environment.sh") >/dev/null 2>&1 && echo sourced || echo refused)"
 

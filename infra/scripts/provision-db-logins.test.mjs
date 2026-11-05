@@ -6,6 +6,7 @@
 // Run: node --experimental-strip-types --test infra/scripts/provision-db-logins.test.mjs
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
+import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { test } from "node:test";
 
@@ -257,6 +258,12 @@ function fromEnvironmentSh(name) {
 test("uses the pool sizes the deploys set (environment.sh)", () => {
   assert.equal(String(CONNECTION_BUDGET.previewPoolMax), fromEnvironmentSh("PREVIEW_DB_POOL_MAX"));
   assert.equal(String(CONNECTION_BUDGET.mainPoolMax), fromEnvironmentSh("MAIN_DB_POOL_MAX"));
+});
+
+test("counts as many instances per preview revision as Terraform allows (preview_max_instances)", () => {
+  const variables = readFileSync(new URL("../variables.tf", import.meta.url), "utf8");
+  const block = variables.match(/variable "preview_max_instances" \{([\s\S]*?)\n\}/)?.[1] ?? "";
+  assert.equal(block.match(/^\s*default\s*=\s*(\d+)\s*$/m)?.[1], String(CONNECTION_BUDGET.previewInstances));
 });
 
 test("limits preview_runtime to 3 zones x 1 instance x the preview pool (2), plus the role check: 7", () => {
