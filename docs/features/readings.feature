@@ -130,3 +130,73 @@ Feature: Readings
     Then I see "Choose a form from the list", the same as with a made-up id
     And the admin sees no readings on "GX App"
     And the admin sees no readings on "NW Site"
+
+  # From the access audit: the rest of the leak suite (reused ids, workers off the crew, auditors posting,
+  # other workspaces' forms, the Add-a-reading page).
+  @task:061
+  Scenario: Another workspace's published form is refused like a made-up one
+    Given another user has a published reading form "Their check" with the field "Current"
+    When I add the reading "Panel check" on the visit "Panel delivered" with the form "Their check"
+    Then I see "Choose a form from the list", the same as with a made-up id
+    When I open the Add a reading page of the visit "Panel delivered" with the form "Their check"
+    Then the forms offered are "Panel check"
+    When I am on the "Panel upgrade" project page
+    Then I see the text "No readings yet."
+
+  @task:061
+  Scenario: A reading form that reuses another partner's reading id is refused
+    Given a workspace with the partners "Northwind" and "Globex", an admin and an auditor
+    And the customer "Acme Ltd" is assigned to "Northwind" and "Globex"
+    And "Northwind" has the project "NW Site" for "Acme Ltd" with the task "Copy"
+    And "Globex" has the project "GX App" for "Acme Ltd" with the task "Login"
+    And the admin published the reading form "Site check" with the field "Voltage"
+    And the admin recorded a visit to "GX App" with the notes "Globex visit"
+    And the admin filled in the reading "Site check" on the visit "Globex visit"
+    And the admin recorded a visit to "NW Site" with the notes "Northwind visit"
+    And I am signed in as a user of "Northwind"
+    When I add the reading "Site check" on the visit "Northwind visit" with the id of the reading on the visit "Globex visit"
+    Then I see the text "Something went wrong"
+    And the admin sees no readings on "NW Site"
+
+  @task:061
+  Scenario: Another partner's visit has no Add a reading page
+    Given a workspace with the partners "Northwind" and "Globex", an admin and an auditor
+    And the customer "Acme Ltd" is assigned to "Northwind" and "Globex"
+    And "Northwind" has the project "NW Site" for "Acme Ltd" with the task "Copy"
+    And "Globex" has the project "GX App" for "Acme Ltd" with the task "Login"
+    And the admin published the reading form "Site check" with the field "Voltage"
+    And the admin recorded a visit to "GX App" with the notes "Globex visit"
+    And I am signed in as a user of "Northwind"
+    When I open the Add a reading page of the visit "Globex visit"
+    Then I see "Visit not found", the same as for a made-up visit address
+    And the page shows none of "Site check"
+
+  @task:061
+  Scenario: A worker taken off the crew loses the visit's readings
+    Given a workspace with the partners "Northwind" and "Globex", an admin and an auditor
+    And the customer "Acme Ltd" is assigned to "Northwind" and "Globex"
+    And "Northwind" has the project "NW Site" for "Acme Ltd" with the task "Copy"
+    And the admin published the reading form "Site check" with the field "Voltage"
+    And the admin recorded a visit to "NW Site" with the notes "Cables pulled"
+    And the admin filled in the reading "Site check" on the visit "Cables pulled"
+    And I am signed in as a worker
+    And I am on the crew of "NW Site"
+    When I open the "Site check" reading form on the visit "Cables pulled"
+    And the admin opens the "NW Site" project page
+    And the admin removes "Worker" from the crew
+    And I fill in "Voltage" with "231"
+    And I press "Save reading"
+    Then I see the text "Something went wrong"
+    When I open the address of the reading on the visit "Cables pulled"
+    Then I see "Reading not found", the same as with a made-up id
+
+  @task:061
+  Scenario: The auditor can't add a reading by posting the form directly
+    Given a workspace with the partners "Northwind" and "Globex", an admin and an auditor
+    And the customer "Acme Ltd" is assigned to "Northwind" and "Globex"
+    And "Northwind" has the project "NW Site" for "Acme Ltd" with the task "Copy"
+    And the admin published the reading form "Site check" with the field "Voltage"
+    And the admin recorded a visit to "NW Site" with the notes "Cables pulled"
+    When the auditor posts the "Site check" reading form on the visit "Cables pulled"
+    Then the auditor sees the text "Something went wrong"
+    And the admin sees no readings on "NW Site"
