@@ -4,7 +4,7 @@ Feature: Reading forms
   I want to build the forms technicians fill in on site, and publish them when they are ready
   So that readings are recorded the same way every time, against fields that don't change under them (ADR-0008)
 
-  @wip @task:060
+  @task:060
   Scenario: I build and publish a reading form
     Given I am signed in with an existing account
     When I open "/dashboard/workspace/settings"
@@ -41,7 +41,7 @@ Feature: Reading forms
     When I open "/dashboard/forms"
     Then the "Panel check" row shows "Published"
 
-  @wip @task:060
+  @task:060
   Scenario: A form and its fields are checked
     Given I am signed in with an existing account
     When I open "/dashboard/forms/new"
@@ -60,7 +60,7 @@ Feature: Reading forms
     Then I see the error "Add at least two options, one per line"
     And the "Fields" section shows "No fields yet."
 
-  @wip @task:060
+  @task:060
   Scenario: A published form can't change
     Given I am signed in with an existing account
     And I have a published reading form "Panel check" with the field "Voltage"
@@ -71,7 +71,7 @@ Feature: Reading forms
     When I open the form "Panel check"
     Then the fields listed are "Voltage"
 
-  @wip @task:060
+  @task:060
   Scenario: I archive a published form
     Given I am signed in with an existing account
     And I have a published reading form "Panel check" with the field "Voltage"
@@ -82,7 +82,7 @@ Feature: Reading forms
     When I open "/dashboard/forms"
     Then the "Panel check" row shows "Archived"
 
-  @wip @task:060
+  @task:060
   Scenario: Another workspace's form stays hidden
     Given I am signed in with an existing account
     And another user has a reading form "Their checks"
@@ -90,7 +90,7 @@ Feature: Reading forms
     Then I see "Form not found", the same as with a made-up id
 
   # Roles and isolation: the leak suite's workspace (partner-access.feature, workers.feature).
-  @wip @task:060
+  @task:060
   Scenario: Auditors read forms; workers don't see the pages
     Given a workspace with the partners "Northwind" and "Globex", an admin and an auditor
     And the admin published the reading form "Panel check" with the field "Voltage"
@@ -106,7 +106,7 @@ Feature: Reading forms
     When I open the address of the form "Panel check"
     Then I see "Form not found", the same as with a made-up id
 
-  @wip @task:060
+  @task:060
   Scenario: Form changes from someone who isn't an admin are refused
     Given a workspace with the partners "Northwind" and "Globex", an admin and an auditor
     And the admin has a draft reading form "Panel check" with the field "Voltage"
@@ -116,5 +116,57 @@ Feature: Reading forms
     When I post the add-field form of the form "Panel check" with the label "Extra"
     Then I see "Something went wrong", the same as with a made-up id
     When I post the publish form of the form "Panel check"
+    Then I see "Something went wrong", the same as with a made-up id
+    And the admin sees the draft form "Panel check" with the fields "Voltage"
+
+  # From the access audit: the rest of the leak suite (partner users, drafts, auditors posting, other admins).
+  @task:060
+  Scenario Outline: Reading forms pages are not found for <who>, drafts included
+    Given a workspace with the partners "Northwind" and "Globex", an admin and an auditor
+    And the admin published the reading form "Panel check" with the field "Voltage"
+    And the admin has a draft reading form "Wiring check" with the field "Insulation"
+    And I am signed in as <who>
+    When I open "/dashboard/forms"
+    Then I see the text "This page could not be found."
+    When I open "/dashboard/forms/new"
+    Then I see the text "This page could not be found."
+    When I open the address of the form "Panel check"
+    Then I see "Form not found", the same as with a made-up id
+    When I open the address of the form "Wiring check"
+    Then I see "Form not found", the same as with a made-up id
+
+    Examples:
+      | who                   |
+      | a worker              |
+      | a user of "Northwind" |
+
+  @task:060
+  Scenario Outline: Form changes posted by <who> are refused
+    Given a workspace with the partners "Northwind" and "Globex", an admin and an auditor
+    And the admin has a draft reading form "Panel check" with the field "Voltage"
+    And I am signed in as <who>
+    When I post the add-field form of the form "Panel check" with the label "Extra"
+    Then I see "Something went wrong", the same as with a made-up id
+    When I post the remove form of the field "Voltage" of the form "Panel check"
+    Then I see "Something went wrong", the same as with a made-up id
+    When I post the publish form of the form "Panel check"
+    Then I see "Something went wrong", the same as with a made-up id
+    And the admin sees the draft form "Panel check" with the fields "Voltage"
+
+    Examples:
+      | who        |
+      | a worker   |
+      | an auditor |
+
+  @task:060
+  Scenario: An admin of another workspace can't change a form by posting its id from their own workspace
+    Given a workspace with the partners "Northwind" and "Globex", an admin and an auditor
+    And the admin has a draft reading form "Panel check" with the field "Voltage"
+    And I am signed in with an existing account
+    When I post the add-field form of the form "Panel check" from my own workspace with the label "Extra"
+    Then I see "Something went wrong", the same as with a made-up id
+    When I post the remove form of the field "Voltage" of the form "Panel check" from my own workspace
+    Then I see "Something went wrong", the same as with a made-up id
+    When I post the publish form of the form "Panel check" from my own workspace
     Then I see "Something went wrong", the same as with a made-up id
     And the admin sees the draft form "Panel check" with the fields "Voltage"

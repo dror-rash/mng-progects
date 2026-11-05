@@ -26,6 +26,8 @@ export type ScenarioState = {
   replay?: (id: string) => Promise<void>;
   /** The last form post a step watched (task 058), to send it again as it was. */
   lastPost?: { url: string; headers: Record<string, string>; body: Buffer | null };
+  /** Reading forms (task 060): the hidden fields of a form's buttons ("<form>:<button>"), to post them from another form. */
+  hiddenFields?: Record<string, Record<string, string>>;
 };
 
 /** Opens extra browser contexts (other people) and closes them when the scenario ends. */

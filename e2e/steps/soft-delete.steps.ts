@@ -150,6 +150,7 @@ When("the admin restores {string}", async ({ people, state }, name: string) => {
 
 Then("the auditor sees no {string} button", async ({ people, state }, name: string) => {
   const auditor = await pageOf(state, people, "auditor");
-  await expect(auditor.getByRole("table", { name: "Deleted items" })).toBeVisible();
+  // Any page the auditor opened (Deleted items, a reading form): wait for it, then look for the button.
+  await expect(auditor.getByRole("heading", { level: 1 })).toBeVisible();
   await expect(auditor.getByRole("button", { name })).toHaveCount(0);
 });
