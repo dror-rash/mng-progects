@@ -25,14 +25,31 @@ export async function assertRole(client: Queryable, role: string): Promise<void>
   }
 }
 
+/** Connections per instance when `DB_POOL_MAX` is unset (local, CI). */
+export const DEFAULT_POOL_MAX = 5;
+
+/**
+ * The pool size per instance: `DB_POOL_MAX` (a positive whole number), or `DEFAULT_POOL_MAX` when unset or
+ * empty. Deploys set it per environment (infra/scripts/environment.sh, task 075): the logins' connection
+ * limits on Cloud SQL are computed from it. Anything else throws at startup.
+ */
+export function parsePoolMax(value: string | undefined): number {
+  if (value === undefined || value === "") return DEFAULT_POOL_MAX;
+  if (!/^[1-9][0-9]*$/.test(value)) {
+    throw new Error(`DB_POOL_MAX must be a positive whole number (connections per instance), not ${JSON.stringify(value)}.`);
+  }
+  return Number(value);
+}
+
 /**
  * Cloud Run: Cloud SQL is mounted as a unix socket at /cloudsql/<connection-name>.
  * Local/CI: a plain DATABASE_URL.
  * Every connection switches to `role` on connect and is checked before its first query (`assertRole`);
- * `null` keeps the login user (the maintenance connection), unchecked.
+ * `null` keeps the login user (the maintenance connection), unchecked. `max` comes from `DB_POOL_MAX`.
  */
 export function buildPoolConfig(env: Env, role: string | null = RUNTIME_ROLE): PoolConfig {
   const asRole: PoolConfig = role ? { options: `-c role=${role}`, onConnect: (client) => assertRole(client, role) } : {};
+  const max = parsePoolMax(env.DB_POOL_MAX);
   const connectionName = env.CLOUD_SQL_CONNECTION_NAME;
 
   if (connectionName) {
@@ -40,11 +57,11 @@ export function buildPoolConfig(env: Env, role: string | null = RUNTIME_ROLE): P
     if (!DB_USER || !DB_PASSWORD || !DB_NAME) {
       throw new Error("CLOUD_SQL_CONNECTION_NAME is set, so DB_USER, DB_PASSWORD and DB_NAME are required.");
     }
-    return { host: `/cloudsql/${connectionName}`, user: DB_USER, password: DB_PASSWORD, database: DB_NAME, max: 5, ...asRole };
+    return { host: `/cloudsql/${connectionName}`, user: DB_USER, password: DB_PASSWORD, database: DB_NAME, max, ...asRole };
   }
 
   if (env.DATABASE_URL) {
-    return { connectionString: env.DATABASE_URL, max: 5, ...asRole };
+    return { connectionString: env.DATABASE_URL, max, ...asRole };
   }
 
   throw new Error("Set DATABASE_URL (local/CI) or CLOUD_SQL_CONNECTION_NAME + DB_USER/DB_PASSWORD/DB_NAME (Cloud Run).");

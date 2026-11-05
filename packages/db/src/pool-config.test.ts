@@ -88,6 +88,30 @@ describe("buildPoolConfig", () => {
   });
 });
 
+describe("the pool size (DB_POOL_MAX)", () => {
+  const local = { DATABASE_URL: "postgres://u:p@localhost:5432/app" };
+  const cloud = { CLOUD_SQL_CONNECTION_NAME: "proj:region:db", DB_USER: "app", DB_PASSWORD: "secret", DB_NAME: "app" };
+
+  it("keeps 5 connections when DB_POOL_MAX is unset", () => {
+    expect(buildPoolConfig(local).max).toBe(5);
+    expect(buildPoolConfig(cloud).max).toBe(5);
+  });
+
+  it("keeps 5 connections when DB_POOL_MAX is empty", () => {
+    expect(buildPoolConfig({ ...local, DB_POOL_MAX: "" }).max).toBe(5);
+  });
+
+  it("uses DB_POOL_MAX when it is a positive whole number", () => {
+    expect(buildPoolConfig({ ...local, DB_POOL_MAX: "2" }).max).toBe(2);
+    expect(buildPoolConfig({ ...cloud, DB_POOL_MAX: "4" }).max).toBe(4);
+  });
+
+  it.each(["0", "-1", "abc", "2.5", "2x", " "])("refuses DB_POOL_MAX=%j with a message naming it", (value) => {
+    expect(() => buildPoolConfig({ ...local, DB_POOL_MAX: value })).toThrow(/DB_POOL_MAX/);
+    expect(() => buildPoolConfig({ ...cloud, DB_POOL_MAX: value })).toThrow(/DB_POOL_MAX/);
+  });
+});
+
 describe("assertRole", () => {
   it("refuses a connection running as another role (fail closed)", async () => {
     const client = { query: vi.fn().mockResolvedValue({ rows: [{ role: "postgres" }] }) };
