@@ -118,3 +118,55 @@ Feature: Reading forms
     When I post the publish form of the form "Panel check"
     Then I see "Something went wrong", the same as with a made-up id
     And the admin sees the draft form "Panel check" with the fields "Voltage"
+
+  # From the access audit: the rest of the leak suite (partner users, drafts, auditors posting, other admins).
+  @task:060
+  Scenario Outline: Reading forms pages are not found for <who>, drafts included
+    Given a workspace with the partners "Northwind" and "Globex", an admin and an auditor
+    And the admin published the reading form "Panel check" with the field "Voltage"
+    And the admin has a draft reading form "Wiring check" with the field "Insulation"
+    And I am signed in as <who>
+    When I open "/dashboard/forms"
+    Then I see the text "This page could not be found."
+    When I open "/dashboard/forms/new"
+    Then I see the text "This page could not be found."
+    When I open the address of the form "Panel check"
+    Then I see "Form not found", the same as with a made-up id
+    When I open the address of the form "Wiring check"
+    Then I see "Form not found", the same as with a made-up id
+
+    Examples:
+      | who                   |
+      | a worker              |
+      | a user of "Northwind" |
+
+  @task:060
+  Scenario Outline: Form changes posted by <who> are refused
+    Given a workspace with the partners "Northwind" and "Globex", an admin and an auditor
+    And the admin has a draft reading form "Panel check" with the field "Voltage"
+    And I am signed in as <who>
+    When I post the add-field form of the form "Panel check" with the label "Extra"
+    Then I see "Something went wrong", the same as with a made-up id
+    When I post the remove form of the field "Voltage" of the form "Panel check"
+    Then I see "Something went wrong", the same as with a made-up id
+    When I post the publish form of the form "Panel check"
+    Then I see "Something went wrong", the same as with a made-up id
+    And the admin sees the draft form "Panel check" with the fields "Voltage"
+
+    Examples:
+      | who        |
+      | a worker   |
+      | an auditor |
+
+  @task:060
+  Scenario: An admin of another workspace can't change a form by posting its id from their own workspace
+    Given a workspace with the partners "Northwind" and "Globex", an admin and an auditor
+    And the admin has a draft reading form "Panel check" with the field "Voltage"
+    And I am signed in with an existing account
+    When I post the add-field form of the form "Panel check" from my own workspace with the label "Extra"
+    Then I see "Something went wrong", the same as with a made-up id
+    When I post the remove form of the field "Voltage" of the form "Panel check" from my own workspace
+    Then I see "Something went wrong", the same as with a made-up id
+    When I post the publish form of the form "Panel check" from my own workspace
+    Then I see "Something went wrong", the same as with a made-up id
+    And the admin sees the draft form "Panel check" with the fields "Voltage"
