@@ -1,6 +1,6 @@
 # Task 075: A configurable database pool size
 
-- **Status:** in-review
+- **Status:** done (PR #49)
 - **Milestone:** M11 Deploy to GCP (follow-up)
 - **Zone / package:** `packages/db` (`pool-config.ts`), `infra/` (deploy script, preview login limits, README)
 - **Feature file:** none (no visible behavior); unit tests and the infra script tests
@@ -50,6 +50,7 @@ A small parser for `DB_POOL_MAX` next to `buildPoolConfig` (TDD in `pool-config.
   - `test-deploy-service.sh`: `FAIL - a preview runs a pool of 2 per instance`, `FAIL - main runs a pool of 4 per instance`; `12 passed, 2 failed`. Green: 14 passed.
   - `provision-db-logins.test.mjs`: the file failed to load, `SyntaxError: The requested module './provision-db-logins.mjs' does not provide an export named 'CONNECTION_BUDGET'`. Green: 26 passed.
 - 2026-11-05 – Review fixes. README: CPU is always allocated on the preview and main services (`cpu-throttling: false`), so `pg`'s 10 s idle timeout runs between requests and older revisions release their connections within about 10 s; `main`'s 12 fits at steady state with no margin, `app` has no `CONNECTION LIMIT`, and operator sessions and a main deploy's own connections count against it; a skipped preview-login step leaves the old limit until the next main deploy. New guard tests: `CONNECTION_BUDGET.previewInstances` equals Terraform's `preview_max_instances` default, and `DB_POOL_MAX` equals `PREVIEW_`/`MAIN_DB_POOL_MAX` in `environment.sh`; the deploy test's greps are anchored. These guards passed on their first run (they check agreement, not new behavior), so each was shown to fail by mutating the code and then restoring it: with `previewInstances: 2`, 4 tests fail including the Terraform one; with preview `DB_POOL_MAX="3"`, `test-environment.sh` fails 2; with the deploy appending a `0` (`DB_POOL_MAX=20`/`40`), both anchored deploy checks fail (the old unanchored grep would have passed `20`). `DB_POOL_MAX` added to turbo's `globalPassThroughEnv` and `.env.example` (commented); `pool-config.ts` notes the maintenance pool honours it; `docs/PLAN.md` updated.
+- 2026-11-05 – Merged (PR #49). Still to check by hand: the next PR preview passes `@smoke` with no `too many connections` in the Cloud Run logs (task 061's PR).
 
 ## Parking lot
 - A `connectionTimeoutMillis` on the pool, so that with small pools a broken "one connection per request" convention (e.g. a nested checkout outside `withAccess` while a transaction holds the only free connection) fails with an error instead of hanging.

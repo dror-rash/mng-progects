@@ -1,6 +1,6 @@
 # Task 060: Reading forms (templates), built and published by admins
 
-- **Status:** in-review
+- **Status:** done (PR #48)
 - **Milestone:** M13 Sites & Field Data (POC lane: 057 → 060 → 061 → 064)
 - **Zone / package:** `packages/db`, `apps/dashboard`, `e2e`, `infra/scripts/rls-pins.mjs`
 - **Feature file:** `docs/features/form-templates.feature`
@@ -86,6 +86,7 @@ Technicians record measurements on forms that admins define (owner decision 9). 
   - **Item 1, leak:** an outsider inserting a field into another workspace's published version got 23514 ("a published form version can't change") where a draft or made-up id got 42501. `form_field_check` now leaves a runtime user who can't change the version to RLS before reading or locking it, so all three get 42501.
   - **Pins and nits:** RLS pins updated. `removeFieldAction` throws Not found when no row was deleted. Status writes use `satisfies FormStatus`. The `StaleRemove` story presses "Remove Voltage" and expects the alert. `keep-new-input` moved to `features/reading-forms/` (CLAUDE.md's Forms rules unchanged); retyping the exact value just sent clears it.
 - 2026-11-05 – QA PASS: `@task:060` 12/12, full e2e 292/296 with the 4 timeouts passing alone; unit (dashboard 373), DB 136, `test:infra`, lint, typecheck, build and Storybook build pass. `NewReadingFormForm` and `FormActionButton` have no stories of their own: they call server actions, as `site-form` and `visit-form` do. In review.
+- 2026-11-05 – Merged (PR #48); its main deploy passed. On its preview, migration 0037 and the runtime role check passed on Cloud SQL; the one failing `@smoke` scenario was task 075's connection limit.
 
 ## Parking lot
 - Photo, signature and pass/fail field types; min/max on numbers.
