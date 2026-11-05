@@ -145,12 +145,20 @@ CREATE POLICY form_field_write ON form_field FOR ALL
   USING (can_change_form_version(current_setting('app.user_id', true), version_id))
   WITH CHECK (can_change_form_version(current_setting('app.user_id', true), version_id));
 --> statement-breakpoint
--- A form stays in its workspace, and its status only moves forward: draft → published → archived.
+-- A form is created as a draft, stays in its workspace, and its status only moves forward: draft → published →
+-- archived. Publishing needs a field on its latest version; form_template_publish then freezes that version, so a
+-- published (or archived) form always has a published version (task 061 relies on it).
 CREATE FUNCTION form_template_check()
 RETURNS trigger
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp
 AS $$
 BEGIN
+  IF TG_OP = 'INSERT' THEN
+    IF NEW.status <> 'draft' THEN
+      RAISE EXCEPTION 'a reading form starts as a draft' USING ERRCODE = '23514';
+    END IF;
+    RETURN NEW;
+  END IF;
   IF NEW.workspace_id IS DISTINCT FROM OLD.workspace_id THEN
     RAISE EXCEPTION 'a reading form keeps its workspace' USING ERRCODE = '23514';
   END IF;
@@ -158,17 +166,47 @@ BEGIN
      AND NOT ((OLD.status = 'draft' AND NEW.status = 'published') OR (OLD.status = 'published' AND NEW.status = 'archived')) THEN
     RAISE EXCEPTION 'a reading form goes from draft to published to archived' USING ERRCODE = '23514';
   END IF;
+  IF OLD.status = 'draft' AND NEW.status = 'published' AND NOT EXISTS (
+    SELECT 1
+    FROM form_field f
+    WHERE f.version_id = (SELECT v.id FROM form_template_version v WHERE v.template_id = NEW.id ORDER BY v.version DESC LIMIT 1)
+  ) THEN
+    RAISE EXCEPTION 'a reading form needs a field before it is published' USING ERRCODE = '23514';
+  END IF;
   RETURN NEW;
 END;
 $$;
 --> statement-breakpoint
--- A published version never changes, whoever asks (the owner bypasses RLS, not this). It goes only with its
--- form, when a workspace is deleted (the cascade has removed the form by then). A version keeps its form.
+-- Publishing a form publishes its latest version: the only way a version gets published_at.
+CREATE FUNCTION form_template_publish()
+RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp
+AS $$
+BEGIN
+  IF OLD.status = 'draft' AND NEW.status = 'published' THEN
+    UPDATE form_template_version
+    SET published_at = now() AT TIME ZONE 'UTC'
+    WHERE id = (SELECT v.id FROM form_template_version v WHERE v.template_id = NEW.id ORDER BY v.version DESC LIMIT 1)
+      AND published_at IS NULL;
+  END IF;
+  RETURN NULL;
+END;
+$$;
+--> statement-breakpoint
+-- A version starts unpublished and is published only with its form (form_template_publish); a published version
+-- never changes, whoever asks (the owner bypasses RLS, not this). It goes only with its form, when a workspace is
+-- deleted (the cascade has removed the form by then). A version keeps its form and number.
 CREATE FUNCTION form_template_version_check()
 RETURNS trigger
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp
 AS $$
 BEGIN
+  IF TG_OP = 'INSERT' THEN
+    IF NEW.published_at IS NOT NULL THEN
+      RAISE EXCEPTION 'a form version starts unpublished' USING ERRCODE = '23514';
+    END IF;
+    RETURN NEW;
+  END IF;
   IF TG_OP = 'DELETE' THEN
     IF OLD.published_at IS NOT NULL AND EXISTS (SELECT 1 FROM form_template t WHERE t.id = OLD.template_id) THEN
       RAISE EXCEPTION 'a published form version can''t change' USING ERRCODE = '23514';
@@ -181,18 +219,25 @@ BEGIN
   IF NEW.template_id IS DISTINCT FROM OLD.template_id OR NEW.version IS DISTINCT FROM OLD.version THEN
     RAISE EXCEPTION 'a form version keeps its form and number' USING ERRCODE = '23514';
   END IF;
+  IF NEW.published_at IS NOT NULL
+     AND NOT EXISTS (SELECT 1 FROM form_template t WHERE t.id = NEW.template_id AND t.status = 'published') THEN
+    RAISE EXCEPTION 'a form version is published with its form' USING ERRCODE = '23514';
+  END IF;
   RETURN NEW;
 END;
 $$;
 --> statement-breakpoint
 -- The fields of a published version never change, and a field keeps its version. Adding or changing a field
--- locks its version row, so it waits for a publish in progress and then sees it.
+-- locks its version row, so it waits for a publish in progress and then sees it. A runtime user who can't change
+-- the version is left to row-level security, before anything here reads or locks it: its error must not tell
+-- another workspace whether a version id exists or is published.
 CREATE FUNCTION form_field_check()
 RETURNS trigger
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp
 AS $$
 DECLARE
   v_published_at timestamp;
+  v_caller text := current_setting('app.user_id', true);
 BEGIN
   IF TG_OP = 'DELETE' THEN
     SELECT v.published_at INTO v_published_at FROM form_template_version v WHERE v.id = OLD.version_id;
@@ -200,6 +245,9 @@ BEGIN
       RAISE EXCEPTION 'a published form version can''t change' USING ERRCODE = '23514';
     END IF;
     RETURN OLD;
+  END IF;
+  IF coalesce(v_caller, '') <> '' AND NOT can_change_form_version(v_caller, NEW.version_id) THEN
+    RETURN NEW;
   END IF;
   IF TG_OP = 'UPDATE' AND NEW.version_id IS DISTINCT FROM OLD.version_id THEN
     RAISE EXCEPTION 'a form field keeps its version' USING ERRCODE = '23514';
@@ -212,14 +260,18 @@ BEGIN
 END;
 $$;
 --> statement-breakpoint
-REVOKE EXECUTE ON FUNCTION form_template_check(), form_template_version_check(), form_field_check() FROM PUBLIC;
+REVOKE EXECUTE ON FUNCTION form_template_check(), form_template_publish(), form_template_version_check(), form_field_check() FROM PUBLIC;
 --> statement-breakpoint
 CREATE TRIGGER form_template_check
-  BEFORE UPDATE OF workspace_id, status ON form_template
+  BEFORE INSERT OR UPDATE OF workspace_id, status ON form_template
   FOR EACH ROW EXECUTE FUNCTION form_template_check();
 --> statement-breakpoint
+CREATE TRIGGER form_template_publish
+  AFTER UPDATE OF status ON form_template
+  FOR EACH ROW EXECUTE FUNCTION form_template_publish();
+--> statement-breakpoint
 CREATE TRIGGER form_template_version_check
-  BEFORE UPDATE OR DELETE ON form_template_version
+  BEFORE INSERT OR UPDATE OR DELETE ON form_template_version
   FOR EACH ROW EXECUTE FUNCTION form_template_version_check();
 --> statement-breakpoint
 CREATE TRIGGER form_field_check

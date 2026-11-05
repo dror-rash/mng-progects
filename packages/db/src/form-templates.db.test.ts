@@ -3,6 +3,9 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { getDb, withAccess } from "./client";
 import { CHECK, errorCode } from "./db-test-fixtures";
+
+/** Row-level security's "new row violates row-level security policy". */
+const RLS = "42501";
 import { getMaintenanceDb } from "./maintenance";
 import * as schema from "./schema";
 
@@ -28,6 +31,7 @@ const ids = {
   publishedField: `${run}-published-f1`,
   archived: `${run}-archived`,
   archivedV1: `${run}-archived-v1`,
+  archivedField: `${run}-archived-f1`,
 };
 const users = [ids.admin, ids.auditor, ids.worker, ids.pa, ids.outsider];
 
@@ -47,6 +51,8 @@ async function writeAs(userId: string, query: ReturnType<typeof sql>): Promise<n
 
 const insertTemplate = (id: string, workspaceId = ids.workspace, status = "draft") =>
   sql`insert into form_template (id, workspace_id, name, status) values (${id}, ${workspaceId}, 'Panel check', ${status})`;
+/** Publishing is a status change on the form; the database publishes (freezes) its latest version with it. */
+const setStatus = (templateId: string, status: string) => sql`update form_template set status = ${status} where id = ${templateId}`;
 const insertVersion = (id: string, templateId: string) =>
   sql`insert into form_template_version (id, template_id, version) values (${id}, ${templateId}, 1)`;
 const publish = (versionId: string) => sql`update form_template_version set published_at = now() where id = ${versionId}`;
@@ -74,18 +80,18 @@ beforeAll(async () => {
     { workspaceId: ids.workspace, userId: ids.pa, role: "partner", partnerId: ids.partnerA },
     { workspaceId: ids.otherWorkspace, userId: ids.outsider, role: "admin" },
   ]);
-  for (const [template, version, status] of [
-    [ids.draft, ids.draftV1, "draft"],
-    [ids.published, ids.publishedV1, "published"],
-    [ids.archived, ids.archivedV1, "archived"],
+  for (const [template, version, field] of [
+    [ids.draft, ids.draftV1, ids.draftField],
+    [ids.published, ids.publishedV1, ids.publishedField],
+    [ids.archived, ids.archivedV1, ids.archivedField],
   ] as const) {
-    await db.execute(insertTemplate(template, ids.workspace, status));
+    await db.execute(insertTemplate(template));
     await db.execute(insertVersion(version, template));
+    await db.execute(insertField(field, version));
   }
-  await db.execute(insertField(ids.draftField, ids.draftV1));
-  await db.execute(insertField(ids.publishedField, ids.publishedV1));
-  await db.execute(publish(ids.publishedV1));
-  await db.execute(publish(ids.archivedV1));
+  await db.execute(setStatus(ids.published, "published"));
+  await db.execute(setStatus(ids.archived, "published"));
+  await db.execute(setStatus(ids.archived, "archived"));
 });
 
 afterAll(async () => {
@@ -115,6 +121,14 @@ describe("who sees reading forms", () => {
   it("shows another workspace's members nothing", async () => {
     expect(await formIds(ids.outsider)).toEqual([]);
     expect(await as(ids.outsider, sql`select id from form_field where id = ${ids.publishedField}`)).toHaveLength(0);
+  });
+
+  it("tells another workspace nothing about a version: published, draft or made up, its fields are refused alike", async () => {
+    const insertAs = (versionId: string) =>
+      errorCode(withAccess(ids.outsider, () => getDb().execute(insertField(`${run}-probe-${versionId}`, versionId))));
+    expect(await insertAs(ids.publishedV1)).toBe(RLS);
+    expect(await insertAs(ids.draftV1)).toBe(RLS);
+    expect(await insertAs(`${run}-made-up`)).toBe(RLS);
   });
 
   it("can't call the access functions as PUBLIC", async () => {
@@ -166,15 +180,37 @@ describe("who changes reading forms", () => {
 });
 
 describe("a published version", () => {
-  it("lets an admin publish a draft version, which then can't change", async () => {
+  it("is published with its form by an admin, and then can't change", async () => {
     const form = `${run}-publish`;
     await getMaintenanceDb().execute(insertTemplate(form));
     await getMaintenanceDb().execute(insertVersion(`${form}-v1`, form));
     await getMaintenanceDb().execute(insertField(`${form}-f1`, `${form}-v1`));
-    expect(await writeAs(ids.admin, publish(`${form}-v1`))).toBe(1);
-    expect(await writeAs(ids.admin, sql`update form_template set status = 'published' where id = ${form}`)).toBe(1);
+    expect(await writeAs(ids.admin, setStatus(form, "published"))).toBe(1);
+    const { rows } = await getMaintenanceDb().execute<{ published: boolean }>(
+      sql`select published_at is not null as published from form_template_version where id = ${`${form}-v1`}`,
+    );
+    expect(rows[0]?.published).toBe(true);
     expect(await writeAs(ids.admin, insertField(`${form}-f2`, `${form}-v1`))).toBe("refused");
     expect(await writeAs(ids.admin, sql`delete from form_field where id = ${`${form}-f1`}`)).toBe(0);
+  });
+
+  it("can't be published while its form is a draft", async () => {
+    expect(await errorCode(getMaintenanceDb().execute(publish(ids.draftV1)))).toBe(CHECK);
+    expect(await writeAs(ids.admin, publish(ids.draftV1))).toBe("refused");
+  });
+
+  it("is never inserted published, nor is a form inserted past draft", async () => {
+    const db = getMaintenanceDb();
+    expect(await errorCode(db.execute(insertTemplate(`${run}-born-published`, ids.workspace, "published")))).toBe(CHECK);
+    expect(await errorCode(db.execute(sql`insert into form_template_version (id, template_id, version, published_at)
+      values (${`${run}-v2`}, ${ids.draft}, 2, now())`))).toBe(CHECK);
+  });
+
+  it("needs a field before its form can be published", async () => {
+    const form = `${run}-empty`;
+    await getMaintenanceDb().execute(insertTemplate(form));
+    await getMaintenanceDb().execute(insertVersion(`${form}-v1`, form));
+    expect(await errorCode(getMaintenanceDb().execute(setStatus(form, "published")))).toBe(CHECK);
   });
 
   it("refuses any change to it or its fields, even from the owner", async () => {
@@ -194,10 +230,10 @@ describe("a published version", () => {
     const db = getMaintenanceDb();
     const workspace = `${run}-gone`;
     await db.insert(schema.workspace).values({ id: workspace, name: `Gone ${run}` });
-    await db.execute(insertTemplate(`${workspace}-form`, workspace, "published"));
+    await db.execute(insertTemplate(`${workspace}-form`, workspace));
     await db.execute(insertVersion(`${workspace}-v1`, `${workspace}-form`));
     await db.execute(insertField(`${workspace}-f1`, `${workspace}-v1`));
-    await db.execute(publish(`${workspace}-v1`));
+    await db.execute(setStatus(`${workspace}-form`, "published"));
     expect(await errorCode(db.execute(sql`delete from workspace where id = ${workspace}`))).toBe("succeeded");
     const { rows } = await db.execute(sql`select id from form_field where id = ${`${workspace}-f1`}`);
     expect(rows).toHaveLength(0);
