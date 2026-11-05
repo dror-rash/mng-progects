@@ -6,6 +6,7 @@
     "DB_USER",
     "DB_PASSWORD",
     "DB_NAME",
+    "DB_POOL_MAX",
     "BETTER_AUTH_SECRET",
     "BETTER_AUTH_URL",
     "ALLOW_PREVIEW_ORIGINS",

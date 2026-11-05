@@ -31,7 +31,8 @@ export const DEFAULT_POOL_MAX = 5;
 /**
  * The pool size per instance: `DB_POOL_MAX` (a positive whole number), or `DEFAULT_POOL_MAX` when unset or
  * empty. Deploys set it per environment (infra/scripts/environment.sh, task 075): the logins' connection
- * limits on Cloud SQL are computed from it. Anything else throws at startup.
+ * limits on Cloud SQL are computed from it. Anything else throws at startup. The maintenance pool
+ * (`@repo/db/maintenance`: seeds, e2e fixtures, DB tests) honours it too.
  */
 export function parsePoolMax(value: string | undefined): number {
   if (value === undefined || value === "") return DEFAULT_POOL_MAX;
