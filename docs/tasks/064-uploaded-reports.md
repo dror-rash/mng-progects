@@ -57,12 +57,12 @@ The finished report (often written outside the app) belongs with the project, wh
 
 ## Progress log
 - 2026-11-05 – Drafted with the feature file (scenarios `@wip`).
+- 2026-11-05 – Owner confirmed the recommended answers: task 059's file types and 50 MB limit; whoever can work on the project uploads reports, the uploader and admins delete.
+- 2026-11-05 – Started in lane 2 (`feat/uploaded-reports`).
+- 2026-11-05 – Red: `@wip` removed, steps in `e2e/steps/reports.steps.ts` (helpers shared from `attachments.steps.ts`, `signUp` returns the account). 5 scenarios fail on the missing "Upload a report" input / "Reports" region; the two hidden-address scenarios already pass (the route and policies don't look at the kind), kept as regression guards.
+- 2026-11-05 – Green: `report` in `ATTACHMENT_KINDS` (files' types, 50 MB, report messages, `uploadLabel`), `startUploadAction` refuses a report with a visit, `listProjectReports` + `ReportsSection` (story: reports, empty, read-only) with `AttachmentUploader kinds`, Photos and files lists `photo`/`file` only, Deleted page kind `report` ("Report"). No migration. `@task:064` 7/7, `@task:059` 9/9; full e2e 275/291 with 16 timeouts under load (lane 1 concurrent), all 43 scenarios of those files pass alone; unit 347 (dashboard), lint and typecheck green.
 
 ## Parking lot
 - Reports on a visit; a report title, date and the visits it covers.
 - PDF-only reports (open question 3).
 - A Reports column or filter on the projects table.
-- 2026-11-05 – Owner confirmed the recommended answers: task 059's file types and 50 MB limit; whoever can work on the project uploads reports, the uploader and admins delete.
-- 2026-11-05 – Started in lane 2 (`feat/uploaded-reports`).
-- 2026-11-05 – Red: `@wip` removed, steps in `e2e/steps/reports.steps.ts` (helpers shared from `attachments.steps.ts`, `signUp` returns the account). 5 scenarios fail on the missing "Upload a report" input / "Reports" region; the two hidden-address scenarios already pass (the route and policies don't look at the kind), kept as regression guards.
-- 2026-11-05 – Green: `report` in `ATTACHMENT_KINDS` (files' types, 50 MB, report messages, `uploadLabel`), `startUploadAction` refuses a report with a visit, `listProjectReports` + `ReportsSection` (story: reports, empty, read-only) with `AttachmentUploader kinds`, Photos and files lists `photo`/`file` only, Deleted page kind `report` ("Report"). No migration. `@task:064` 7/7, `@task:059` 9/9; full e2e 275/291 with 16 timeouts under load (lane 1 concurrent), all 43 scenarios of those files pass alone; unit 347 (dashboard), lint and typecheck green.
