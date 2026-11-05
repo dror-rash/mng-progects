@@ -61,6 +61,7 @@ The finished report (often written outside the app) belongs with the project, wh
 - 2026-11-05 – Started in lane 2 (`feat/uploaded-reports`).
 - 2026-11-05 – Red: `@wip` removed, steps in `e2e/steps/reports.steps.ts` (helpers shared from `attachments.steps.ts`, `signUp` returns the account). 5 scenarios fail on the missing "Upload a report" input / "Reports" region; the two hidden-address scenarios already pass (the route and policies don't look at the kind), kept as regression guards.
 - 2026-11-05 – Green: `report` in `ATTACHMENT_KINDS` (files' types, 50 MB, report messages, `uploadLabel`), `startUploadAction` refuses a report with a visit, `listProjectReports` + `ReportsSection` (story: reports, empty, read-only) with `AttachmentUploader kinds`, Photos and files lists `photo`/`file` only, Deleted page kind `report` ("Report"). No migration. `@task:064` 7/7, `@task:059` 9/9; full e2e 275/291 with 16 timeouts under load (lane 1 concurrent), all 43 scenarios of those files pass alone; unit 347 (dashboard), lint and typecheck green.
+- 2026-11-05 – Access audit: no leaks; six leak-suite scenarios added to `reports.feature` (`@task:064`, no `@wip`): a worker's or partner's delete posted by id, the auditor's direct upload, a report on a visit, a worker off the crew, a deleted report's address and restore.
 
 ## Parking lot
 - Reports on a visit; a report title, date and the visits it covers.
