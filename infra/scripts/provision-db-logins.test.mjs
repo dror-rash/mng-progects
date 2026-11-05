@@ -5,11 +5,13 @@
 // both, so everything rolls back together. The SCRAM test commits a throwaway role and drops it.
 // Run: node --experimental-strip-types --test infra/scripts/provision-db-logins.test.mjs
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
 import { createRequire } from "node:module";
 import { test } from "node:test";
 
 import { buildPoolConfig } from "../../packages/db/src/pool-config.ts";
 import {
+  CONNECTION_BUDGET,
   CONNECTION_LIMITS,
   migrationLockName,
   provisionMainSide,
@@ -239,6 +241,39 @@ test("limits the preview logins' connections, and verification fails without the
     ]);
     await client.query(`alter role ${names.previewRuntime} connection limit -1`);
     assert.match((await verifyDbLogins(client, names)).join("\n"), /role_check_preview_runtime's connection limit is -1/);
+  });
+});
+
+/** A variable of infra/scripts/environment.sh (the pool sizes are fixed names, the same for both environments). */
+function fromEnvironmentSh(name) {
+  const script = new URL("./environment.sh", import.meta.url).pathname;
+  return execFileSync("bash", ["-c", `. "$1" && printenv ${name}`, "bash", script], {
+    env: { ...process.env, PROJECT: "demo", IS_PR: "false" },
+  })
+    .toString()
+    .trim();
+}
+
+test("uses the pool sizes the deploys set (environment.sh)", () => {
+  assert.equal(String(CONNECTION_BUDGET.previewPoolMax), fromEnvironmentSh("PREVIEW_DB_POOL_MAX"));
+  assert.equal(String(CONNECTION_BUDGET.mainPoolMax), fromEnvironmentSh("MAIN_DB_POOL_MAX"));
+});
+
+test("limits preview_runtime to 3 zones x 1 instance x the preview pool (2), plus the role check: 7", () => {
+  assert.equal(CONNECTION_LIMITS.previewRuntime, 3 * 1 * 2 + 1);
+});
+
+test("leaves main enough of db-f1-micro's 22 login connections for its worst case (3 zones x 1 instance x 4)", () => {
+  const mainShare = 22 - CONNECTION_LIMITS.previewOwner - CONNECTION_LIMITS.previewRuntime;
+  const mainWorst = 3 * 1 * CONNECTION_BUDGET.mainPoolMax;
+  assert.ok(mainWorst <= mainShare, `main's worst case ${mainWorst} > its share ${mainShare}`);
+});
+
+test("verification fails while preview_runtime keeps an older limit (until a main deploy provisions it)", async () => {
+  await inRolledBackTransaction(async (client, names) => {
+    await provisionAll(client, names);
+    await client.query(`alter role ${names.previewRuntime} connection limit 6`);
+    assert.match((await verifyDbLogins(client, names)).join("\n"), /role_check_preview_runtime's connection limit is 6, not 7/);
   });
 });
 

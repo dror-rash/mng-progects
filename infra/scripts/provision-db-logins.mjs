@@ -6,7 +6,8 @@
 //     creates its schema), USAGE and CREATE on its `public` schema;
 //   - preview_runtime: LOGIN NOINHERIT, a SET-only member of app_user (the runtime switches with
 //     `-c role=app_user`), CONNECT on app_preview;
-//   - both have a CONNECTION LIMIT (db-f1-micro allows 25 connections in all, main's included);
+//   - both have a CONNECTION LIMIT (db-f1-micro allows 25 connections in all, main's included;
+//     CONNECTION_BUDGET below);
 //   - neither can connect to `app`: CONNECT on it is revoked from PUBLIC and granted to the owner login;
 //   - TEMPORARY on app_preview is revoked from PUBLIC here: migration 0025 does it too, but run by
 //     preview_owner, which doesn't own the database, it only warns.
@@ -40,18 +41,32 @@ import { buildPoolConfig, RUNTIME_ROLE } from "../../packages/db/src/pool-config
 import { Client, pinSearchPath, withPinnedSearchPath } from "./pg-safe.mjs";
 
 /**
- * Connection limits: what previews may take from db-f1-micro's 25 (3 reserved for superusers, so 22 for
- * logins), keeping most of it for main.
- *   preview_runtime: every open PR's tagged revision can scale (preview_max_instances = 1 is per revision;
- *     provider 6.50 has no service-wide maximum), and the app's pool is fixed at 5 per instance
- *     (packages/db pool-config.ts), so the worst case is 3 zones × 1 instance × 5 = 15 per active PR. The
- *     @smoke set runs one worker, which keeps 1–2 connections per instance busy: about 5 for one active PR,
- *     plus the role check's 1 at deploy time. Assumed: one preview tested at a time. A second at once may hit
- *     this limit and fail its own e2e ("too many connections for role"), never main.
- *   preview_owner: one PR migrating (lock + migration = 2) and another waiting on the lock (1).
- * Previews take at most 9; main keeps 13 (3 zones × 1 busy instance × up to 5 at POC traffic = 15 worst).
+ * What the connection limits are computed from (task 075). db-f1-micro allows 25 connections, 3 reserved for
+ * superusers, so 22 for logins. The pool sizes are the deploys' DB_POOL_MAX (infra/scripts/environment.sh;
+ * the tests fail when they differ). Every zone (shell, example-zone, dashboard) runs the same pool size.
+ *   - zones: 3; previewInstances: every open PR's tagged revision can scale to 1 instance per zone
+ *     (preview_max_instances is per revision; provider 6.50 has no service-wide maximum);
+ *   - roleCheck: check-runtime-role.mjs's one connection as preview_runtime at deploy time;
+ *   - mainPoolMax: main's pool, for its worst case (3 zones × 1 busy instance at POC traffic × 4 = 12).
  */
-export const CONNECTION_LIMITS = { previewOwner: 3, previewRuntime: 6 };
+export const CONNECTION_BUDGET = {
+  zones: 3,
+  previewInstances: 1,
+  previewPoolMax: 2,
+  roleCheck: 1,
+  mainPoolMax: 4,
+};
+
+/**
+ * Connection limits: what previews may take from the 22 login connections, keeping the rest for main.
+ *   preview_runtime: 3 zones × 1 instance × 2 + the role check 1 = 7, one active PR at its worst case.
+ *     Assumed: one preview tested at a time. A second at once may hit this limit and fail its own e2e
+ *     ("too many connections for role"), never main.
+ *   preview_owner: one PR migrating (lock + migration = 2) and another waiting on the lock (1) = 3.
+ * Previews take at most 10; main keeps 12, its worst case (3 zones × 1 busy instance × 4 = 12).
+ */
+const { zones, previewInstances, previewPoolMax, roleCheck } = CONNECTION_BUDGET;
+export const CONNECTION_LIMITS = { previewOwner: 3, previewRuntime: zones * previewInstances * previewPoolMax + roleCheck };
 
 /** The advisory lock name preview migrations take (deploy.yml: with-db-lock.mjs "migrate-$DB_NAME"). */
 export const migrationLockName = (database) => `migrate-${database}`;
