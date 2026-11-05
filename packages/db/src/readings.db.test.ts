@@ -215,4 +215,15 @@ describe("readings are append-only", () => {
     expect(await errorCode(db.execute(sql`update form_submission set version_id = ${ids.laterV1} where id = ${ids.readingA}`))).toBe(CHECK);
     expect(await errorCode(db.execute(sql`update form_submission set submitted_by = ${ids.admin} where id = ${ids.readingA}`))).toBe(CHECK);
   });
+
+  it("keeps a reading when its author's account is deleted, with no author", async () => {
+    const db = getMaintenanceDb();
+    const author = `${run}-leaver`;
+    await db.insert(schema.user).values({ id: author, name: author, email: `${author}@example.test` });
+    await db.execute(sql`insert into form_submission (id, visit_id, version_id, submitted_by)
+      values (${`${run}-leavers`}, ${ids.visitA}, ${ids.publishedV1}, ${author})`);
+    await db.execute(sql`delete from "user" where id = ${author}`);
+    const rows = await as<{ submitted_by: string | null }>(ids.admin, sql`select submitted_by from form_submission where id = ${`${run}-leavers`}`);
+    expect(rows).toEqual([{ submitted_by: null }]);
+  });
 });
