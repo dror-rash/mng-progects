@@ -91,7 +91,7 @@ export async function readPinnable(client, role = RUNTIME_ROLE) {
 }
 
 /**
- * The pins, from the migrations (printed with --print from a database migrated up to 0036, Postgres 16.15).
+ * The pins, from the migrations (printed with --print from a database migrated up to 0037, Postgres 16.15).
  * A value may be a list of hashes when another Postgres minor (Cloud SQL's) deparses an object differently.
  */
 export const PINS = {
@@ -104,11 +104,15 @@ export const PINS = {
     "public.attachment_check()": "7ad4966fc6f7a7297bf8ec3b2e985c2abf10645c6b630915945ce0050b5a00c7",
     "public.can_change_attachment(text,text)": "ca4790624c9e1119b966de313993f772761cfb1067832e0667fcf183720fcf9e",
     "public.can_change_customer(text,text)": "53af7733c45470729e515d5cff3e0b76d9a3d6e04a02661b121a43ec160d086a",
+    "public.can_change_form_template(text,text)": "4eb706bb2ff3f1694b80ef6e0e3bd37f9febd8f6b8c1747f91905dc8c179f7ee",
+    "public.can_change_form_version(text,text)": "6b62a231c1889b33bdf819f7f044c24727f15be9d9fd8b41f947e5890847a5e9",
     "public.can_change_project(text,text)": "be4ca232ce7c10e74e47c7e49af8946831bc49ce11b9ed3a288e1cfeb0412ef4",
     "public.can_change_site(text,text)": "4d2749e6dd961bfb15da1af404f8f27674e73fe05335c3c44a03a06acf8dce30",
     "public.can_change_visit(text,text)": "f0124fa33491ed82004cc3dcc395afa86e87b620d14608346aee34f4cc7e8fc5",
     "public.can_see_customer_name(text,text)": "47336aa5517efb8da8086e2f1c15a24d68e889e3c72151852f1d2e41c1a7a8fa",
     "public.can_see_customer(text,text)": "60d427ec8e3dd1d26eba84353b8646cd8a0b083b9931d299eb772bf4fd9bba80",
+    "public.can_see_form_template(text,text)": "736c54976184660fd2563ae9188eded87dba012f22ef176c073b5568a0c60a08",
+    "public.can_see_form_version(text,text)": "94642a641ac61ae5fa93165e428d37c1b7c046946a8d0d20ca9f88ca1aefb74f",
     "public.can_see_project(text,text)": "2edfcedc588b6a4832f7dd88ba506cf15b05110189b090024a671e0c2d29fdb7",
     "public.can_see_site(text,text)": "50616e9460e5e47796ba3117cadc5c34add0f137c23cea2e76b11c8cfaa1c14e",
     "public.can_work_on_project(text,text)": "27ff63048a91edcc3726b93b4d8dffc10be3a0133ab67329f6eb960325b56ff6",
@@ -119,6 +123,9 @@ export const PINS = {
     "public.delete_task(text)": "cac54c16f2ba278a6eaa02b78a035a030c47856bbc0a807cb77f38b7b78fd9b1",
     "public.delete_visit(text)": "28dc681706d4f06a981be5df0af352197ff7fcada23c350fcd18789dadb2b989",
     "public.find_invite(text)": "b8e6b6b3f12614b8a6b3fc20a1950b09b61df3e1716ec5824899744a1c603cc4",
+    "public.form_field_check()": "0ad370c14a7fd97c842a730760716c16f3b0841422f55fb372bc2f2f6bf9cac7",
+    "public.form_template_check()": "2115eb123b20ed45df93138282ffa3f7c198826dcba9b8539b3f815226e01217",
+    "public.form_template_version_check()": "30c0e9a1a0b51526114a22ab0e95ba612b1ce93d299e89172017f025bf7334f8",
     "public.has_workspace_role(text,text,text[])": "2cc5f3410863fee593122b82b29fda8a0b6d554cf31f228003675079ba954518",
     "public.is_on_crew(text,text)": "499449ab1ec586a9ba299cb20217d20964acb2e396b9f26c1ee0f754417cf052",
     "public.is_project_person(text,text)": "3ad41513e4844ae6fc8381b8affe4bc68d15939770477443179357b466c0b6d2",
@@ -134,6 +141,9 @@ export const PINS = {
   },
   triggers: {
     "public.attachment attachment_check public.attachment_check()": "e9481e10fee3e956d25a1a0d3c6758dea42bacf1d732f03462f2ae615b6a0959",
+    "public.form_field form_field_check public.form_field_check()": "296668a5421e11f5fe21bcaf0378d253e03ca82ef5fed785f8e646159c5dc828",
+    "public.form_template form_template_check public.form_template_check()": "7d041aa9368aa981c8fe2c902dfcbbe4489b8379abcc0a1d825266590a6b642d",
+    "public.form_template_version form_template_version_check public.form_template_version_check()": "6dbe6278a5bc75ec0444bbc63d152d389120c9dbf4729df12d1a23d6d6318494",
     "public.organization organization_parent_check public.organization_parent_check()": "f94ffb40dced092ee1c5841c253817aa703c6286d8bf39080fbec54cc5ebbe0b",
     "public.project project_site_check public.project_site_check()": "506ded4277182003c6c55ed46f7c0316337b6db6077c2c103f730d05f53a02c5",
     "public.project_worker project_worker_check public.project_worker_check()": "79ab02b733339d9025786977e9fd253ce5e68bd7c92761b38d00fb937d942346",
@@ -148,6 +158,15 @@ export const PINS = {
     "public.attachment/attachment_update": "d6eebec4286ad09c7c54176d4963e22e4395a2d6855bc9d9f146218d2168acc9",
     "public.customer_partner/customer_partner_select": "513725896b39e6451e731405f8961c582b62851d64471e9585550f7185797191",
     "public.customer_partner/customer_partner_write": "8b0d06d36e131123dc3db1c9b3636ea0316926de91dd98c8586dd2748c25e649",
+    "public.form_field/form_field_select": "ec7f0f25c5fa1deed816850ea9f341c8a640c7e43f9512570ba87d22c50ebb70",
+    "public.form_field/form_field_write": "551adabab44713b8473bd0ef962a946f8e7f1bdd97b0ee8f3443b1dcb98e5357",
+    "public.form_template/form_template_insert": "9cf37a3f8de53f5686c8d1c50a8447d43bf63289139da1e637dbc0cb48215e9a",
+    "public.form_template/form_template_select": "59ea38c7ab8a5bd1f7b1380dd2b63661148e6a6318287f5a106c64f95819a18f",
+    "public.form_template/form_template_update": "7c666c4ff8a20628ffed5930c9f5a52fd97a65593b2b9663257ad1f14f327925",
+    "public.form_template_version/form_template_version_delete": "b31e62f7586493ac98a849448dcb2cbb5e0249615ae6c47ef0717e78930469b8",
+    "public.form_template_version/form_template_version_insert": "f60ba2ddfbc965d632b33e1d8fcd7a8b0322051c9b577aed2c7298dac0f21736",
+    "public.form_template_version/form_template_version_select": "618857c6cd25f592e2dd6ebd5ad364aeceeaa3c49a60267b2e78cde22e21626b",
+    "public.form_template_version/form_template_version_update": "42552b09d5b7ba340c81ece914ce33b0b991ceb7c0e1fd115f20dd99f310cf03",
     "public.organization/organization_delete": "c4cdabbfaf4d41b3131915fd1e01a239968ae3de86d75296571276d6d8ca3f9f",
     "public.organization/organization_insert": "b834f0490da5b0888b8ca53c3af049b3e8024a406bbd7d7d9a91b36545dfc8c3",
     "public.organization/organization_select": "ef84ef965952ee91dfe8e20d8630450bb42e19beaf5cb336ddff65a73f10e04a",
@@ -193,6 +212,9 @@ export const PINS = {
     "public.account": "652f462889aae25b5f96a709cecb4e8553767d8f2fc12ed5b1873260aa997885",
     "public.attachment": "1e10232c9f6542fd14ba2555dcbb8e21205927f39a191aff300e1fb527721702",
     "public.customer_partner": "1e10232c9f6542fd14ba2555dcbb8e21205927f39a191aff300e1fb527721702",
+    "public.form_field": "1e10232c9f6542fd14ba2555dcbb8e21205927f39a191aff300e1fb527721702",
+    "public.form_template": "1e10232c9f6542fd14ba2555dcbb8e21205927f39a191aff300e1fb527721702",
+    "public.form_template_version": "1e10232c9f6542fd14ba2555dcbb8e21205927f39a191aff300e1fb527721702",
     "public.organization": "1e10232c9f6542fd14ba2555dcbb8e21205927f39a191aff300e1fb527721702",
     "public.organization_contact": "1e10232c9f6542fd14ba2555dcbb8e21205927f39a191aff300e1fb527721702",
     "public.organization_note": "1e10232c9f6542fd14ba2555dcbb8e21205927f39a191aff300e1fb527721702",

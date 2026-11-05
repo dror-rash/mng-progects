@@ -340,6 +340,79 @@ export const attachment = pgTable(
   ],
 );
 
+/**
+ * A reading form (task 060, ADR-0008): fields technicians fill in on site, built by a workspace's admins.
+ * `draft`, `published` or `archived` (features/reading-forms/form-status.ts), only ever forward; never deleted.
+ * Admins and auditors see every form, workers and partner users published and archived ones
+ * (`can_see_form_template` / `can_change_form_template`, migration 0037).
+ */
+export const formTemplate = pgTable(
+  "form_template",
+  {
+    id: text("id").primaryKey(),
+    workspaceId: text("workspace_id")
+      .notNull()
+      .references(() => workspace.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    description: text("description"),
+    status: text("status").notNull().default("draft"),
+    createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (table) => [
+    index("form_template_workspace_idx").on(table.workspaceId, table.createdAt),
+    check("form_template_status_check", sql`${table.status} in ('draft', 'published', 'archived')`),
+  ],
+);
+
+/**
+ * A version of a reading form (ADR-0008): immutable once published, fields included, so readings (task 061)
+ * always match the fields they were filled against. Task 060 makes version 1 only.
+ */
+export const formTemplateVersion = pgTable(
+  "form_template_version",
+  {
+    id: text("id").primaryKey(),
+    templateId: text("template_id")
+      .notNull()
+      .references(() => formTemplate.id, { onDelete: "cascade" }),
+    version: integer("version").notNull(),
+    /** Null while it is a draft. */
+    publishedAt: timestamp("published_at"),
+  },
+  (table) => [unique("form_template_version_template_version_key").on(table.templateId, table.version)],
+);
+
+/**
+ * A field of a reading form's version, in `position` order. `type` is one of features/reading-forms/field-type.ts;
+ * a unit only on number fields, options (two or more) exactly on choice fields.
+ */
+export const formField = pgTable(
+  "form_field",
+  {
+    id: text("id").primaryKey(),
+    versionId: text("version_id")
+      .notNull()
+      .references(() => formTemplateVersion.id, { onDelete: "cascade" }),
+    label: text("label").notNull(),
+    type: text("type").notNull(),
+    required: boolean("required").notNull().default(false),
+    unit: text("unit"),
+    options: text("options").array(),
+    position: integer("position").notNull(),
+  },
+  (table) => [
+    index("form_field_version_idx").on(table.versionId, table.position),
+    check("form_field_type_check", sql`${table.type} in ('number', 'text', 'yes_no', 'choice', 'date')`),
+    check("form_field_unit_check", sql`${table.unit} is null or ${table.type} = 'number'`),
+    check(
+      "form_field_options_check",
+      sql`(${table.type} = 'choice') = (${table.options} is not null) and (${table.options} is null or cardinality(${table.options}) >= 2)`,
+    ),
+  ],
+);
+
 export const task = pgTable("task", {
   id: text("id").primaryKey(),
   projectId: text("project_id")
