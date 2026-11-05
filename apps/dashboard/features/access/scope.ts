@@ -40,3 +40,16 @@ export function canSeeDeleted(role: WorkspaceRole): boolean {
 export function canRestore(role: WorkspaceRole): boolean {
   return role === "admin";
 }
+
+/**
+ * Whether someone with `role` sees the Reading forms pages (task 060): admins and auditors. Workers and
+ * partners' users read published forms only to fill them in (task 061).
+ */
+export function canSeeReadingForms(role: WorkspaceRole): boolean {
+  return role === "admin" || role === "auditor";
+}
+
+/** Whether someone with `role` builds, publishes and archives reading forms: admins only (the actions check again). */
+export function canBuildReadingForms(role: WorkspaceRole): boolean {
+  return role === "admin";
+}

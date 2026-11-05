@@ -1,6 +1,15 @@
 import { describe, expect, it } from "vitest";
 
-import { canChange, canChangeCustomers, canRestore, canSeeCustomers, canSeeDeleted, canSeePartners } from "./scope";
+import {
+  canBuildReadingForms,
+  canChange,
+  canChangeCustomers,
+  canRestore,
+  canSeeCustomers,
+  canSeeDeleted,
+  canSeePartners,
+  canSeeReadingForms,
+} from "./scope";
 
 describe("canChange", () => {
   it("is false for an auditor, who sees everything and changes nothing", () => {
@@ -59,5 +68,23 @@ describe("canRestore", () => {
     expect(canRestore("auditor")).toBe(false);
     expect(canRestore("partner")).toBe(false);
     expect(canRestore("worker")).toBe(false);
+  });
+});
+
+describe("canSeeReadingForms", () => {
+  it("lets admins and auditors see the Reading forms pages, never workers or partners", () => {
+    expect(canSeeReadingForms("admin")).toBe(true);
+    expect(canSeeReadingForms("auditor")).toBe(true);
+    expect(canSeeReadingForms("partner")).toBe(false);
+    expect(canSeeReadingForms("worker")).toBe(false);
+  });
+});
+
+describe("canBuildReadingForms", () => {
+  it("is true only for admins", () => {
+    expect(canBuildReadingForms("admin")).toBe(true);
+    expect(canBuildReadingForms("auditor")).toBe(false);
+    expect(canBuildReadingForms("partner")).toBe(false);
+    expect(canBuildReadingForms("worker")).toBe(false);
   });
 });

@@ -64,3 +64,13 @@ export function hasWorkspaceRole(userId: string, workspaceId: AnyColumn, roles: 
 export function partnerServesCustomer(partnerId: string, orgId: AnyColumn) {
   return sql<boolean>`partner_serves_customer(${partnerId}, ${orgId})`;
 }
+
+/** `userId` can see the reading form in `templateId` (admins and auditors; others published and archived ones). */
+export function canSeeFormTemplate(userId: string, templateId: AnyColumn) {
+  return sql<boolean>`can_see_form_template(${userId}, ${templateId})`;
+}
+
+/** `userId` can change the reading form in `templateId` (admins of its workspace). */
+export function canChangeFormTemplate(userId: string, templateId: AnyColumn) {
+  return sql<boolean>`can_change_form_template(${userId}, ${templateId})`;
+}

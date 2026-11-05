@@ -2,6 +2,7 @@ import { Button } from "@repo/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@repo/ui/card";
 import Link from "next/link";
 
+import { canSeeReadingForms } from "@/features/access/scope";
 import { AppHeader } from "@/features/layout/app-header";
 import { DeleteWorkspaceForm } from "@/features/workspaces/delete-workspace-form";
 import { RenameWorkspaceForm } from "@/features/workspaces/rename-workspace-form";
@@ -20,9 +21,16 @@ export default async function WorkspaceSettingsPage() {
       <main className="mx-auto w-full max-w-3xl space-y-6 p-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h1 className="text-2xl font-bold tracking-tight">Workspace settings</h1>
-          <Button asChild variant="ghost" size="sm">
-            <Link href="/workspace">Members and invites</Link>
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button asChild variant="ghost" size="sm">
+              <Link href="/workspace">Members and invites</Link>
+            </Button>
+            {canSeeReadingForms(workspace.role) && (
+              <Button asChild variant="ghost" size="sm">
+                <Link href="/forms">Reading forms</Link>
+              </Button>
+            )}
+          </div>
         </div>
 
         {workspace.role !== "admin" ? (
