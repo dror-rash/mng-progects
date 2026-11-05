@@ -18,7 +18,7 @@ Feature: Readings
       | Cable condition | Choice |      | no       | Good, Worn, Damaged |
       | Remarks         | Text   |      | no       |                     |
 
-  @wip @task:061
+  @task:061
   Scenario: I fill in a reading on a visit
     When I open the visit "Panel delivered" of "Panel upgrade"
     And I follow the "Add a reading" link
@@ -37,7 +37,7 @@ Feature: Readings
     When I am on the "Panel upgrade" project page
     Then the readings listed are "Panel check"
 
-  @wip @task:061
+  @task:061
   Scenario: A reading's values are checked against its form
     When I open the "Panel check" reading form on the visit "Panel delivered"
     And I select "Worn" from "Cable condition"
@@ -48,7 +48,7 @@ Feature: Readings
     And I press "Save reading"
     Then I see the text "230 V"
 
-  @wip @task:061
+  @task:061
   Scenario: Only published forms are offered, and readings outlive their form
     Given I have a draft reading form "Draft check" with the field "Current"
     And I have a published reading form "Old check" with the field "Pressure"
@@ -63,7 +63,7 @@ Feature: Readings
     And I see the text "Pressure"
     And I see the text "4.5"
 
-  @wip @task:061
+  @task:061
   Scenario: Sending the same reading twice records it once
     When I open the "Panel check" reading form on the visit "Panel delivered"
     And I fill in "Voltage" with "230"
@@ -73,7 +73,7 @@ Feature: Readings
     Then the readings listed are "Panel check"
 
   # Roles and isolation: the leak suite's workspace (partner-access.feature, workers.feature).
-  @wip @task:061
+  @task:061
   Scenario: A crew worker fills a reading; the auditor reads it
     Given a workspace with the partners "Northwind" and "Globex", an admin and an auditor
     And the customer "Acme Ltd" is assigned to "Northwind" and "Globex"
@@ -95,7 +95,7 @@ Feature: Readings
     Then the auditor sees the text "Site check"
     And the auditor sees no "Add a reading" link
 
-  @wip @task:061
+  @task:061
   Scenario: Another partner's readings stay hidden, and so do a deleted visit's
     Given a workspace with the partners "Northwind" and "Globex", an admin and an auditor
     And the customer "Acme Ltd" is assigned to "Northwind" and "Globex"
@@ -113,7 +113,7 @@ Feature: Readings
     When I open the address of the reading on the visit "Northwind visit"
     Then I see "Reading not found", the same as with a made-up id
 
-  @wip @task:061
+  @task:061
   Scenario: My reading forms are refused for another partner's visit and for a draft form
     Given a workspace with the partners "Northwind" and "Globex", an admin and an auditor
     And the customer "Acme Ltd" is assigned to "Northwind" and "Globex"

@@ -74,6 +74,7 @@ Technicians record what they measure on site on the forms admins published, so e
 - 2026-11-05 – Owner confirmed the recommended answer: readings are append-only for the POC (delete after it, editing later).
 - 2026-11-05 – Checked against task 060 as merged (PR #48): depends on nothing open; migration 0038; the insert needs the version of a form that is Published now (published by `form_template_publish`; `can_see_form_version` is not the check); field types from `field-type.ts`; readings pages never link to `/forms`; scenario forms built through 060's pages, not the database. Ready.
 - 2026-11-05 – Started in lane 1 (`feat/readings`).
+- 2026-11-05 – Acceptance steps written (`e2e/steps/readings.steps.ts`; 060's `addField` takes Unit, Options and Required); `@wip` removed. Red: all 7 scenarios fail on the missing "Add a reading" link on the visit page; the Background's forms build and publish through 060's pages; `@task:060` still green.
 
 ## Parking lot
 - Delete and restore a reading; edit a reading online.
