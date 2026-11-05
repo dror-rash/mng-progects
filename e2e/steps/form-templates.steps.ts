@@ -194,3 +194,49 @@ When(
 When("I post the publish form of the form {string}", async ({ page, state }, form: string) => {
   await postAs(page, state, form, "Publish", "Publish");
 });
+
+// --- From my own workspace: the decoy's forms as they are (its own `workspaceId`), with only the form id (and
+// the field id) swapped for the target's. An admin of another workspace passes the workspace check, so the
+// server must refuse on the form not being in that workspace. `state.replay` swaps in another form id.
+
+/** Posts the decoy's form with `decoyButton`, its hidden fields kept but for `swap` (name → the target's value). */
+async function postFromMine(page: Page, state: ScenarioState, form: string, decoyButton: string, swap: Record<string, string>, label?: string) {
+  const decoy = await decoyForm(page, state);
+  state.replay = async (id) => {
+    await page.goto(formPath(decoy));
+    await expect(page.getByRole("heading", { name: "Decoy", level: 1 })).toBeVisible();
+    const own = await hiddenFieldsOf(page, decoyButton);
+    expect(own.workspaceId, `the decoy's "${decoyButton}" form must carry its workspace id`).toBeTruthy();
+    for (const name of Object.keys(swap)) expect(own, `the decoy's "${decoyButton}" form has no "${name}"`).toHaveProperty(name);
+    if (label !== undefined) await page.getByLabel("Label", { exact: true }).fill(label);
+    await setHiddenFields(page, decoyButton, { ...swap, formId: id });
+    await pressAndWait(page, decoyButton);
+  };
+  await state.replay(idOf(state, form));
+}
+
+/** The value the target form's `button` form carried in its hidden field `name`. */
+function keptValue(state: ScenarioState, form: string, button: string, name: string) {
+  const value = state.hiddenFields?.[`${form}:${button}`]?.[name];
+  expect(value, `no "${name}" kept from the "${button}" form of "${form}"`).toBeDefined();
+  return value!;
+}
+
+When(
+  "I post the add-field form of the form {string} from my own workspace with the label {string}",
+  async ({ page, state }, form: string, label: string) => {
+    await postFromMine(page, state, form, "Add field", { formId: idOf(state, form) }, label);
+  },
+);
+
+When(
+  "I post the remove form of the field {string} of the form {string} from my own workspace",
+  async ({ page, state }, field: string, form: string) => {
+    const fieldId = keptValue(state, form, `Remove ${field}`, "fieldId");
+    await postFromMine(page, state, form, "Remove Decoy field", { formId: idOf(state, form), fieldId });
+  },
+);
+
+When("I post the publish form of the form {string} from my own workspace", async ({ page, state }, form: string) => {
+  await postFromMine(page, state, form, "Publish", { formId: idOf(state, form) });
+});

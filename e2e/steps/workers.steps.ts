@@ -19,6 +19,16 @@ Given("I am signed in as a worker", async ({ page, state }) => {
   Object.assign(ids(state), { me, Worker: me });
 });
 
+// Like the worker: a second auditor of the leak workspace (the workspace's own "the auditor" is someone else).
+Given("I am signed in as an auditor", async ({ page, state }) => {
+  await signUp(page, "Other Auditor");
+  const me = await userId(page);
+  await getMaintenanceDb().execute(
+    sql`insert into workspace_member (workspace_id, user_id, role) values (${idOf(state, "workspace")}, ${me}, 'auditor')`,
+  );
+  ids(state).me = me;
+});
+
 Given("I am on the crew of {string}", async ({ state }, project: string) => {
   await getMaintenanceDb().execute(
     sql`insert into project_worker (project_id, user_id, workspace_id)
