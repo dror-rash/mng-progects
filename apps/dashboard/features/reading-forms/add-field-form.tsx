@@ -8,11 +8,11 @@ import { Textarea } from "@repo/ui/textarea";
 import { type FormEvent, startTransition, useActionState, useEffect, useRef } from "react";
 
 import type { FormState } from "@/features/forms/form-state";
-import { clearUnchanged, type FieldSnapshot, snapshotFields } from "@/features/forms/keep-new-input";
 
 import { MAX } from "./field-input";
 import { DEFAULT_FIELD_TYPE, FIELD_TYPES } from "./field-type";
 import type { FormAction } from "./form-action-button";
+import { clearUnchanged, type FieldSnapshot, snapshotFields } from "./keep-new-input";
 
 /**
  * Adds a field to a draft reading form (task 060). The unit is kept on number fields and the options on

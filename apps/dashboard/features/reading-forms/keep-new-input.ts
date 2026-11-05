@@ -2,6 +2,9 @@
 // was typed while the request was out. React resets an action form when the action's update commits, which
 // can come after the user (or a test) has started on the next entry. These two clear only the fields that
 // still hold what was sent; use them from `onSubmit` instead of React's reset.
+//
+// Local to reading forms (task 060); CLAUDE.md's Forms rules still describe React's reset for the other forms.
+// The test is "unchanged", so a field retyped to exactly the value just sent is cleared too.
 
 type Field = HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
 

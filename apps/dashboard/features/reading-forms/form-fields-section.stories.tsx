@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
+import { expect, userEvent, within } from "storybook/test";
 
 import { AddFieldForm } from "./add-field-form";
 import { FormFieldsSection } from "./form-fields-section";
@@ -43,4 +44,9 @@ export const Empty: Story = {
 /** Remove pressed on a page left open after the form was published in another tab. */
 export const StaleRemove: Story = {
   args: { removeAction: stale, hidden: { workspaceId: "w1", formId: "t1" } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole("button", { name: "Remove Voltage" }));
+    await expect(await canvas.findByRole("alert")).toHaveTextContent("A published form can't change");
+  },
 };

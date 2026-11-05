@@ -9,7 +9,7 @@ import { type FormState, invalid } from "@/features/forms/form-state";
 import { requireWorkspaceForAction } from "@/features/workspaces/require-workspace";
 
 import { parseFieldInput, parseFormInput } from "./field-input";
-import { formStatusOf } from "./form-status";
+import { type FormStatus, formStatusOf } from "./form-status";
 
 // Reading forms (task 060): admins only. Each action posts the form's workspace (`requireWorkspaceForAction`)
 // and its id in hidden fields, does its reads and writes in one `withAccess` transaction and redirects after
@@ -101,7 +101,10 @@ export async function addFieldAction(_prev: FormState, formData: FormData): Prom
   return {};
 }
 
-/** Removes a field from a draft form: the row goes (a draft is unpublished editing, not a record to restore). */
+/**
+ * Removes a field from a draft form: the row goes (a draft is unpublished editing, not a record to restore). A field
+ * that isn't on the form is refused like a missing form.
+ */
 export async function removeFieldAction(_prev: FormState, formData: FormData): Promise<FormState> {
   const { session, workspace } = await requireWorkspaceForAction(formData);
   const result = await withAccess(session.user.id, async () => {
@@ -109,9 +112,13 @@ export async function removeFieldAction(_prev: FormState, formData: FormData): P
     if (form.status !== "draft") {
       return invalid(PUBLISHED_CANT_CHANGE, formData);
     }
-    await getDb()
+    const removed = await getDb()
       .delete(schema.formField)
-      .where(and(eq(schema.formField.id, String(formData.get("fieldId") ?? "")), eq(schema.formField.versionId, form.versionId)));
+      .where(and(eq(schema.formField.id, String(formData.get("fieldId") ?? "")), eq(schema.formField.versionId, form.versionId)))
+      .returning({ id: schema.formField.id });
+    if (removed.length === 0) {
+      throw new Error("Not found");
+    }
     return { formId: form.id };
   });
   if (!("formId" in result)) {
@@ -121,7 +128,10 @@ export async function removeFieldAction(_prev: FormState, formData: FormData): P
   return {};
 }
 
-/** Publishes a draft form with at least one field: its version is frozen from then on. */
+/**
+ * Publishes a draft form with at least one field. The database publishes (freezes) its latest version with it
+ * (`form_template_publish`, migration 0037); a version can't be published on its own.
+ */
 export async function publishFormAction(_prev: FormState, formData: FormData): Promise<FormState> {
   const { session, workspace } = await requireWorkspaceForAction(formData);
   const result = await withAccess(session.user.id, async () => {
@@ -138,8 +148,10 @@ export async function publishFormAction(_prev: FormState, formData: FormData): P
     if (!field) {
       return invalid("Add a field before publishing", formData);
     }
-    await db.update(schema.formTemplateVersion).set({ publishedAt: new Date() }).where(eq(schema.formTemplateVersion.id, form.versionId));
-    await db.update(schema.formTemplate).set({ status: "published", updatedAt: new Date() }).where(eq(schema.formTemplate.id, form.id));
+    await db
+      .update(schema.formTemplate)
+      .set({ status: "published" satisfies FormStatus, updatedAt: new Date() })
+      .where(eq(schema.formTemplate.id, form.id));
     return { formId: form.id };
   });
   if (!("formId" in result)) {
@@ -158,7 +170,10 @@ export async function archiveFormAction(_prev: FormState, formData: FormData): P
       return invalid("Only a published form can be archived", formData);
     }
     if (form.status === "published") {
-      await getDb().update(schema.formTemplate).set({ status: "archived", updatedAt: new Date() }).where(eq(schema.formTemplate.id, form.id));
+      await getDb()
+        .update(schema.formTemplate)
+        .set({ status: "archived" satisfies FormStatus, updatedAt: new Date() })
+        .where(eq(schema.formTemplate.id, form.id));
     }
     return { formId: form.id };
   });
